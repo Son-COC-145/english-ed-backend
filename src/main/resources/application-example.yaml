@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: english-app
+
+  # Cấu hình kết nối PostgreSQL
+  datasource:
+    url: jdbc:postgresql://localhost:5432/your_database_name
+    username: your_postgres_username
+    password: your_postgres_password
+    driver-class-name: org.postgresql.Driver
+
+  # Cấu hình JPA / Hibernate
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  # Cấu hình kết nối Redis
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      # password: your_redis_password
