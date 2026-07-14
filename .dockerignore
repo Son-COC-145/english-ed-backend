@@ -1,0 +1,24 @@
+# Build output
+target/
+!target/*.jar
+
+# IDE and OS specific files
+.idea/
+.vscode/
+*.iml
+*.sublime-*
+.DS_Store
+Thumbs.db
+
+# Git files
+.git/
+.gitignore
+
+# Logs and temporary files
+*.log
+hs_err_pid*.log
+replay_pid*.log
+
+# Docker
+Dockerfile
+docker-compose.yml
