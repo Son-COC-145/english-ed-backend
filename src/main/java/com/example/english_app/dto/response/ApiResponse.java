@@ -1,0 +1,57 @@
+package com.example.english_app.dto.response;
+
+import lombok.*;
+import java.time.LocalDateTime;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class ApiResponse<T> {
+
+    private boolean success;
+    private String message;
+    private T data;
+    private LocalDateTime timestamp;
+
+    // Chỉ có data
+    public static <T> ApiResponse<T> success(T data) {
+        return ApiResponse.<T>builder()
+                .success(true)
+                .message("Thành công")
+                .data(data)
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    // Có data + message tuỳ chỉnh
+    public static <T> ApiResponse<T> success(T data,
+                                             String message) {
+        return ApiResponse.<T>builder()
+                .success(true)
+                .message(message)
+                .data(data)
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    // Chỉ có message (không có data — VD: delete)
+    public static <T> ApiResponse<T> success(String message) {
+        return ApiResponse.<T>builder()
+                .success(true)
+                .message(message)
+                .data(null)
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    // Chỉ có message lỗi
+    public static <T> ApiResponse<T> error(String message) {
+        return ApiResponse.<T>builder()
+                .success(false)
+                .message(message)
+                .data(null)
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+}

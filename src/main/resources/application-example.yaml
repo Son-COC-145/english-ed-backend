@@ -25,3 +25,42 @@ spring:
       host: localhost
       port: 6379
       # password: your_redis_password
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: xxxx@gmail.com
+    password: xxxx
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: xxx.apps.googleusercontent.com
+            client-secret: xxx
+            scope:
+              - email
+              - profile
+      redirect-uri: http://localhost:3000
+      authorizationserver:
+        issuer: http://localhost:9090
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:9090
+
+  cloudinary:
+    cloud-name: ${CLOUDINARY_CLOUD_NAME:xxx}
+    api-key: ${CLOUDINARY_API_KEY:xxx}
+    api-secret: ${CLOUDINARY_API_SECRET:xxx}
+
+  jwt:
+    issuer: http://localhost:9090
+    access-token-expiration: 3600
+    refresh-token-expiration: 604800
