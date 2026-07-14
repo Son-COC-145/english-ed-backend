@@ -39,7 +39,6 @@ CREATE TABLE public.assignment_submissions (
 );
 
 
-ALTER TABLE public.assignment_submissions OWNER TO neondb_owner;
 
 --
 -- Name: assignment_submissions_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
@@ -72,7 +71,6 @@ CREATE TABLE public.assignments (
 );
 
 
-ALTER TABLE public.assignments OWNER TO neondb_owner;
 
 --
 -- Name: assignments_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
@@ -101,7 +99,6 @@ CREATE TABLE public.class_students (
 );
 
 
-ALTER TABLE public.class_students OWNER TO neondb_owner;
 
 --
 -- Name: classes; Type: TABLE; Schema: public; Owner: neondb_owner
@@ -119,7 +116,6 @@ CREATE TABLE public.classes (
 );
 
 
-ALTER TABLE public.classes OWNER TO neondb_owner;
 
 --
 -- Name: classes_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
@@ -149,7 +145,6 @@ CREATE TABLE public.daily_goals (
 );
 
 
-ALTER TABLE public.daily_goals OWNER TO neondb_owner;
 
 --
 -- Name: daily_goals_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
@@ -178,7 +173,6 @@ CREATE TABLE public.ipa_example_words (
 );
 
 
-ALTER TABLE public.ipa_example_words OWNER TO neondb_owner;
 
 --
 -- Name: ipa_example_words_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
@@ -213,7 +207,6 @@ CREATE TABLE public.ipa_phonemes (
 );
 
 
-ALTER TABLE public.ipa_phonemes OWNER TO neondb_owner;
 
 --
 -- Name: ipa_phonemes_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
@@ -246,7 +239,6 @@ CREATE TABLE public.minigame_results (
 );
 
 
-ALTER TABLE public.minigame_results OWNER TO neondb_owner;
 
 --
 -- Name: minigame_results_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
@@ -279,7 +271,6 @@ CREATE TABLE public.notifications (
 );
 
 
-ALTER TABLE public.notifications OWNER TO neondb_owner;
 
 --
 -- Name: notifications_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
@@ -310,7 +301,6 @@ CREATE TABLE public.placement_test_answers (
 );
 
 
-ALTER TABLE public.placement_test_answers OWNER TO neondb_owner;
 
 --
 -- Name: placement_test_answers_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
@@ -343,7 +333,6 @@ CREATE TABLE public.placement_test_sessions (
 );
 
 
-ALTER TABLE public.placement_test_sessions OWNER TO neondb_owner;
 
 --
 -- Name: placement_test_sessions_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
@@ -379,7 +368,6 @@ CREATE TABLE public.pronunciation_practice_logs (
 );
 
 
-ALTER TABLE public.pronunciation_practice_logs OWNER TO neondb_owner;
 
 --
 -- Name: pronunciation_practice_logs_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
@@ -416,7 +404,6 @@ CREATE TABLE public.questions (
 );
 
 
-ALTER TABLE public.questions OWNER TO neondb_owner;
 
 --
 -- Name: questions_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
@@ -453,7 +440,6 @@ CREATE TABLE public.speaking_scenarios (
 );
 
 
-ALTER TABLE public.speaking_scenarios OWNER TO neondb_owner;
 
 --
 -- Name: speaking_scenarios_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
@@ -488,7 +474,6 @@ CREATE TABLE public.speaking_sessions (
 );
 
 
-ALTER TABLE public.speaking_sessions OWNER TO neondb_owner;
 
 --
 -- Name: speaking_sessions_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
@@ -522,7 +507,6 @@ CREATE TABLE public.speaking_turns (
 );
 
 
-ALTER TABLE public.speaking_turns OWNER TO neondb_owner;
 
 --
 -- Name: speaking_turns_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
@@ -562,7 +546,6 @@ CREATE TABLE public.student_onboarding (
 );
 
 
-ALTER TABLE public.student_onboarding OWNER TO neondb_owner;
 
 --
 -- Name: student_onboarding_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
@@ -589,7 +572,6 @@ CREATE TABLE public.student_phoneme_bookmarks (
 );
 
 
-ALTER TABLE public.student_phoneme_bookmarks OWNER TO neondb_owner;
 
 --
 -- Name: student_stats; Type: TABLE; Schema: public; Owner: neondb_owner
@@ -607,7 +589,6 @@ CREATE TABLE public.student_stats (
 );
 
 
-ALTER TABLE public.student_stats OWNER TO neondb_owner;
 
 --
 -- Name: student_vocabulary_progress; Type: TABLE; Schema: public; Owner: neondb_owner
@@ -626,7 +607,6 @@ CREATE TABLE public.student_vocabulary_progress (
 );
 
 
-ALTER TABLE public.student_vocabulary_progress OWNER TO neondb_owner;
 
 --
 -- Name: student_vocabulary_progress_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
@@ -658,7 +638,6 @@ CREATE TABLE public.syllabus_items (
 );
 
 
-ALTER TABLE public.syllabus_items OWNER TO neondb_owner;
 
 --
 -- Name: syllabus_items_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
@@ -692,7 +671,6 @@ CREATE TABLE public.teaching_materials (
 );
 
 
-ALTER TABLE public.teaching_materials OWNER TO neondb_owner;
 
 --
 -- Name: teaching_materials_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
@@ -721,7 +699,6 @@ CREATE TABLE public.topics (
 );
 
 
-ALTER TABLE public.topics OWNER TO neondb_owner;
 
 --
 -- Name: topics_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
@@ -761,7 +738,6 @@ CREATE TABLE public.users (
 );
 
 
-ALTER TABLE public.users OWNER TO neondb_owner;
 
 --
 -- Name: users_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
@@ -804,7 +780,6 @@ CREATE TABLE public.vocabulary (
 );
 
 
-ALTER TABLE public.vocabulary OWNER TO neondb_owner;
 
 --
 -- Name: vocabulary_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
@@ -836,7 +811,6 @@ CREATE TABLE public.xp_transactions (
 );
 
 
-ALTER TABLE public.xp_transactions OWNER TO neondb_owner;
 
 --
 -- Name: xp_transactions_id_seq; Type: SEQUENCE; Schema: public; Owner: neondb_owner
