@@ -46,9 +46,8 @@ logs/
 .env.local
 
 ### Config (Sensitive info) ###
-application.yaml
+# application.yaml (sử dụng biến môi trường nên cho phép push)
 application-*.yaml
-!application-example.yaml
 application.yml
 application-*.yml
 !application-example.yml
