@@ -1,7 +1,5 @@
 package com.example.english_app.dto.response;
 
-import com.example.english_app.entity.enums.AuthProvider;
-import com.example.english_app.entity.enums.Role;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -27,4 +25,3 @@ public class UserResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
-

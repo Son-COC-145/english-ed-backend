@@ -20,7 +20,7 @@ public class EmailService {
     // Gửi email reset password
     @Async
     public void sendResetPasswordEmail(String email,
-                                       String resetToken) {
+            String resetToken) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromEmail);
@@ -30,8 +30,7 @@ public class EmailService {
                     "Nhấn vào link để đặt lại mật khẩu:\n\n"
                             + "http://localhost:3000/reset-password?token="
                             + resetToken
-                            + "\n\nLink có hiệu lực trong 15 phút."
-            );
+                            + "\n\nLink có hiệu lực trong 15 phút.");
             mailSender.send(message);
             log.info("Reset password email sent successfully to {}", email);
         } catch (Exception e) {
@@ -46,11 +45,10 @@ public class EmailService {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromEmail);
             message.setTo(email);
-            message.setSubject("Chào mừng đến với Hotel Management");
+            message.setSubject("Chào mừng đến với English App");
             message.setText(
                     "Xin chào " + fullName + ",\n\n"
-                            + "Tài khoản của bạn đã được tạo thành công."
-            );
+                            + "Tài khoản của bạn đã được tạo thành công.");
             mailSender.send(message);
             log.info("Welcome email sent successfully to {}", email);
         } catch (Exception e) {
