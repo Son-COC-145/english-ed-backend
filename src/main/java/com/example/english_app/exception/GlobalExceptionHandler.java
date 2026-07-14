@@ -12,7 +12,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.time.LocalDateTime;
 import java.util.stream.Collectors;
 
+import lombok.extern.slf4j.Slf4j;
+
 @RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(AppException.class)
@@ -86,6 +89,9 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         ErrorCode errorCode = ErrorCode.SYSTEM_ERROR;
+        
+        // Log the exception to the console so we can debug it on Render
+        log.error("Unhandled exception occurred: ", ex);
 
         ErrorResponse response = ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())
