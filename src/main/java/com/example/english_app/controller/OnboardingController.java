@@ -122,6 +122,7 @@ public class OnboardingController {
 
     private Long getUserId(Authentication authentication) {
         Jwt jwt = (Jwt) authentication.getPrincipal();
-        return jwt.getClaim("userId");
+        Number userId = jwt.getClaim("userId");
+        return userId != null ? userId.longValue() : null;
     }
 }

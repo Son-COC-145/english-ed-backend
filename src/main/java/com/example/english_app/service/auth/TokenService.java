@@ -66,7 +66,8 @@ public class TokenService {
     }
 
     public Long getUserId(String token) {
-        return jwtDecoder.decode(token).getClaim("userId");
+        Number userId = jwtDecoder.decode(token).getClaim("userId");
+        return userId != null ? userId.longValue() : null;
     }
 
     public String getRole(String token) {
