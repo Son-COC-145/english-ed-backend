@@ -2,12 +2,15 @@ package com.example.english_app.controller;
 
 import com.example.english_app.dto.request.TopicRequest;
 import com.example.english_app.dto.response.ApiResponse;
+import com.example.english_app.dto.response.PageResponse;
 import com.example.english_app.dto.response.TopicResponse;
 import com.example.english_app.service.TopicService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -25,6 +28,16 @@ public class TopicController {
         TopicResponse topicResponse = topicService.getById(id);
 
         return ResponseEntity.ok(ApiResponse.success(topicResponse));
+    }
+
+    @Operation(summary = "Lấy danh sách chủ đề (Có phân trang và lọc)")
+    @GetMapping
+    public ResponseEntity<ApiResponse<PageResponse<TopicResponse>>> getAll(
+            @RequestParam(required = false) String nameSearch,
+            @RequestParam(required = false) Boolean isActive,
+            @PageableDefault(size = 10, page = 0) Pageable pageable) {
+        PageResponse<TopicResponse> response = topicService.filterTopics(nameSearch, isActive, pageable);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @PreAuthorize("hasRole('ADMIN')")

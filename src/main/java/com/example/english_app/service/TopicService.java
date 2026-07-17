@@ -1,6 +1,7 @@
 package com.example.english_app.service;
 
 import com.example.english_app.dto.request.TopicRequest;
+import com.example.english_app.dto.response.PageResponse;
 import com.example.english_app.dto.response.TopicResponse;
 import com.example.english_app.entity.vocabulary.Topic;
 import com.example.english_app.exception.ErrorCode;
@@ -8,10 +9,18 @@ import com.example.english_app.repository.TopicRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 @Service
 @RequiredArgsConstructor
 public class TopicService {
     private final TopicRepository topicRepository;
+
+    public PageResponse<TopicResponse> filterTopics(String nameSearch, Boolean isActive, Pageable pageable) {
+        Page<Topic> topics = topicRepository.filterTopics(nameSearch, isActive, pageable);
+        return PageResponse.of(topics.map(this::toResponse));
+    }
 
     public TopicResponse getById(Short id) {
         Topic topic = topicRepository.findById(id)

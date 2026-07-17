@@ -30,7 +30,9 @@ public enum ErrorCode {
     SYSTEM_ERROR(9999, "Lỗi hệ thống máy chủ", HttpStatus.INTERNAL_SERVER_ERROR),
     // Vocabulary
     TOPIC_NOT_FOUND(5001, "Chủ đề không tồn tại", HttpStatus.NOT_FOUND),
-    TOPIC_ALREADY_EXISTS(5002, "Chủ đề đã tồn tại", HttpStatus.BAD_REQUEST);
+    TOPIC_ALREADY_EXISTS(5002, "Chủ đề đã tồn tại", HttpStatus.BAD_REQUEST),
+    VOCABULARY_NOT_FOUND(5001, "Từ vựng không tồn tại", HttpStatus.NOT_FOUND),
+    VOCABULARY_ALREADY_EXISTS(5002, "Từ vựng đã tồn tại", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;
