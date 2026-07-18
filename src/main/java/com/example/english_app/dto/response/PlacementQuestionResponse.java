@@ -24,9 +24,5 @@ public class PlacementQuestionResponse {
     private String questionType;
     private Integer timeoutSeconds;
 
-    /**
-     * Nội dung câu hỏi dạng JSON đã parse:
-     * VD: { "prompt": "...", "options": ["A", "B", "C", "D"], "audioUrl": "..." }
-     */
     private Map<String, Object> content;
 }

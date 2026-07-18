@@ -20,6 +20,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,7 +34,14 @@ import java.util.stream.Collectors;
 @Transactional
 public class OnboardingService {
 
-    private static final int MAX_PLACEMENT_QUESTIONS = 35;
+    @Value("${onboarding.placement.max-questions:35}")
+    private int maxPlacementQuestions;
+
+    @Value("${onboarding.placement.confidence-threshold:85.0}")
+    private double confidenceThreshold;
+
+    @Value("${onboarding.placement.max-wrong-streak:3}")
+    private int maxWrongStreak;
 
     private final UserRepository userRepository;
     private final OnboardingRepository onboardingRepository;
@@ -42,7 +50,7 @@ public class OnboardingService {
     private final QuestionRepository questionRepository;
     private final ObjectMapper objectMapper;
 
-    // ======================== ONBOARDING STATUS ========================
+    // ONBOARDING STATUS
 
     @Transactional(readOnly = true)
     public OnboardingStatusResponse getOnboardingStatus(Long userId) {
@@ -95,7 +103,7 @@ public class OnboardingService {
                 .build();
     }
 
-    // ======================== GOAL SURVEY ========================
+    // GOAL SURVEY
 
     public void submitGoalSurvey(Long userId, GoalSurveyRequest request) {
         User user = findUserById(userId);
@@ -115,7 +123,7 @@ public class OnboardingService {
         onboardingRepository.save(onboarding);
     }
 
-    // ======================== PLACEMENT TEST ========================
+    // PLACEMENT TEST
 
     public PlacementQuestionResponse startPlacementTest(Long userId) {
         User user = findUserById(userId);
@@ -156,7 +164,7 @@ public class OnboardingService {
 
         int answeredCount = (int) answerRepository.countBySessionId(sessionId);
 
-        if (answeredCount >= MAX_PLACEMENT_QUESTIONS) {
+        if (answeredCount >= maxPlacementQuestions) {
             return null; // Đã trả lời hết câu hỏi
         }
 
@@ -192,7 +200,7 @@ public class OnboardingService {
                 .sessionId(sessionId)
                 .questionId(nextQuestion.getId())
                 .questionIndex(answeredCount + 1)
-                .totalQuestions(MAX_PLACEMENT_QUESTIONS)
+                .totalQuestions(maxPlacementQuestions)
                 .cefrLevel(nextQuestion.getCefrLevel().name())
                 .skill(nextQuestion.getSkill().name())
                 .questionType(nextQuestion.getQuestionType().name())
@@ -246,9 +254,9 @@ public class OnboardingService {
 
         int answeredCount = (int) answerRepository.countBySessionId(session.getId());
 
-        // Tự động kết thúc nếu đủ câu hỏi hoặc confidence >= 85%
-        if (answeredCount >= MAX_PLACEMENT_QUESTIONS || 
-            (session.getConfidenceScore() != null && session.getConfidenceScore().doubleValue() >= 85.0)) {
+        // Tự động kết thúc nếu đủ câu hỏi hoặc confidence >= confidenceThreshold
+        if (answeredCount >= maxPlacementQuestions || 
+            (session.getConfidenceScore() != null && session.getConfidenceScore().doubleValue() >= confidenceThreshold)) {
             completePlacementTest(session.getId(), userId);
             return null;
         }
@@ -281,8 +289,8 @@ public class OnboardingService {
         short listeningScore = calculateSkillScore(bySkill.get(Skill.LISTENING));
         short pronunciationScore = calculateSkillScore(bySkill.get(Skill.PRONUNCIATION));
 
-        // Tính CEFR level tổng thể
-        CefrLevel finalLevel = determineCefrLevel(answers);
+        // CAT Test: Sử dụng CEFR level ước tính cuối cùng thay vì tính % trung bình
+        CefrLevel finalLevel = session.getCurrentCefrEstimate() != null ? session.getCurrentCefrEstimate() : CefrLevel.A1;
 
         // Lưu vào StudentOnboarding
         StudentOnboarding onboarding = onboardingRepository.findByStudentId(userId)
@@ -374,7 +382,7 @@ public class OnboardingService {
                 .build();
     }
 
-    // ======================== SETTINGS ========================
+    // SETTINGS
 
     public void saveSettings(Long userId, OnboardingSettingsRequest request) {
         StudentOnboarding onboarding = onboardingRepository.findByStudentId(userId)
@@ -400,7 +408,7 @@ public class OnboardingService {
         onboardingRepository.save(onboarding);
     }
 
-    // ======================== PRIVATE HELPERS ========================
+    //  PRIVATE HELPERS
 
     private User findUserById(Long userId) {
         return userRepository.findById(userId)
@@ -478,31 +486,16 @@ public class OnboardingService {
             }
         }
 
-        double confidence = (answeredCount / (double) MAX_PLACEMENT_QUESTIONS) * 100.0;
+        double confidence = (answeredCount / (double) maxPlacementQuestions) * 100.0;
         
-        // Dừng sớm nếu sai 3 lần liên tiếp
-        if (wrongStreak >= 3) {
+        // Dừng sớm nếu sai liên tiếp vượt quá maxWrongStreak
+        if (wrongStreak >= maxWrongStreak) {
             confidence = 100.0;
         }
 
         session.setConfidenceScore(java.math.BigDecimal.valueOf(Math.min(confidence, 100.0)));
     }
 
-    /**
-     * Xác định CEFR level cuối cùng dựa trên toàn bộ câu trả lời.
-     */
-    private CefrLevel determineCefrLevel(List<PlacementTestAnswer> answers) {
-        if (answers.isEmpty()) return CefrLevel.A1;
-
-        long correct = answers.stream().filter(PlacementTestAnswer::getIsCorrect).count();
-        double ratio = (double) correct / answers.size();
-
-        if (ratio >= 0.85) return CefrLevel.C1;
-        if (ratio >= 0.70) return CefrLevel.B2;
-        if (ratio >= 0.55) return CefrLevel.B1;
-        if (ratio >= 0.40) return CefrLevel.A2;
-        return CefrLevel.A1;
-    }
 
     private short calculateSkillScore(List<PlacementTestAnswer> answers) {
         if (answers == null || answers.isEmpty()) return 0;

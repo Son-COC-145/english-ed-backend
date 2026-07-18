@@ -28,7 +28,7 @@ public class OnboardingController {
 
     private final OnboardingService onboardingService;
 
-    // ======================== ONBOARDING STATUS ========================
+    //  ONBOARDING STATUS
 
     @Operation(summary = "Lấy trạng thái onboarding hiện tại")
     @GetMapping("/status")
@@ -38,7 +38,7 @@ public class OnboardingController {
                 onboardingService.getOnboardingStatus(userId)));
     }
 
-    // ======================== GOAL SURVEY ========================
+    //  GOAL SURVEY
 
     @Operation(summary = "Nộp khảo sát mục tiêu học tập")
     @PostMapping("/goal-survey")
@@ -50,7 +50,7 @@ public class OnboardingController {
         return ResponseEntity.ok(ApiResponse.success("Lưu khảo sát thành công"));
     }
 
-    // ======================== PLACEMENT TEST ========================
+    //  PLACEMENT TEST
 
     @Operation(summary = "Bắt đầu bài kiểm tra phân loại trình độ")
     @PostMapping("/placement-test/start")
@@ -98,7 +98,7 @@ public class OnboardingController {
                 onboardingService.getPlacementResult(userId)));
     }
 
-    // ======================== SETTINGS ========================
+    //  SETTINGS
 
     @Operation(summary = "Lưu cài đặt cá nhân hóa")
     @PostMapping("/settings")
@@ -118,7 +118,7 @@ public class OnboardingController {
         return ResponseEntity.ok(ApiResponse.success("Chúc mừng bạn đã hoàn thành onboarding!"));
     }
 
-    // ======================== HELPER ========================
+    //  HELPER
 
     private Long getUserId(Authentication authentication) {
         Jwt jwt = (Jwt) authentication.getPrincipal();
