@@ -10,14 +10,14 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @OpenAPIDefinition(
-        info = @Info(title = "English App API", version = "1.0", description = "Documentation for English App API"),
+        info = @Info(title = "English App API", version = "v1", description = "API Documentation for English App"),
         security = @SecurityRequirement(name = "bearerAuth")
 )
 @SecurityScheme(
         name = "bearerAuth",
-        description = "JWT auth description",
-        scheme = "bearer",
+        description = "Nhập Access Token vào đây (Không cần thêm chữ Bearer)",
         type = SecuritySchemeType.HTTP,
+        scheme = "bearer",
         bearerFormat = "JWT",
         in = SecuritySchemeIn.HEADER
 )
