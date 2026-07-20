@@ -14,15 +14,16 @@ gemini:
   api-key: "AIzaSy_YOUR_GEMINI_API_KEY_HERE"
 ```
 
-### 2.2 Cấu hình Google Cloud TTS (Audio)
-- **Cách lấy key:** Tạo một dự án trên [Google Cloud Console](https://console.cloud.google.com/), bật API "Cloud Text-to-Speech API". Tạo Service Account và tải file JSON chứng chỉ (credentials) về.
+### 2.2 Cấu hình ElevenLabs TTS (Audio)
+- **Cách lấy key:** 
+  1. Truy cập [ElevenLabs](https://elevenlabs.io/) và tạo tài khoản (Miễn phí 10,000 ký tự/tháng).
+  2. Đăng nhập vào Dashboard.
+  3. Bấm vào biểu tượng Profile ở góc trái dưới cùng -> Chọn **Profile + API key**.
+  4. Copy chuỗi API Key của bạn.
 - **Cấu hình `application.yml`:**
 ```yaml
-spring:
-  cloud:
-    gcp:
-      credentials:
-        location: "classpath:google-credentials.json"
+elevenlabs:
+  api-key: "YOUR_ELEVENLABS_API_KEY_HERE"
 ```
 
 ### 2.3 Cấu hình Cloudinary (Lưu trữ file Media)

@@ -41,7 +41,11 @@ public enum ErrorCode {
     VOCABULARY_ALREADY_EXISTS(5002, "Từ vựng đã tồn tại", HttpStatus.BAD_REQUEST),
 
     // AI Quota
-    QUOTA_EXCEEDED(6001, "Bạn đã hết lượt sử dụng AI hôm nay. Vui lòng nâng cấp gói Premium!", HttpStatus.FORBIDDEN);
+    QUOTA_EXCEEDED(6001, "Bạn đã hết lượt sử dụng AI hôm nay. Vui lòng nâng cấp gói Premium!", HttpStatus.FORBIDDEN),
+
+    // Subscription Plan
+    PLAN_NOT_FOUND(7001, "Gói cước không tồn tại", HttpStatus.NOT_FOUND),
+    PLAN_ALREADY_EXISTS(7002, "Tên gói cước đã tồn tại", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;
