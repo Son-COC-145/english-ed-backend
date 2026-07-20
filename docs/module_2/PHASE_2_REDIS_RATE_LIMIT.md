@@ -25,13 +25,12 @@ spring:
   - So sánh: Nếu `currentUsage > limit` -> Return `false` (Báo lỗi vượt quá giới hạn).
   - Nếu `currentUsage <= limit` -> Return `true` (Được phép đi tiếp).
 
-### Bước 3: Tích hợp vào Luồng gọi AI của User
-- Khi Student gửi request (Ví dụ API `POST /api/v1/student/ai/chat`).
-- Controller sẽ check gói cước của User trong CSDL:
-  - Nếu gói = `PREMIUM` -> Bỏ qua Redis, cho phép chạy luôn logic AI.
-  - Nếu gói = `BASIC` -> Lấy `limit` (ví dụ 5) từ CSDL. Gọi `AiRateLimiterService.checkAndIncrementUsage(userId, limit)`.
+### Bước 3: Tích hợp vào Luồng gọi AI của User (Sử dụng Spring AOP)
+- Thay vì check thủ công trong từng Controller, ta sẽ viết logic này trong **Spring AOP (Aspect Oriented Programming)** bằng cách tạo một Annotation tùy chỉnh `@RateLimitedAi` gắn lên đầu Controller.
+- Khi Student gửi request (Ví dụ API `POST /api/v1/student/ai/chat`) có gắn `@RateLimitedAi`:
+- Aspect sẽ check gói cước của User trong CSDL:
+  - Truy vấn gói cước: Phải check điều kiện `status = ACTIVE` VÀ `endDate > LocalDateTime.now()` (Gói cước còn hạn).
+  - Nếu gói = `PREMIUM` (còn hạn) -> Bỏ qua Redis, cho phép chạy luôn logic AI.
+  - Nếu gói = `BASIC` (hoặc đã hết hạn PREMIUM) -> Lấy `limit` (ví dụ 5) từ Annotation. Gọi `AiRateLimiterService.checkAndIncrementUsage(userEmail, limit)`.
   - Nhận về `false` -> Quăng ra Exception (ErrorCode `QUOTA_EXCEEDED` -> Trả về HTTP 403 Forbidden).
   - Nhận về `true` -> Tiếp tục gọi AI thật.
-
-### Lưu ý kiến trúc (Best Practice)
-Nếu dự án có rất nhiều API cần chặn Rate Limit, thay vì check thủ công trong từng Controller, ta có thể viết logic này trong **Spring AOP (Aspect Oriented Programming)** bằng cách tạo một Annotation tùy chỉnh `@RateLimitedAi` gắn lên đầu Controller.
