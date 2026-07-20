@@ -65,7 +65,9 @@ public class SecurityConfig {
                                                                 "/api/v1/auth/login",
                                                                 "/api/v1/auth/forgot-password",
                                                                 "/api/v1/auth/reset-password",
-                                                                "/api/v1/auth/refresh-token")
+                                                                "/api/v1/auth/refresh-token",
+                                                                "/api/v1/payments/vnpay-return",
+                                                                "/api/v1/payments/vnpay-ipn")
                                                 .permitAll()
                                                 .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**")
                                                 .permitAll()
