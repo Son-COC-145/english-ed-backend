@@ -26,6 +26,12 @@ public enum ErrorCode {
     // Validation
     INVALID_REQUEST(4001, "Dữ liệu không hợp lệ", HttpStatus.BAD_REQUEST),
 
+    // Onboarding
+    ONBOARDING_ALREADY_COMPLETED(5001, "Bạn đã hoàn thành quá trình Onboarding", HttpStatus.BAD_REQUEST),
+    PLACEMENT_TEST_ALREADY_COMPLETED(5002, "Bạn đã hoàn thành bài kiểm tra phân loại", HttpStatus.BAD_REQUEST),
+    PLACEMENT_TEST_NOT_FOUND(5003, "Không tìm thấy bài kiểm tra phân loại", HttpStatus.NOT_FOUND),
+    PLACEMENT_TEST_EXPIRED(5004, "Bài kiểm tra đã hết hạn", HttpStatus.BAD_REQUEST),
+
     // System
     SYSTEM_ERROR(9999, "Lỗi hệ thống máy chủ", HttpStatus.INTERNAL_SERVER_ERROR),
     // Vocabulary
