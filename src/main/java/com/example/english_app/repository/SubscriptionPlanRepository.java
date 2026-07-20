@@ -15,5 +15,9 @@ import java.util.Optional;
 public interface SubscriptionPlanRepository extends JpaRepository<SubscriptionPlan, Long> {
     Optional<SubscriptionPlan> findByName(PlanName name);
 
-    Page<SubscriptionPlan> findByName(PlanName name, Pageable pageable);
+    @Query("SELECT p FROM SubscriptionPlan p WHERE " +
+            "(:name IS NULL OR p.name = :name)")
+    Page<SubscriptionPlan> findByName(
+            @Param("name") PlanName name,
+            Pageable pageable);
 }

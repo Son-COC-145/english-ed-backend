@@ -3,6 +3,7 @@ package com.example.english_app.controller;
 import com.example.english_app.service.PaymentService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -17,6 +18,9 @@ public class PaymentController {
 
     private final PaymentService paymentService;
 
+    @Value("${app.frontend-url}")
+    private String frontendUrl;
+
     @PostMapping("/create")
     public ResponseEntity<String> createPayment(@RequestParam Long planId, Authentication authentication, HttpServletRequest request) {
         String email = authentication.getName(); // Lấy email của user đang đăng nhập
@@ -28,9 +32,9 @@ public class PaymentController {
     public RedirectView vnpayReturn(@RequestParam Map<String, String> params) {
         String responseCode = params.get("vnp_ResponseCode");
         if ("00".equals(responseCode)) {
-            return new RedirectView("http://localhost:3000/payment-success");
+            return new RedirectView(frontendUrl + "/payment-success");
         } else {
-            return new RedirectView("http://localhost:3000/payment-failed");
+            return new RedirectView(frontendUrl + "/payment-failed");
         }
     }
 
