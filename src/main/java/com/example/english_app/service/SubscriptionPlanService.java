@@ -5,6 +5,8 @@ import com.example.english_app.dto.response.SubscriptionPlanResponse;
 import com.example.english_app.entity.enums.PlanName;
 import com.example.english_app.entity.subscription.SubscriptionPlan;
 import com.example.english_app.repository.SubscriptionPlanRepository;
+import com.example.english_app.exception.AppException;
+import com.example.english_app.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -26,14 +28,14 @@ public class SubscriptionPlanService {
     @Transactional(readOnly = true)
     public SubscriptionPlanResponse getPlanById(Long id) {
         SubscriptionPlan plan = subscriptionPlanRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Subscription Plan not found"));
+                .orElseThrow(() -> new AppException(ErrorCode.PLAN_NOT_FOUND));
         return SubscriptionPlanResponse.fromEntity(plan);
     }
 
     @Transactional
     public SubscriptionPlanResponse createPlan(SubscriptionPlanRequest request) {
         if (subscriptionPlanRepository.findByName(request.getName()).isPresent()) {
-            throw new RuntimeException("Plan name already exists");
+            throw new AppException(ErrorCode.PLAN_ALREADY_EXISTS);
         }
 
         SubscriptionPlan plan = SubscriptionPlan.builder()
@@ -50,11 +52,11 @@ public class SubscriptionPlanService {
     @Transactional
     public SubscriptionPlanResponse updatePlan(Long id, SubscriptionPlanRequest request) {
         SubscriptionPlan plan = subscriptionPlanRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Subscription Plan not found"));
+                .orElseThrow(() -> new AppException(ErrorCode.PLAN_NOT_FOUND));
 
         if (!plan.getName().equals(request.getName()) &&
                 subscriptionPlanRepository.findByName(request.getName()).isPresent()) {
-            throw new RuntimeException("Plan name already exists");
+            throw new AppException(ErrorCode.PLAN_ALREADY_EXISTS);
         }
 
         plan.setName(request.getName());
@@ -69,7 +71,7 @@ public class SubscriptionPlanService {
     @Transactional
     public void deletePlan(Long id) {
         SubscriptionPlan plan = subscriptionPlanRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Subscription Plan not found"));
+                .orElseThrow(() -> new AppException(ErrorCode.PLAN_NOT_FOUND));
         subscriptionPlanRepository.delete(plan);
     }
 }

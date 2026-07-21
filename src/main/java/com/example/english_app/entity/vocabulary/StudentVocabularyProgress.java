@@ -48,4 +48,16 @@ public class StudentVocabularyProgress {
 
     @Column(name = "last_practiced_at")
     private LocalDateTime lastPracticedAt;
+
+    @Column(name = "easiness_factor")
+    @Builder.Default
+    private Float easinessFactor = 2.5f;
+
+    @Column(name = "interval_days")
+    @Builder.Default
+    private Integer intervalDays = 0;
+
+    @Column(name = "repetitions")
+    @Builder.Default
+    private Integer repetitions = 0;
 }
