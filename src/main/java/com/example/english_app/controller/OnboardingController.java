@@ -7,7 +7,6 @@ import com.example.english_app.dto.response.ApiResponse;
 import com.example.english_app.dto.response.OnboardingStatusResponse;
 import com.example.english_app.dto.response.PlacementQuestionResponse;
 import com.example.english_app.dto.response.PlacementResultResponse;
-import com.example.english_app.service.auth.TokenService;
 import com.example.english_app.service.onboarding.OnboardingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
