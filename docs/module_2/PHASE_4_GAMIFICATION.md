@@ -1,4 +1,4 @@
-# GIAI ĐOẠN 4: GAMIFICATION VÀ MINIGAMES ENGINE
+ # GIAI ĐOẠN 4: GAMIFICATION VÀ MINIGAMES ENGINE
 
 ## 1. Mục tiêu (Objective)
 Xử lý logic khi học viên hoàn thành xong 1 lượt chơi game (Listen-Choose, Scramble...). Tính toán điểm XP, cập nhật streak học tập, và đổi trạng thái Flashcard để phục vụ ôn tập (Spaced Repetition).

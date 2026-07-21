@@ -42,6 +42,8 @@ spring:
           starttls:
             enable: true
 
+
+
   security:
     oauth2:
       client:
@@ -90,3 +92,9 @@ vnpay:
 
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:3000}
+
+gemini:
+  api-key: ${GEMINI_API_KEY}
+
+elevenlabs:
+  api-key: ${ELEVENLABS_API_KEY}
