@@ -8,6 +8,8 @@ import com.example.english_app.dto.response.PlacementQuestionResponse;
 import com.example.english_app.dto.response.PlacementResultResponse;
 import com.example.english_app.entity.enums.CefrLevel;
 import com.example.english_app.entity.enums.Skill;
+import com.example.english_app.entity.gamification.DailyGoal;
+import com.example.english_app.entity.gamification.StudentStat;
 import com.example.english_app.entity.onboarding.PlacementTestAnswer;
 import com.example.english_app.entity.onboarding.PlacementTestSession;
 import com.example.english_app.entity.onboarding.StudentOnboarding;
@@ -24,6 +26,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -48,6 +51,8 @@ public class OnboardingService {
     private final PlacementTestSessionRepository sessionRepository;
     private final PlacementTestAnswerRepository answerRepository;
     private final QuestionRepository questionRepository;
+    private final DailyGoalRepository dailyGoalRepository;
+    private final StudentStatRepository studentStatRepository;
     private final ObjectMapper objectMapper;
 
     // ONBOARDING STATUS
@@ -128,13 +133,30 @@ public class OnboardingService {
     public PlacementQuestionResponse startPlacementTest(Long userId) {
         User user = findUserById(userId);
 
-        // Kiểm tra xem đã có phiên test đang dở chưa
+        // Guard clause: Nếu đã hoàn thành Placement Test rồi thì không cho làm lại
+        onboardingRepository.findByStudentId(userId).ifPresent(ob -> {
+            if (ob.getPlacementCefrLevel() != null) {
+                throw ErrorCode.PLACEMENT_TEST_ALREADY_COMPLETED.toException();
+            }
+        });
+
+        // Kiểm tra session đang dở
         Optional<PlacementTestSession> existingSession =
                 sessionRepository.findByStudentIdAndIsCompletedFalse(user.getId());
 
         if (existingSession.isPresent()) {
-            // Nếu có, trả về câu hỏi tiếp theo của phiên cũ
-            return getNextQuestion(existingSession.get().getId(), userId);
+            PlacementTestSession existing = existingSession.get();
+
+            // Kiểm tra Auto-save timeout: session cũ quá 30 phút -> hủy, tạo mới
+            if (isSessionExpired(existing)) {
+                log.warn("Placement test session {} expired for user {}. Starting new session.",
+                        existing.getId(), userId);
+                existing.setIsCompleted(true); // Đánh dấu là expired
+                sessionRepository.save(existing);
+            } else {
+                // Session vẫn còn hạn -> tiếp tục
+                return getNextQuestion(existing.getId(), userId);
+            }
         }
 
         // Tạo phiên test mới
@@ -152,20 +174,27 @@ public class OnboardingService {
 
     public PlacementQuestionResponse getNextQuestion(Long sessionId, Long userId) {
         PlacementTestSession session = sessionRepository.findById(sessionId)
-                .orElseThrow(() -> ErrorCode.SYSTEM_ERROR.toException());
+                .orElseThrow(() -> ErrorCode.PLACEMENT_TEST_NOT_FOUND.toException());
 
         if (!session.getStudent().getId().equals(userId)) {
             throw ErrorCode.ACCESS_DENIED.toException();
         }
 
         if (session.getIsCompleted()) {
-            return null; // Test đã hoàn thành
+            return null;
+        }
+
+        // Kiểm tra session timeout (30 phút không hoạt động)
+        if (isSessionExpired(session)) {
+            session.setIsCompleted(true);
+            sessionRepository.save(session);
+            throw ErrorCode.PLACEMENT_TEST_EXPIRED.toException();
         }
 
         int answeredCount = (int) answerRepository.countBySessionId(sessionId);
 
         if (answeredCount >= maxPlacementQuestions) {
-            return null; // Đã trả lời hết câu hỏi
+            return null;
         }
 
         // Lấy danh sách question_id đã trả lời
@@ -192,7 +221,7 @@ public class OnboardingService {
             content = objectMapper.readValue(nextQuestion.getContentJson(),
                     new TypeReference<Map<String, Object>>() {});
         } catch (JsonProcessingException e) {
-            log.error("Failed to parse question content JSON", e);
+            log.error("Failed to parse question content JSON for question {}", nextQuestion.getId(), e);
             content = Map.of("raw", nextQuestion.getContentJson());
         }
 
@@ -211,17 +240,24 @@ public class OnboardingService {
 
     public PlacementQuestionResponse submitAnswer(Long userId, PlacementAnswerRequest request) {
         PlacementTestSession session = sessionRepository.findById(request.getSessionId())
-                .orElseThrow(() -> ErrorCode.SYSTEM_ERROR.toException());
+                .orElseThrow(() -> ErrorCode.PLACEMENT_TEST_NOT_FOUND.toException());
 
         if (!session.getStudent().getId().equals(userId)) {
             throw ErrorCode.ACCESS_DENIED.toException();
         }
 
         if (session.getIsCompleted()) {
-            throw ErrorCode.SYSTEM_ERROR.toException();
+            throw ErrorCode.PLACEMENT_TEST_ALREADY_COMPLETED.toException();
         }
 
-        // Kiểm tra câu hỏi đã được trả lời chưa
+        // Kiểm tra session timeout
+        if (isSessionExpired(session)) {
+            session.setIsCompleted(true);
+            sessionRepository.save(session);
+            throw ErrorCode.PLACEMENT_TEST_EXPIRED.toException();
+        }
+
+        // Kiểm tra câu hỏi đã được trả lời chưa (tránh double-submit)
         if (answerRepository.existsBySessionIdAndQuestionId(request.getSessionId(), request.getQuestionId())) {
             throw ErrorCode.INVALID_REQUEST.toException();
         }
@@ -255,7 +291,7 @@ public class OnboardingService {
         int answeredCount = (int) answerRepository.countBySessionId(session.getId());
 
         // Tự động kết thúc nếu đủ câu hỏi hoặc confidence >= confidenceThreshold
-        if (answeredCount >= maxPlacementQuestions || 
+        if (answeredCount >= maxPlacementQuestions ||
             (session.getConfidenceScore() != null && session.getConfidenceScore().doubleValue() >= confidenceThreshold)) {
             completePlacementTest(session.getId(), userId);
             return null;
@@ -267,10 +303,15 @@ public class OnboardingService {
 
     public PlacementResultResponse completePlacementTest(Long sessionId, Long userId) {
         PlacementTestSession session = sessionRepository.findById(sessionId)
-                .orElseThrow(() -> ErrorCode.SYSTEM_ERROR.toException());
+                .orElseThrow(() -> ErrorCode.PLACEMENT_TEST_NOT_FOUND.toException());
 
         if (!session.getStudent().getId().equals(userId)) {
             throw ErrorCode.ACCESS_DENIED.toException();
+        }
+
+        // Idempotent guard: nếu đã hoàn thành, trả về kết quả có sẵn
+        if (session.getIsCompleted()) {
+            return getPlacementResult(userId);
         }
 
         session.setIsCompleted(true);
@@ -289,8 +330,9 @@ public class OnboardingService {
         short listeningScore = calculateSkillScore(bySkill.get(Skill.LISTENING));
         short pronunciationScore = calculateSkillScore(bySkill.get(Skill.PRONUNCIATION));
 
-        // CAT Test: Sử dụng CEFR level ước tính cuối cùng thay vì tính % trung bình
-        CefrLevel finalLevel = session.getCurrentCefrEstimate() != null ? session.getCurrentCefrEstimate() : CefrLevel.A1;
+        // CAT: Sử dụng CEFR level ước tính cuối cùng
+        CefrLevel finalLevel = session.getCurrentCefrEstimate() != null
+                ? session.getCurrentCefrEstimate() : CefrLevel.A1;
 
         // Lưu vào StudentOnboarding
         StudentOnboarding onboarding = onboardingRepository.findByStudentId(userId)
@@ -307,14 +349,9 @@ public class OnboardingService {
         onboarding.setPlacementCompletedAt(LocalDateTime.now());
 
         onboardingRepository.save(onboarding);
+        log.info("Placement test completed for user {}. CEFR level: {}", userId, finalLevel);
 
-        Map<String, Short> skillScores = new HashMap<>();
-        skillScores.put("Từ vựng", vocabScore);
-        skillScores.put("Ngữ pháp", grammarScore);
-        skillScores.put("Đọc hiểu", readingScore);
-        skillScores.put("Nghe", listeningScore);
-        skillScores.put("Phát âm", pronunciationScore);
-
+        Map<String, Short> skillScores = buildSkillScoreMap(vocabScore, grammarScore, readingScore, listeningScore, pronunciationScore);
         List<String> strengths = getTopSkills(skillScores, true);
         List<String> weaknesses = getTopSkills(skillScores, false);
 
@@ -329,6 +366,7 @@ public class OnboardingService {
                 .readingScore(readingScore)
                 .listeningScore(listeningScore)
                 .pronunciationScore(pronunciationScore)
+                .radarChartData(skillScores)
                 .message(buildResultMessage(finalLevel))
                 .cefrDescription(buildCefrDescription(finalLevel))
                 .strengths(strengths)
@@ -340,27 +378,27 @@ public class OnboardingService {
     @Transactional(readOnly = true)
     public PlacementResultResponse getPlacementResult(Long userId) {
         StudentOnboarding onboarding = onboardingRepository.findByStudentId(userId)
-                .orElseThrow(() -> ErrorCode.SYSTEM_ERROR.toException());
+                .orElseThrow(() -> ErrorCode.PLACEMENT_TEST_NOT_FOUND.toException());
 
         if (onboarding.getPlacementCefrLevel() == null) {
-            throw ErrorCode.SYSTEM_ERROR.toException();
+            throw ErrorCode.PLACEMENT_TEST_NOT_FOUND.toException();
         }
 
         PlacementTestSession session = sessionRepository
                 .findTopByStudentIdOrderByStartedAtDesc(userId)
-                .orElseThrow(() -> ErrorCode.SYSTEM_ERROR.toException());
+                .orElseThrow(() -> ErrorCode.PLACEMENT_TEST_NOT_FOUND.toException());
 
         List<PlacementTestAnswer> answers = answerRepository
                 .findBySessionIdOrderByAnsweredAtAsc(session.getId());
 
         int totalCorrect = (int) answers.stream().filter(PlacementTestAnswer::getIsCorrect).count();
 
-        Map<String, Short> skillScores = new HashMap<>();
-        skillScores.put("Từ vựng", onboarding.getPlacementVocabScore());
-        skillScores.put("Ngữ pháp", onboarding.getPlacementGrammarScore());
-        skillScores.put("Đọc hiểu", onboarding.getPlacementReadingScore());
-        skillScores.put("Nghe", onboarding.getPlacementListeningScore());
-        skillScores.put("Phát âm", onboarding.getPlacementPronunciationScore());
+        Map<String, Short> skillScores = buildSkillScoreMap(
+                onboarding.getPlacementVocabScore(),
+                onboarding.getPlacementGrammarScore(),
+                onboarding.getPlacementReadingScore(),
+                onboarding.getPlacementListeningScore(),
+                onboarding.getPlacementPronunciationScore());
 
         List<String> strengths = getTopSkills(skillScores, true);
         List<String> weaknesses = getTopSkills(skillScores, false);
@@ -374,6 +412,7 @@ public class OnboardingService {
                 .readingScore(onboarding.getPlacementReadingScore())
                 .listeningScore(onboarding.getPlacementListeningScore())
                 .pronunciationScore(onboarding.getPlacementPronunciationScore())
+                .radarChartData(skillScores)
                 .message(buildResultMessage(onboarding.getPlacementCefrLevel()))
                 .cefrDescription(buildCefrDescription(onboarding.getPlacementCefrLevel()))
                 .strengths(strengths)
@@ -385,27 +424,69 @@ public class OnboardingService {
     // SETTINGS
 
     public void saveSettings(Long userId, OnboardingSettingsRequest request) {
+        User user = findUserById(userId);
+
         StudentOnboarding onboarding = onboardingRepository.findByStudentId(userId)
                 .orElseThrow(() -> ErrorCode.SYSTEM_ERROR.toException());
 
-        if (request.getDailyGoalXp() != null) {
-            onboarding.setDailyGoalXp(request.getDailyGoalXp());
+        // Validate dailyGoalXp chỉ nhận 10, 20, 30, 50
+        if (!request.isValidDailyGoalXp()) {
+            throw ErrorCode.INVALID_REQUEST.toException();
         }
+
+        onboarding.setDailyGoalXp(request.getDailyGoalXp());
+
         if (request.getReminderTime() != null) {
             onboarding.setReminderTime(request.getReminderTime());
         }
 
         onboardingRepository.save(onboarding);
+
+        // Khởi tạo DailyGoal cho ngày hôm nay (nếu chưa có)
+        LocalDate today = LocalDate.now();
+        if (!dailyGoalRepository.existsByStudentIdAndGoalDate(userId, today)) {
+            DailyGoal dailyGoal = DailyGoal.builder()
+                    .student(user)
+                    .goalDate(today)
+                    .targetXp(request.getDailyGoalXp())
+                    .build();
+            dailyGoalRepository.save(dailyGoal);
+            log.info("Created initial DailyGoal for user {} with targetXp={}", userId, request.getDailyGoalXp());
+        }
+
+        // Khởi tạo StudentStat (nếu chưa có)
+        if (!studentStatRepository.existsById(userId)) {
+            StudentStat stat = StudentStat.builder()
+                    .student(user)
+                    .build();
+            studentStatRepository.save(stat);
+            log.info("Initialized StudentStat for user {}", userId);
+        }
     }
 
     public void completeOnboarding(Long userId) {
         StudentOnboarding onboarding = onboardingRepository.findByStudentId(userId)
                 .orElseThrow(() -> ErrorCode.SYSTEM_ERROR.toException());
 
+        // Guard clause: chống gọi lại nhiều lần
+        if (onboarding.getOnboardingCompleted()) {
+            throw ErrorCode.ONBOARDING_ALREADY_COMPLETED.toException();
+        }
+
+        // Pre-condition: phải hoàn thành Goal Survey, Placement Test và Settings trước
+        boolean goalDone = onboarding.getGoalSurveyJson() != null;
+        boolean placementDone = onboarding.getPlacementCefrLevel() != null;
+        boolean settingsDone = onboarding.getDailyGoalXp() != null && onboarding.getDailyGoalXp() > 0;
+
+        if (!goalDone || !placementDone || !settingsDone) {
+            throw ErrorCode.INVALID_REQUEST.toException();
+        }
+
         onboarding.setOnboardingCompleted(true);
         onboarding.setOnboardingCompletedAt(LocalDateTime.now());
 
         onboardingRepository.save(onboarding);
+        log.info("Onboarding completed for user {}", userId);
     }
 
     //  PRIVATE HELPERS
@@ -413,6 +494,29 @@ public class OnboardingService {
     private User findUserById(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
+    }
+
+    /**
+     * Kiểm tra session có hết hạn 30 phút không.
+     * Nếu lastActivityAt cách hiện tại > 30 phút → expired.
+     */
+    private boolean isSessionExpired(PlacementTestSession session) {
+        if (session.getLastActivityAt() == null) return false;
+        return session.getLastActivityAt().isBefore(LocalDateTime.now().minusMinutes(30));
+    }
+
+    /**
+     * Xây dựng Map điểm kỹ năng dùng cho Radar Chart và Top Skills.
+     * Tránh lặp code giữa completePlacementTest() và getPlacementResult().
+     */
+    private Map<String, Short> buildSkillScoreMap(short vocab, short grammar, short reading, short listening, short pronunciation) {
+        Map<String, Short> map = new LinkedHashMap<>();
+        map.put("Từ vựng", vocab);
+        map.put("Ngữ pháp", grammar);
+        map.put("Đọc hiểu", reading);
+        map.put("Nghe", listening);
+        map.put("Phát âm", pronunciation);
+        return map;
     }
 
     /**

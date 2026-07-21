@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.Map;
 
 @Data
 @Builder
@@ -22,6 +23,8 @@ public class PlacementResultResponse {
     private Short readingScore;
     private Short listeningScore;
     private Short pronunciationScore;
+
+    private Map<String, Short> radarChartData;
 
     private String message;
     private String cefrDescription;
