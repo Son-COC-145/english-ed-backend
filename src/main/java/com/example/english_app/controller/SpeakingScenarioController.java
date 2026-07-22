@@ -18,9 +18,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v1/admin/speaking-scenarios")
+@RequestMapping("/api/v1/speaking-scenarios")
 @RequiredArgsConstructor
-@Tag(name = "Admin Speaking Scenarios", description = "API quản lý kịch bản giao tiếp dành cho Admin hoặc Giáo viên")
+@Tag(name = "Speaking Scenarios", description = "API quản lý kịch bản giao tiếp")
 public class AdminSpeakingScenarioController {
 
     private final SpeakingScenarioService speakingScenarioService;
