@@ -45,7 +45,12 @@ public enum ErrorCode {
 
     // Subscription Plan
     PLAN_NOT_FOUND(7001, "Gói cước không tồn tại", HttpStatus.NOT_FOUND),
-    PLAN_ALREADY_EXISTS(7002, "Tên gói cước đã tồn tại", HttpStatus.BAD_REQUEST);
+    PLAN_ALREADY_EXISTS(7002, "Tên gói cước đã tồn tại", HttpStatus.BAD_REQUEST),
+
+    // Speaking Coach
+    SCENARIO_NOT_FOUND(8001, "Kịch bản giao tiếp không tồn tại", HttpStatus.NOT_FOUND),
+    SCENARIO_ALREADY_EXISTS(8002, "Tên kịch bản giao tiếp đã tồn tại", HttpStatus.BAD_REQUEST),
+    SESSION_NOT_FOUND(8003, "Không tìm thấy phiên giao tiếp", HttpStatus.NOT_FOUND);
 
     private final int code;
     private final String message;
