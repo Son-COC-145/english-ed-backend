@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.example.english_app.dto.request.MinigameSubmitRequest;
 import com.example.english_app.dto.response.ApiResponse;
 import com.example.english_app.dto.response.MinigameSubmitResponse;
-import com.example.english_app.service.GameficationService;
+import com.example.english_app.service.gamification.GameficationService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -32,3 +32,4 @@ public class MiniGameController {
                 ApiResponse.success(gameficationService.procesGameSubmit(request)));
     }
 }
+

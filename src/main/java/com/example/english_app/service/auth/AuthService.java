@@ -9,7 +9,7 @@ import com.example.english_app.entity.enums.AuthProvider;
 import com.example.english_app.entity.enums.Role;
 import com.example.english_app.entity.user.User;
 import com.example.english_app.exception.ErrorCode;
-import com.example.english_app.repository.UserRepository;
+import com.example.english_app.repository.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -223,3 +223,4 @@ public class AuthService {
                 .build();
     }
 }
+

@@ -53,3 +53,6 @@ application-*.yml
 !application-example.yml
 application.properties
 application-*.properties
+
+### Documentation ###
+docs/

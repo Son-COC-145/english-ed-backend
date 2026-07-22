@@ -1,4 +1,4 @@
-package com.example.english_app.repository;
+package com.example.english_app.repository.gamification;
 
 import java.util.Optional;
 
@@ -10,3 +10,4 @@ import com.example.english_app.entity.gamification.StudentStat;
 public interface StudentStatRepository extends JpaRepository<StudentStat, Long> {
     Optional<StudentStat> findByStudentId(Long studentId);
 }
+

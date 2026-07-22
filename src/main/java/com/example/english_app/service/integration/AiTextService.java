@@ -1,4 +1,4 @@
-package com.example.english_app.service;
+package com.example.english_app.service.integration;
 
 import java.util.List;
 import java.util.Map;
@@ -61,3 +61,4 @@ public class AiTextService {
         }
     }
 }
+

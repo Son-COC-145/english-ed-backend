@@ -3,7 +3,7 @@ package com.example.english_app.security.oauth2;
 import com.example.english_app.entity.enums.AuthProvider;
 import com.example.english_app.entity.enums.Role;
 import com.example.english_app.entity.user.User;
-import com.example.english_app.repository.UserRepository;
+import com.example.english_app.repository.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;

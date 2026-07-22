@@ -1,4 +1,4 @@
-package com.example.english_app.repository;
+package com.example.english_app.repository.subscription;
 
 import com.example.english_app.entity.enums.SubscriptionStatus;
 import com.example.english_app.entity.subscription.UserSubscription;
@@ -19,3 +19,4 @@ public interface UserSubscriptionRepository extends JpaRepository<UserSubscripti
             SubscriptionStatus status,
             LocalDateTime currentDate);
 }
+

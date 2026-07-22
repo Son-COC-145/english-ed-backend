@@ -1,6 +1,6 @@
 package com.example.english_app.security.token;
 
-import com.example.english_app.repository.UserRepository;
+import com.example.english_app.repository.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
@@ -23,3 +23,4 @@ public class TokenCustomizer implements OAuth2TokenCustomizer<JwtEncodingContext
         });
     }
 }
+

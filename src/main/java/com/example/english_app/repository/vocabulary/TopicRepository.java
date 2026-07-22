@@ -1,4 +1,4 @@
-package com.example.english_app.repository;
+package com.example.english_app.repository.vocabulary;
 
 import com.example.english_app.entity.vocabulary.Topic;
 import org.springframework.data.domain.Page;
@@ -28,3 +28,4 @@ public interface TopicRepository extends JpaRepository<Topic, Short> {
             @Param("isActive") Boolean isActive,
             Pageable pageable);
 }
+

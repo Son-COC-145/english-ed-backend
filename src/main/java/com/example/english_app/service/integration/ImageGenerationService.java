@@ -1,4 +1,4 @@
-package com.example.english_app.service;
+package com.example.english_app.service.integration;
 
 import java.util.UUID;
 
@@ -32,3 +32,4 @@ public class ImageGenerationService {
         }
     }
 }
+

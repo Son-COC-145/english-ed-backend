@@ -1,4 +1,4 @@
-package com.example.english_app.service;
+package com.example.english_app.service.vocabulary;
 
 import com.example.english_app.dto.request.VocabularyRequest;
 import com.example.english_app.dto.response.PageResponse;
@@ -9,9 +9,9 @@ import com.example.english_app.entity.user.User;
 import com.example.english_app.entity.vocabulary.Topic;
 import com.example.english_app.entity.vocabulary.Vocabulary;
 import com.example.english_app.exception.ErrorCode;
-import com.example.english_app.repository.TopicRepository;
-import com.example.english_app.repository.UserRepository;
-import com.example.english_app.repository.VocabularyRepository;
+import com.example.english_app.repository.vocabulary.TopicRepository;
+import com.example.english_app.repository.user.UserRepository;
+import com.example.english_app.repository.vocabulary.VocabularyRepository;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.data.domain.Page;
@@ -156,3 +156,5 @@ public class VocabularyService {
                                 .build();
         }
 }
+
+

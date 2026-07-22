@@ -5,7 +5,7 @@ import com.example.english_app.dto.response.MinigameResultDetailResponse;
 import com.example.english_app.dto.response.PageResponse;
 import com.example.english_app.dto.response.StudentStatResponse;
 import com.example.english_app.dto.response.StudentVocabularyProgressResponse;
-import com.example.english_app.service.GameficationService;
+import com.example.english_app.service.gamification.GameficationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -69,3 +69,4 @@ public class StudentGamificationController {
         return ResponseEntity.ok(ApiResponse.success(gameficationService.getMinigameResult(id)));
     }
 }
+

@@ -1,4 +1,4 @@
-package com.example.english_app.repository;
+package com.example.english_app.repository.vocabulary;
 
 import com.example.english_app.entity.enums.CefrLevel;
 import com.example.english_app.entity.enums.VocabularyStatus;
@@ -27,3 +27,4 @@ public interface VocabularyRepository extends JpaRepository<Vocabulary, Long> {
             @Param("wordSearch") String wordSearch,
             Pageable pageable);
 }
+

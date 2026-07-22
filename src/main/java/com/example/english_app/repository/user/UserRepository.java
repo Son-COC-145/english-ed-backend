@@ -1,4 +1,4 @@
-package com.example.english_app.repository;
+package com.example.english_app.repository.user;
 
 import com.example.english_app.entity.user.User;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -10,3 +10,4 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     boolean existsByEmail(String email);
 }
+
