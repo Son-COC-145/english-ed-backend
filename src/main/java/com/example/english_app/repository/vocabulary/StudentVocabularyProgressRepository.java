@@ -1,4 +1,4 @@
-package com.example.english_app.repository;
+package com.example.english_app.repository.vocabulary;
 
 import java.util.Optional;
 
@@ -17,3 +17,4 @@ public interface StudentVocabularyProgressRepository extends JpaRepository<Stude
     
     Page<StudentVocabularyProgress> findByStudentId(Long studentId, Pageable pageable);
 }
+

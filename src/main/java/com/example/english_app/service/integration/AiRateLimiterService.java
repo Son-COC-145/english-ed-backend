@@ -1,4 +1,4 @@
-package com.example.english_app.service;
+package com.example.english_app.service.integration;
 
 import java.time.LocalDate;
 import java.util.concurrent.TimeUnit;
@@ -31,3 +31,4 @@ public class AiRateLimiterService {
         return currentUsage <= limit;
     }
 }
+

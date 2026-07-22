@@ -1,4 +1,4 @@
-package com.example.english_app.repository;
+package com.example.english_app.repository.question;
 
 import com.example.english_app.entity.onboarding.PlacementTestAnswer;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,3 +16,4 @@ public interface PlacementTestAnswerRepository extends JpaRepository<PlacementTe
 
     boolean existsBySessionIdAndQuestionId(Long sessionId, Long questionId);
 }
+

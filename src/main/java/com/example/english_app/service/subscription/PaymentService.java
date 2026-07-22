@@ -1,4 +1,4 @@
-package com.example.english_app.service;
+package com.example.english_app.service.subscription;
 
 import com.example.english_app.config.VnPayConfig;
 import com.example.english_app.config.VnPayUtil;
@@ -8,10 +8,10 @@ import com.example.english_app.entity.subscription.PaymentTransaction;
 import com.example.english_app.entity.subscription.SubscriptionPlan;
 import com.example.english_app.entity.subscription.UserSubscription;
 import com.example.english_app.entity.user.User;
-import com.example.english_app.repository.PaymentTransactionRepository;
-import com.example.english_app.repository.SubscriptionPlanRepository;
-import com.example.english_app.repository.UserRepository;
-import com.example.english_app.repository.UserSubscriptionRepository;
+import com.example.english_app.repository.subscription.PaymentTransactionRepository;
+import com.example.english_app.repository.subscription.SubscriptionPlanRepository;
+import com.example.english_app.repository.user.UserRepository;
+import com.example.english_app.repository.subscription.UserSubscriptionRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -245,3 +245,5 @@ public class PaymentService {
         });
     }
 }
+
+

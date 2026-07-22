@@ -1,4 +1,4 @@
-package com.example.english_app.repository;
+package com.example.english_app.repository.question;
 
 import com.example.english_app.entity.onboarding.PlacementTestSession;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,3 +11,4 @@ public interface PlacementTestSessionRepository extends JpaRepository<PlacementT
 
     Optional<PlacementTestSession> findTopByStudentIdOrderByStartedAtDesc(Long studentId);
 }
+

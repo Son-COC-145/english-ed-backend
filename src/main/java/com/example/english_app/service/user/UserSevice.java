@@ -1,8 +1,8 @@
-package com.example.english_app.service;
+package com.example.english_app.service.user;
 
 import com.example.english_app.dto.response.UserResponse;
 import com.example.english_app.entity.user.User;
-import com.example.english_app.repository.UserRepository;
+import com.example.english_app.repository.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -25,3 +25,5 @@ public class UserSevice {
                 .build();
     }
 }
+
+

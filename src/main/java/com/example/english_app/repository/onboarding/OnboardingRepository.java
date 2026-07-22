@@ -1,4 +1,4 @@
-package com.example.english_app.repository;
+package com.example.english_app.repository.onboarding;
 
 import com.example.english_app.entity.onboarding.StudentOnboarding;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,3 +11,4 @@ public interface OnboardingRepository extends JpaRepository<StudentOnboarding, L
 
     boolean existsByStudentId(Long studentId);
 }
+
