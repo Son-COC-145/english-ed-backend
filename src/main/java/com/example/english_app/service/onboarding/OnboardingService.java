@@ -16,7 +16,13 @@ import com.example.english_app.entity.onboarding.StudentOnboarding;
 import com.example.english_app.entity.question.Question;
 import com.example.english_app.entity.user.User;
 import com.example.english_app.exception.ErrorCode;
-import com.example.english_app.repository.*;
+import com.example.english_app.repository.user.UserRepository;
+import com.example.english_app.repository.gamification.DailyGoalRepository;
+import com.example.english_app.repository.gamification.StudentStatRepository;
+import com.example.english_app.repository.onboarding.OnboardingRepository;
+import com.example.english_app.repository.question.PlacementTestSessionRepository;
+import com.example.english_app.repository.question.PlacementTestAnswerRepository;
+import com.example.english_app.repository.question.QuestionRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -141,8 +147,8 @@ public class OnboardingService {
         });
 
         // Kiểm tra session đang dở
-        Optional<PlacementTestSession> existingSession =
-                sessionRepository.findByStudentIdAndIsCompletedFalse(user.getId());
+        Optional<PlacementTestSession> existingSession = sessionRepository
+                .findByStudentIdAndIsCompletedFalse(user.getId());
 
         if (existingSession.isPresent()) {
             PlacementTestSession existing = existingSession.get();
@@ -219,7 +225,8 @@ public class OnboardingService {
         Map<String, Object> content;
         try {
             content = objectMapper.readValue(nextQuestion.getContentJson(),
-                    new TypeReference<Map<String, Object>>() {});
+                    new TypeReference<Map<String, Object>>() {
+                    });
         } catch (JsonProcessingException e) {
             log.error("Failed to parse question content JSON for question {}", nextQuestion.getId(), e);
             content = Map.of("raw", nextQuestion.getContentJson());
@@ -292,7 +299,8 @@ public class OnboardingService {
 
         // Tự động kết thúc nếu đủ câu hỏi hoặc confidence >= confidenceThreshold
         if (answeredCount >= maxPlacementQuestions ||
-            (session.getConfidenceScore() != null && session.getConfidenceScore().doubleValue() >= confidenceThreshold)) {
+                (session.getConfidenceScore() != null
+                        && session.getConfidenceScore().doubleValue() >= confidenceThreshold)) {
             completePlacementTest(session.getId(), userId);
             return null;
         }
@@ -332,7 +340,8 @@ public class OnboardingService {
 
         // CAT: Sử dụng CEFR level ước tính cuối cùng
         CefrLevel finalLevel = session.getCurrentCefrEstimate() != null
-                ? session.getCurrentCefrEstimate() : CefrLevel.A1;
+                ? session.getCurrentCefrEstimate()
+                : CefrLevel.A1;
 
         // Lưu vào StudentOnboarding
         StudentOnboarding onboarding = onboardingRepository.findByStudentId(userId)
@@ -351,7 +360,8 @@ public class OnboardingService {
         onboardingRepository.save(onboarding);
         log.info("Placement test completed for user {}. CEFR level: {}", userId, finalLevel);
 
-        Map<String, Short> skillScores = buildSkillScoreMap(vocabScore, grammarScore, readingScore, listeningScore, pronunciationScore);
+        Map<String, Short> skillScores = buildSkillScoreMap(vocabScore, grammarScore, readingScore, listeningScore,
+                pronunciationScore);
         List<String> strengths = getTopSkills(skillScores, true);
         List<String> weaknesses = getTopSkills(skillScores, false);
 
@@ -489,7 +499,7 @@ public class OnboardingService {
         log.info("Onboarding completed for user {}", userId);
     }
 
-    //  PRIVATE HELPERS
+    // PRIVATE HELPERS
 
     private User findUserById(Long userId) {
         return userRepository.findById(userId)
@@ -501,7 +511,8 @@ public class OnboardingService {
      * Nếu lastActivityAt cách hiện tại > 30 phút → expired.
      */
     private boolean isSessionExpired(PlacementTestSession session) {
-        if (session.getLastActivityAt() == null) return false;
+        if (session.getLastActivityAt() == null)
+            return false;
         return session.getLastActivityAt().isBefore(LocalDateTime.now().minusMinutes(30));
     }
 
@@ -509,7 +520,8 @@ public class OnboardingService {
      * Xây dựng Map điểm kỹ năng dùng cho Radar Chart và Top Skills.
      * Tránh lặp code giữa completePlacementTest() và getPlacementResult().
      */
-    private Map<String, Short> buildSkillScoreMap(short vocab, short grammar, short reading, short listening, short pronunciation) {
+    private Map<String, Short> buildSkillScoreMap(short vocab, short grammar, short reading, short listening,
+            short pronunciation) {
         Map<String, Short> map = new LinkedHashMap<>();
         map.put("Từ vựng", vocab);
         map.put("Ngữ pháp", grammar);
@@ -543,14 +555,16 @@ public class OnboardingService {
         if (currentIndex + 1 < levels.length) {
             candidates = questionRepository
                     .findRandomByCefrLevelExcluding(levels[currentIndex + 1], excludeIds);
-            if (!candidates.isEmpty()) return candidates.get(0);
+            if (!candidates.isEmpty())
+                return candidates.get(0);
         }
 
         // Tìm level dưới
         if (currentIndex - 1 >= 0) {
             candidates = questionRepository
                     .findRandomByCefrLevelExcluding(levels[currentIndex - 1], excludeIds);
-            if (!candidates.isEmpty()) return candidates.get(0);
+            if (!candidates.isEmpty())
+                return candidates.get(0);
         }
 
         return null;
@@ -579,7 +593,7 @@ public class OnboardingService {
                 .findBySessionIdOrderByAnsweredAtAsc(session.getId());
 
         int answeredCount = answers.size();
-        
+
         // Đếm số lần sai liên tiếp
         int wrongStreak = 0;
         for (int i = answeredCount - 1; i >= 0; i--) {
@@ -591,7 +605,7 @@ public class OnboardingService {
         }
 
         double confidence = (answeredCount / (double) maxPlacementQuestions) * 100.0;
-        
+
         // Dừng sớm nếu sai liên tiếp vượt quá maxWrongStreak
         if (wrongStreak >= maxWrongStreak) {
             confidence = 100.0;
@@ -600,9 +614,9 @@ public class OnboardingService {
         session.setConfidenceScore(java.math.BigDecimal.valueOf(Math.min(confidence, 100.0)));
     }
 
-
     private short calculateSkillScore(List<PlacementTestAnswer> answers) {
-        if (answers == null || answers.isEmpty()) return 0;
+        if (answers == null || answers.isEmpty())
+            return 0;
 
         long correct = answers.stream().filter(PlacementTestAnswer::getIsCorrect).count();
         return (short) Math.round((double) correct / answers.size() * 100);
