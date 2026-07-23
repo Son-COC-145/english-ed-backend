@@ -10,4 +10,10 @@ import lombok.NoArgsConstructor;
 public class MessageDto {
     private String role;
     private String content;
+    private String audioUrl;
+
+    public MessageDto(String role, String content) {
+        this.role = role;
+        this.content = content;
+    }
 }

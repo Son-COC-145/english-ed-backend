@@ -12,9 +12,11 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import com.example.english_app.annotation.RateLimitedAi;
+import com.example.english_app.dto.request.EndSessionRequest;
 import com.example.english_app.dto.request.StartSessionRequest;
 import com.example.english_app.dto.response.ApiResponse;
 import com.example.english_app.dto.response.AudioInputResponse;
+import com.example.english_app.dto.response.SessionEvaluationResponse;
 import com.example.english_app.dto.response.SpeakingSessionResponse;
 import com.example.english_app.service.speaking.AiStreamingService;
 import com.example.english_app.service.speaking.SpeakingSessionService;
@@ -56,7 +58,15 @@ public class SpeakingSessionController {
     @GetMapping(value = "/{id}/stream-response", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamAiResponse(
             @PathVariable("id") Long sessionId,
-            @RequestParam(value = "voiceId", required = false) String voiceId) { 
+            @RequestParam(value = "voiceId", required = false) String voiceId) {
         return aiStreamingService.streamResponse(sessionId, voiceId);
+    }
+
+    @Operation(summary = "Kết thúc phiên học và chấm điểm toàn bộ đoạn hội thoại")
+    @PostMapping("/{sessionId}/end")
+    public ResponseEntity<ApiResponse<SessionEvaluationResponse>> endSession(
+            @PathVariable Long sessionId,
+            @RequestBody EndSessionRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(speakingSessionService.endSession(sessionId, request)));
     }
 }
