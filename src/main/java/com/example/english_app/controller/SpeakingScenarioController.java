@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/speaking-scenarios")
 @RequiredArgsConstructor
 @Tag(name = "Speaking Scenarios", description = "API quản lý kịch bản giao tiếp")
-public class AdminSpeakingScenarioController {
+public class SpeakingScenarioController {
 
     private final SpeakingScenarioService speakingScenarioService;
 
