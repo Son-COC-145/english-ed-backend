@@ -3,6 +3,7 @@ package com.example.english_app.entity.speaking;
 import com.example.english_app.entity.user.User;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -29,7 +30,8 @@ public class SpeakingSession {
     @JoinColumn(name = "scenario_id", nullable = false)
     private SpeakingScenario scenario;
 
-    @Column(name = "started_at", nullable = false)
+    @CreationTimestamp
+    @Column(name = "started_at", nullable = false, updatable = false)
     private LocalDateTime startedAt;
 
     @Column(name = "ended_at")

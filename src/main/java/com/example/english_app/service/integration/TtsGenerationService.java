@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
@@ -20,11 +21,14 @@ public class TtsGenerationService {
     private final CloudinaryService cloudinaryService;
     private final RestClient restClient = RestClient.create();
 
-    // Giọng nam Mỹ (Adam) hoặc thay bằng Voice ID khác
-    private final String US_VOICE_ID = "pNInz6obpgDQGcFmaJgB";
+    @Value("${elevenlabs.default-voice-id:pNInz6obpgDQGcFmaJgB}")
+    private String defaultVoiceId;
+
+    @Value("${elevenlabs.api-url}")
+    private String apiUrl;
 
     public String generateAudio(String word) {
-        String url = "https://api.elevenlabs.io/v1/text-to-speech/" + US_VOICE_ID;
+        String url = apiUrl + "/" + defaultVoiceId;
 
         Map<String, Object> requestBody = Map.of(
                 "text", word,
@@ -49,5 +53,31 @@ public class TtsGenerationService {
         }
     }
 
-}
+    public byte[] generateAudioStream(String text, String customVoiceId) {
+        if (text == null || text.trim().isEmpty()) {
+            return new byte[0];
+        }
 
+        String voiceId = (customVoiceId != null && !customVoiceId.trim().isEmpty()) ? customVoiceId : defaultVoiceId;
+        String url = apiUrl + "/" + voiceId + "?optimize_streaming_latency=2";
+
+        try {
+            return restClient.post()
+                    .uri(url)
+                    .header("xi-api-key", apiKey)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of(
+                            "text", text,
+                            "model_id", "eleven_multilingual_v2",
+                            "voice_settings", Map.of(
+                                    "stability", 0.5,
+                                    "similarity_boost", 0.75)))
+                    .retrieve()
+                    .body(byte[].class);
+        } catch (Exception e) {
+            log.error("Lỗi khi stream ElevenLabs TTS", e);
+            return new byte[0];
+        }
+    }
+
+}
