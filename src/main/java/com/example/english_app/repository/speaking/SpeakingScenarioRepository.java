@@ -19,8 +19,8 @@ public interface SpeakingScenarioRepository extends JpaRepository<SpeakingScenar
            "(:id IS NULL OR s.id = :id) AND " +
            "(:topicId IS NULL OR s.topic.id = :topicId) AND " +
            "(:isActive IS NULL OR s.isActive = :isActive) AND " +
-           "(:title IS NULL OR LOWER(s.titleVi) LIKE LOWER(CONCAT('%', :title, '%')) " +
-           "OR LOWER(s.titleEn) LIKE LOWER(CONCAT('%', :title, '%')))")
+           "(:title IS NULL OR LOWER(s.titleVi) LIKE LOWER(CONCAT('%', CAST(:title AS string), '%')) " +
+           "OR LOWER(s.titleEn) LIKE LOWER(CONCAT('%', CAST(:title AS string), '%')))")
     Page<SpeakingScenario> filterScenarios(
             @Param("id") Short id,
             @Param("title") String title,
