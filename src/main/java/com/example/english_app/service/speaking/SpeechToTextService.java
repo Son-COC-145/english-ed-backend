@@ -24,12 +24,14 @@ public class SpeechToTextService {
     @Value("${gemini.api-key}")
     private String geminiApiKey;
 
+    @Value("${gemini.api-url}")
+    private String geminiApiUrl;
+
     private final RestClient restClient = RestClient.create();
     private final ObjectMapper objectMapper;
 
     public String trancribeAudio(MultipartFile audioFile) {
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key="
-                + geminiApiKey;
+        String url = geminiApiUrl + "?key=" + geminiApiKey;
         try {
             String base64Audio = Base64.getEncoder().encodeToString(audioFile.getBytes());
 

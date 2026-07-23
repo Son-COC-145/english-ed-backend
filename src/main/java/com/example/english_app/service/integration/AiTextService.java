@@ -20,6 +20,9 @@ public class AiTextService {
     @Value("${gemini.api-key}")
     private String apiKey;
 
+    @Value("${gemini.api-url}")
+    private String geminiApiUrl;
+
     private final ObjectMapper objectMapper;
     private final RestClient restClient = RestClient.create();
 
@@ -33,8 +36,7 @@ public class AiTextService {
                         "\"dialogueJson\": [ {\"speaker\": \"A\", \"en\": \"...\", \"vi\": \"...\"} ] }",
                 word, topic, cefr);
 
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key="
-                + apiKey;
+        String url = geminiApiUrl + "?key=" + apiKey;
 
         Map<String, Object> requestBody = Map.of(
                 "contents", List.of(Map.of("parts", List.of(Map.of("text", prompt)))));
