@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import org.hibernate.annotations.UpdateTimestamp;
 
 @Entity
 @Table(name = "syllabus_items")
@@ -41,4 +43,8 @@ public class SyllabusItem {
     @Column(name = "sort_order", nullable = false)
     @Builder.Default
     private Short sortOrder = 0;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 }

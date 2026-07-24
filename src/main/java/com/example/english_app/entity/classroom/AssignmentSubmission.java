@@ -4,7 +4,10 @@ import com.example.english_app.entity.user.User;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import org.hibernate.annotations.UpdateTimestamp;
+import com.example.english_app.entity.enums.AssignmentSubmissionStatus;
 
 @Entity
 @Table(name = "assignment_submissions", uniqueConstraints = {
@@ -32,6 +35,14 @@ public class AssignmentSubmission {
     @Column(name = "result_ref_id")
     private Long resultRefId;
 
+    @Column(precision = 5, scale = 2)
+    private BigDecimal score;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private AssignmentSubmissionStatus status = AssignmentSubmissionStatus.SUBMITTED;
+
     @Column(name = "submitted_at")
     private LocalDateTime submittedAt;
 
@@ -43,4 +54,8 @@ public class AssignmentSubmission {
 
     @Column(name = "commented_at")
     private LocalDateTime commentedAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 }
