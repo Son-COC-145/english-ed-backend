@@ -1,5 +1,6 @@
 package com.example.english_app.entity.vocabulary;
 
+import com.example.english_app.entity.enums.CefrLevel;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -28,4 +29,11 @@ public class Topic {
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private Boolean isActive = true;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "cefr_level")
+    private CefrLevel cefrLevel;
+
+    @Column(name = "category", length = 50)
+    private String category;
 }

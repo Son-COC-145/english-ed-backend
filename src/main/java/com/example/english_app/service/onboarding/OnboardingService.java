@@ -6,6 +6,9 @@ import com.example.english_app.dto.request.PlacementAnswerRequest;
 import com.example.english_app.dto.response.OnboardingStatusResponse;
 import com.example.english_app.dto.response.PlacementQuestionResponse;
 import com.example.english_app.dto.response.PlacementResultResponse;
+import com.example.english_app.dto.response.roadmap.RoadmapResponse;
+import com.example.english_app.dto.response.roadmap.RoadmapMilestone;
+import com.example.english_app.dto.response.roadmap.RoadmapModule;
 import com.example.english_app.entity.enums.CefrLevel;
 import com.example.english_app.entity.enums.Skill;
 import com.example.english_app.entity.gamification.DailyGoal;
@@ -54,6 +57,7 @@ public class OnboardingService {
     private final DailyGoalRepository dailyGoalRepository;
     private final StudentStatRepository studentStatRepository;
     private final ObjectMapper objectMapper;
+    private final RoadmapGenerationService roadmapGenerationService;
 
     // ONBOARDING STATUS
 
@@ -105,6 +109,7 @@ public class OnboardingService {
                 .userName(user.getFullName())
                 .placementCefrLevel(placementDone ? onboarding.getPlacementCefrLevel().name() : null)
                 .dailyGoalXp(onboarding.getDailyGoalXp())
+                .roadmapGenerated(onboarding.getRoadmapJson() != null)
                 .build();
     }
 
@@ -350,6 +355,21 @@ public class OnboardingService {
 
         onboardingRepository.save(onboarding);
         log.info("Placement test completed for user {}. CEFR level: {}", userId, finalLevel);
+        
+        List<String> suggestedModules = new ArrayList<>();
+        boolean roadmapGenerated = false;
+        try {
+            RoadmapResponse roadmap = roadmapGenerationService.generateAndPersist(userId, finalLevel, onboarding.getGoalSurveyJson());
+            if (roadmap != null && roadmap.getMilestones() != null && !roadmap.getMilestones().isEmpty()) {
+                suggestedModules = roadmap.getMilestones().get(0).getModules().stream()
+                        .map(RoadmapModule::getTitle)
+                        .collect(Collectors.toList());
+            }
+            roadmapGenerated = true;
+        } catch (Exception e) {
+            log.error("Roadmap generation failed for user {}, but placement result is saved.", userId, e);
+            suggestedModules = buildSuggestedModules(finalLevel);
+        }
 
         Map<String, Short> skillScores = buildSkillScoreMap(vocabScore, grammarScore, readingScore, listeningScore, pronunciationScore);
         List<String> strengths = getTopSkills(skillScores, true);
@@ -371,7 +391,8 @@ public class OnboardingService {
                 .cefrDescription(buildCefrDescription(finalLevel))
                 .strengths(strengths)
                 .weaknesses(weaknesses)
-                .suggestedModules(buildSuggestedModules(finalLevel))
+                .roadmapGenerated(roadmapGenerated)
+                .suggestedModules(suggestedModules)
                 .build();
     }
 
@@ -402,6 +423,23 @@ public class OnboardingService {
 
         List<String> strengths = getTopSkills(skillScores, true);
         List<String> weaknesses = getTopSkills(skillScores, false);
+        
+        List<String> suggestedModules = new ArrayList<>();
+        if (onboarding.getRoadmapJson() != null) {
+            try {
+                RoadmapResponse roadmap = objectMapper.readValue(onboarding.getRoadmapJson(), RoadmapResponse.class);
+                if (roadmap.getMilestones() != null && !roadmap.getMilestones().isEmpty()) {
+                    suggestedModules = roadmap.getMilestones().get(0).getModules().stream()
+                            .map(RoadmapModule::getTitle)
+                            .collect(Collectors.toList());
+                }
+            } catch (Exception e) {
+                log.warn("Failed to parse roadmap_json for user {}", userId);
+                suggestedModules = buildSuggestedModules(onboarding.getPlacementCefrLevel());
+            }
+        } else {
+            suggestedModules = buildSuggestedModules(onboarding.getPlacementCefrLevel());
+        }
 
         return PlacementResultResponse.builder()
                 .cefrLevel(onboarding.getPlacementCefrLevel().name())
@@ -417,8 +455,25 @@ public class OnboardingService {
                 .cefrDescription(buildCefrDescription(onboarding.getPlacementCefrLevel()))
                 .strengths(strengths)
                 .weaknesses(weaknesses)
-                .suggestedModules(buildSuggestedModules(onboarding.getPlacementCefrLevel()))
+                .roadmapGenerated(onboarding.getRoadmapJson() != null)
+                .suggestedModules(suggestedModules)
                 .build();
+    }
+    
+    public RoadmapResponse getRoadmap(Long userId) {
+        StudentOnboarding onboarding = onboardingRepository.findByStudentId(userId)
+                .orElseThrow(() -> ErrorCode.SYSTEM_ERROR.toException());
+                
+        if (onboarding.getRoadmapJson() == null) {
+            throw ErrorCode.ROADMAP_NOT_GENERATED.toException();
+        }
+        
+        try {
+            return objectMapper.readValue(onboarding.getRoadmapJson(), RoadmapResponse.class);
+        } catch (Exception e) {
+            log.error("Failed to parse roadmap_json for user {}", userId, e);
+            throw ErrorCode.SYSTEM_ERROR.toException();
+        }
     }
 
     // SETTINGS

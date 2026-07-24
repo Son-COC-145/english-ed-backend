@@ -28,4 +28,5 @@ public class OnboardingStatusResponse {
 
     private String placementCefrLevel;
     private Short dailyGoalXp;
+    private boolean roadmapGenerated;
 }

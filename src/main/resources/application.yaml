@@ -22,6 +22,10 @@ spring:
     baseline-on-migrate: true
     locations: classpath:db/migration
 
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 10MB
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -98,3 +102,9 @@ gemini:
 
 elevenlabs:
   api-key: ${ELEVENLABS_API_KEY}
+
+azure:
+  speech:
+    subscription-key: ${AZURE_SPEECH_KEY:}
+    region: ${AZURE_SPEECH_REGION:southeastasia}
+    timeout-seconds: 5

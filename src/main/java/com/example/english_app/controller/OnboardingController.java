@@ -7,16 +7,21 @@ import com.example.english_app.dto.response.ApiResponse;
 import com.example.english_app.dto.response.OnboardingStatusResponse;
 import com.example.english_app.dto.response.PlacementQuestionResponse;
 import com.example.english_app.dto.response.PlacementResultResponse;
+import com.example.english_app.dto.response.PronunciationScoreResult;
+import com.example.english_app.dto.response.roadmap.RoadmapResponse;
 import com.example.english_app.service.onboarding.OnboardingService;
+import com.example.english_app.service.onboarding.PronunciationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/onboarding")
@@ -26,6 +31,7 @@ import org.springframework.web.bind.annotation.*;
 public class OnboardingController {
 
     private final OnboardingService onboardingService;
+    private final PronunciationService pronunciationService;
 
     //  ONBOARDING STATUS
 
@@ -79,6 +85,19 @@ public class OnboardingController {
                 onboardingService.submitAnswer(userId, request)));
     }
 
+    @Operation(summary = "Nộp câu trả lời phát âm (audio)")
+    @PostMapping(value = "/placement-test/pronunciation/submit-answer", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<PronunciationScoreResult>> submitPronunciationAnswer(
+            Authentication auth,
+            @RequestParam Long sessionId,
+            @RequestPart("audioFile") MultipartFile audioFile,
+            @RequestParam("word") String word,
+            @RequestParam("wordIndex") int wordIndex) {
+        Long userId = getUserId(auth);
+        return ResponseEntity.ok(ApiResponse.success(
+                pronunciationService.submitPronunciation(userId, sessionId, audioFile, word, wordIndex)));
+    }
+
     @Operation(summary = "Kết thúc bài kiểm tra")
     @PostMapping("/placement-test/complete")
     public ResponseEntity<ApiResponse<PlacementResultResponse>> completeTest(
@@ -87,6 +106,14 @@ public class OnboardingController {
         Long userId = getUserId(auth);
         return ResponseEntity.ok(ApiResponse.success(
                 onboardingService.completePlacementTest(sessionId, userId)));
+    }
+
+    @Operation(summary = "Lấy lộ trình học tập")
+    @GetMapping("/roadmap")
+    public ResponseEntity<ApiResponse<RoadmapResponse>> getRoadmap(Authentication auth) {
+        Long userId = getUserId(auth);
+        return ResponseEntity.ok(ApiResponse.success(
+                onboardingService.getRoadmap(userId)));
     }
 
     @Operation(summary = "Xem kết quả bài kiểm tra")

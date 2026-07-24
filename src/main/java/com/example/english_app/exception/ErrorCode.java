@@ -31,14 +31,17 @@ public enum ErrorCode {
     PLACEMENT_TEST_ALREADY_COMPLETED(5002, "Bạn đã hoàn thành bài kiểm tra phân loại", HttpStatus.BAD_REQUEST),
     PLACEMENT_TEST_NOT_FOUND(5003, "Không tìm thấy bài kiểm tra phân loại", HttpStatus.NOT_FOUND),
     PLACEMENT_TEST_EXPIRED(5004, "Bài kiểm tra đã hết hạn", HttpStatus.BAD_REQUEST),
+    AUDIO_PROCESSING_FAILED(5010, "Không thể xử lý audio", HttpStatus.BAD_REQUEST),
+    PRONUNCIATION_UNAVAILABLE(5011, "Dịch vụ chấm phát âm tạm thời không khả dụng", HttpStatus.SERVICE_UNAVAILABLE),
+    ROADMAP_NOT_GENERATED(5012, "Lộ trình chưa được tạo. Vui lòng hoàn thành bài kiểm tra phân loại trước.", HttpStatus.NOT_FOUND),
 
     // System
     SYSTEM_ERROR(9999, "Lỗi hệ thống máy chủ", HttpStatus.INTERNAL_SERVER_ERROR),
     // Vocabulary
-    TOPIC_NOT_FOUND(5001, "Chủ đề không tồn tại", HttpStatus.NOT_FOUND),
-    TOPIC_ALREADY_EXISTS(5002, "Chủ đề đã tồn tại", HttpStatus.BAD_REQUEST),
-    VOCABULARY_NOT_FOUND(5001, "Từ vựng không tồn tại", HttpStatus.NOT_FOUND),
-    VOCABULARY_ALREADY_EXISTS(5002, "Từ vựng đã tồn tại", HttpStatus.BAD_REQUEST),
+    TOPIC_NOT_FOUND(8001, "Chủ đề không tồn tại", HttpStatus.NOT_FOUND),
+    TOPIC_ALREADY_EXISTS(8002, "Chủ đề đã tồn tại", HttpStatus.BAD_REQUEST),
+    VOCABULARY_NOT_FOUND(8003, "Từ vựng không tồn tại", HttpStatus.NOT_FOUND),
+    VOCABULARY_ALREADY_EXISTS(8004, "Từ vựng đã tồn tại", HttpStatus.BAD_REQUEST),
 
     // AI Quota
     QUOTA_EXCEEDED(6001, "Bạn đã hết lượt sử dụng AI hôm nay. Vui lòng nâng cấp gói Premium!", HttpStatus.FORBIDDEN),

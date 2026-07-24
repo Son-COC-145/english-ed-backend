@@ -1,5 +1,6 @@
 package com.example.english_app.repository;
 
+import com.example.english_app.entity.enums.CefrLevel;
 import com.example.english_app.entity.vocabulary.Topic;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -27,4 +28,12 @@ public interface TopicRepository extends JpaRepository<Topic, Short> {
             @Param("nameSearch") String nameSearch,
             @Param("isActive") Boolean isActive,
             Pageable pageable);
+
+    @Query("SELECT t FROM Topic t WHERE t.isActive = true " +
+           "AND (t.cefrLevel = :cefrLevel OR t.cefrLevel IS NULL) " +
+           "AND (:categories IS NULL OR t.category IN :categories) " +
+           "ORDER BY CASE WHEN t.cefrLevel = :cefrLevel THEN 0 ELSE 1 END")
+    List<Topic> findForRoadmap(@Param("cefrLevel") CefrLevel cefrLevel,
+                               @Param("categories") List<String> categories,
+                               Pageable pageable);
 }
