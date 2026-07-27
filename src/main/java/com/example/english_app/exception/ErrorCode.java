@@ -50,7 +50,11 @@ public enum ErrorCode {
     // Speaking Coach
     SCENARIO_NOT_FOUND(8001, "Kịch bản giao tiếp không tồn tại", HttpStatus.NOT_FOUND),
     SCENARIO_ALREADY_EXISTS(8002, "Tên kịch bản giao tiếp đã tồn tại", HttpStatus.BAD_REQUEST),
-    SESSION_NOT_FOUND(8003, "Không tìm thấy phiên giao tiếp", HttpStatus.NOT_FOUND);
+    SESSION_NOT_FOUND(8003, "Không tìm thấy phiên giao tiếp", HttpStatus.NOT_FOUND),
+
+    // Classroom
+    COURSE_NOT_FOUND(9001, "Khóa học không tồn tại", HttpStatus.NOT_FOUND),
+    STUDENT_ALREADY_IN_COURSE(9002, "Học viên đã tham gia khóa học này", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;

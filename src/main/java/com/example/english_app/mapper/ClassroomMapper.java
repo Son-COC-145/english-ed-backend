@@ -1,5 +1,7 @@
 package com.example.english_app.mapper;
 
+import com.example.english_app.dto.response.StudentStatResponse;
+import com.example.english_app.dto.response.UserResponse;
 import com.example.english_app.dto.response.classroom.*;
 import com.example.english_app.entity.classroom.*;
 import org.springframework.stereotype.Component;
@@ -8,7 +10,8 @@ import org.springframework.stereotype.Component;
 public class ClassroomMapper {
 
     public CourseResponse toCourseResponse(Course entity) {
-        if (entity == null) return null;
+        if (entity == null)
+            return null;
         return CourseResponse.builder()
                 .id(entity.getId())
                 .name(entity.getName())
@@ -24,7 +27,8 @@ public class ClassroomMapper {
     }
 
     public CourseStudentResponse toCourseStudentResponse(CourseStudent entity) {
-        if (entity == null) return null;
+        if (entity == null)
+            return null;
         return CourseStudentResponse.builder()
                 .id(entity.getId())
                 .courseId(entity.getCourse() != null ? entity.getCourse().getId() : null)
@@ -36,7 +40,8 @@ public class ClassroomMapper {
     }
 
     public TeachingMaterialResponse toTeachingMaterialResponse(TeachingMaterial entity) {
-        if (entity == null) return null;
+        if (entity == null)
+            return null;
         return TeachingMaterialResponse.builder()
                 .id(entity.getId())
                 .teacherId(entity.getTeacher() != null ? entity.getTeacher().getId() : null)
@@ -52,7 +57,8 @@ public class ClassroomMapper {
     }
 
     public AssignmentResponse toAssignmentResponse(Assignment entity) {
-        if (entity == null) return null;
+        if (entity == null)
+            return null;
         return AssignmentResponse.builder()
                 .id(entity.getId())
                 .courseId(entity.getCourse() != null ? entity.getCourse().getId() : null)
@@ -68,7 +74,8 @@ public class ClassroomMapper {
     }
 
     public AssignmentSubmissionResponse toAssignmentSubmissionResponse(AssignmentSubmission entity) {
-        if (entity == null) return null;
+        if (entity == null)
+            return null;
         return AssignmentSubmissionResponse.builder()
                 .id(entity.getId())
                 .assignmentId(entity.getAssignment() != null ? entity.getAssignment().getId() : null)
@@ -85,7 +92,8 @@ public class ClassroomMapper {
     }
 
     public SyllabusItemResponse toSyllabusItemResponse(SyllabusItem entity) {
-        if (entity == null) return null;
+        if (entity == null)
+            return null;
         return SyllabusItemResponse.builder()
                 .id(entity.getId())
                 .courseId(entity.getCourse() != null ? entity.getCourse().getId() : null)
@@ -96,6 +104,23 @@ public class ClassroomMapper {
                 .materialId(entity.getMaterial() != null ? entity.getMaterial().getId() : null)
                 .sortOrder(entity.getSortOrder())
                 .updatedAt(entity.getUpdatedAt())
+                .build();
+    }
+
+    public CourseStudentDetailResponse toCourseStudentDetailResponse(
+            CourseStudent entity,
+            UserResponse studentInfo,
+            StudentStatResponse studentProgress) {
+
+        if (entity == null)
+            return null;
+        return CourseStudentDetailResponse.builder()
+                .id(entity.getId())
+                .courseId(entity.getCourse() != null ? entity.getCourse().getId() : null)
+                .status(entity.getStatus())
+                .joinedAt(entity.getJoinedAt())
+                .studentInfo(studentInfo)
+                .studentProgress(studentProgress)
                 .build();
     }
 }
