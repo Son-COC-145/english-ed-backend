@@ -14,8 +14,7 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SyllabusItemRequest {
-    @NotNull(message = "Course ID is required")
-    private Long courseId;
+
 
     @NotNull(message = "Week number is required")
     private Short weekNumber;

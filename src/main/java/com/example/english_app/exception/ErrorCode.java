@@ -54,7 +54,12 @@ public enum ErrorCode {
 
     // Classroom
     COURSE_NOT_FOUND(9001, "Khóa học không tồn tại", HttpStatus.NOT_FOUND),
-    STUDENT_ALREADY_IN_COURSE(9002, "Học viên đã tham gia khóa học này", HttpStatus.BAD_REQUEST);
+    STUDENT_ALREADY_IN_COURSE(9002, "Học viên đã tham gia khóa học này", HttpStatus.BAD_REQUEST),
+    MATERIAL_NOT_FOUND(9003, "Tài liệu giảng dạy không tồn tại", HttpStatus.NOT_FOUND),
+    SYLLABUS_NOT_FOUND(9004, "Lộ trình học không tồn tại", HttpStatus.NOT_FOUND),
+    ASSIGNMENT_NOT_FOUND(9005, "Bài tập không tồn tại", HttpStatus.NOT_FOUND),
+    SUBMISSION_NOT_FOUND(9006, "Bài nộp không tồn tại", HttpStatus.NOT_FOUND),
+    UNAUTHORIZED(1007, "Không có quyền truy cập", HttpStatus.UNAUTHORIZED);
 
     private final int code;
     private final String message;
