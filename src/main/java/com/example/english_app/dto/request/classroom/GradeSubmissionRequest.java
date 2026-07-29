@@ -13,7 +13,7 @@ import java.math.BigDecimal;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AssignmentGradeRequest {
+public class GradeSubmissionRequest {
     private BigDecimal score;
 
     @NotNull(message = "Status is required")

@@ -15,8 +15,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AssignmentRequest {
-    @NotNull(message = "Course ID is required")
-    private Long courseId;
 
     @NotBlank(message = "Title is required")
     private String title;

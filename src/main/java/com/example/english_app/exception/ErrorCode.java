@@ -59,6 +59,8 @@ public enum ErrorCode {
     SYLLABUS_NOT_FOUND(9004, "Lộ trình học không tồn tại", HttpStatus.NOT_FOUND),
     ASSIGNMENT_NOT_FOUND(9005, "Bài tập không tồn tại", HttpStatus.NOT_FOUND),
     SUBMISSION_NOT_FOUND(9006, "Bài nộp không tồn tại", HttpStatus.NOT_FOUND),
+    STUDENT_NOT_IN_COURSE(9007, "Học viên không thuộc khóa học này", HttpStatus.FORBIDDEN),
+    COURSE_ACCESS_DENIED(9008, "Bạn không có quyền truy cập vào khóa học này", HttpStatus.FORBIDDEN),
     UNAUTHORIZED(1007, "Không có quyền truy cập", HttpStatus.UNAUTHORIZED);
 
     private final int code;
