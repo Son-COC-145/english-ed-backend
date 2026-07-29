@@ -91,6 +91,7 @@ public class GameficationService {
                 .totalXp(stat.getTotalXp())
                 .currentStreak(stat.getCurrentStreak())
                 .newVocabularyStatus(progress.getStatus())
+                .resultId(result.getId()) // Trả về ID của kết quả
                 .build();
     }
 

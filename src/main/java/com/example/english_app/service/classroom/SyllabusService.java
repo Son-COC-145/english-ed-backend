@@ -1,0 +1,107 @@
+package com.example.english_app.service.classroom;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+
+import com.example.english_app.dto.request.classroom.SyllabusItemRequest;
+import com.example.english_app.dto.response.PageResponse;
+import com.example.english_app.dto.response.classroom.SyllabusItemResponse;
+import com.example.english_app.entity.classroom.Course;
+import com.example.english_app.entity.classroom.SyllabusItem;
+import com.example.english_app.entity.classroom.TeachingMaterial;
+import com.example.english_app.exception.ErrorCode;
+import com.example.english_app.mapper.ClassroomMapper;
+import com.example.english_app.repository.classroom.CourseRepository;
+import com.example.english_app.repository.classroom.SyllabusItemRepository;
+import com.example.english_app.repository.classroom.TeachingMaterialRepository;
+
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+
+@Service
+@RequiredArgsConstructor
+public class SyllabusService {
+    private final SyllabusItemRepository syllabusItemRepository;
+    private final CourseRepository courseRepository;
+    private final TeachingMaterialRepository teachingMaterialRepository;
+    private final ClassroomMapper classroomMapper;
+
+    @Transactional
+    public SyllabusItemResponse createSyllabusItem(Long courseId, SyllabusItemRequest request) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> ErrorCode.COURSE_NOT_FOUND.toException());
+
+        TeachingMaterial material = null;
+
+        if (request.getMaterialId() != null) {
+            material = teachingMaterialRepository.findById(request.getMaterialId())
+                    .orElseThrow(() -> ErrorCode.MATERIAL_NOT_FOUND.toException());
+        }
+
+        SyllabusItem item = SyllabusItem.builder()
+                .course(course)
+                .material(material)
+                .weekNumber(request.getWeekNumber())
+                .title(request.getTitle())
+                .description(request.getDescription())
+                .scheduledDate(request.getScheduledDate())
+                .sortOrder(request.getSortOrder())
+                .build();
+
+        return classroomMapper.toSyllabusItemResponse(syllabusItemRepository.save(item));
+    }
+
+    public PageResponse<SyllabusItemResponse> getSyllabusByCourseWithFilters(
+            Long courseId, String keyword, Short weekNumber, Pageable pageable) {
+
+        Page<SyllabusItem> pageResult = syllabusItemRepository.findAllByCourseIdWithFilters(
+                courseId, keyword, weekNumber, pageable);
+
+        List<SyllabusItemResponse> items = pageResult.getContent().stream()
+                .map(classroomMapper::toSyllabusItemResponse)
+                .collect(Collectors.toList());
+
+        return PageResponse.<SyllabusItemResponse>builder()
+                .content(items)
+                .currentPage(pageResult.getNumber() + 1)
+                .pageSize(pageResult.getSize())
+                .totalElements(pageResult.getTotalElements())
+                .totalPages(pageResult.getTotalPages())
+                .build();
+    }
+
+    @Transactional
+    public void deleteSyllabusItem(Long itemId) {
+        syllabusItemRepository.deleteById(itemId);
+    }
+
+    @Transactional
+    public SyllabusItemResponse updateSyllabusItem(Long courseId, Long itemId, SyllabusItemRequest request) {
+        SyllabusItem item = syllabusItemRepository.findById(itemId)
+                .orElseThrow(() -> ErrorCode.SYLLABUS_NOT_FOUND.toException());
+
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> ErrorCode.COURSE_NOT_FOUND.toException());
+
+        TeachingMaterial material = null;
+        if (request.getMaterialId() != null) {
+            material = teachingMaterialRepository.findById(request.getMaterialId())
+                    .orElseThrow(() -> ErrorCode.MATERIAL_NOT_FOUND.toException());
+        }
+
+        item.setCourse(course);
+        item.setMaterial(material);
+        item.setWeekNumber(request.getWeekNumber());
+        item.setTitle(request.getTitle());
+        item.setDescription(request.getDescription());
+        item.setScheduledDate(request.getScheduledDate());
+        item.setSortOrder(request.getSortOrder());
+
+        return classroomMapper.toSyllabusItemResponse(syllabusItemRepository.save(item));
+    }
+
+}
