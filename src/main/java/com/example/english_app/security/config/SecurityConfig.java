@@ -69,6 +69,8 @@ public class SecurityConfig {
                                                                 "/api/v1/payments/vnpay-return",
                                                                 "/api/v1/payments/vnpay-ipn")
                                                 .permitAll()
+                                                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/ipa/phonemes/**")
+                                                .permitAll()
                                                 .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**")
                                                 .permitAll()
                                                 .anyRequest().authenticated())

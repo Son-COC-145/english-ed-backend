@@ -44,4 +44,8 @@ public class IpaPhoneme {
     @Column(name = "is_common_vn_error", nullable = false)
     @Builder.Default
     private Boolean isCommonVnError = false;
+
+    @OneToMany(mappedBy = "phoneme", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @Builder.Default
+    private java.util.List<IpaExampleWord> exampleWords = new java.util.ArrayList<>();
 }

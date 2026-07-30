@@ -48,7 +48,11 @@ public enum ErrorCode {
 
     // Subscription Plan
     PLAN_NOT_FOUND(7001, "Gói cước không tồn tại", HttpStatus.NOT_FOUND),
-    PLAN_ALREADY_EXISTS(7002, "Tên gói cước đã tồn tại", HttpStatus.BAD_REQUEST);
+    PLAN_ALREADY_EXISTS(7002, "Tên gói cước đã tồn tại", HttpStatus.BAD_REQUEST),
+
+    // IPA Module
+    PHONEME_NOT_FOUND(9001, "Không tìm thấy âm IPA với id đã cho", HttpStatus.NOT_FOUND),
+    EXAMPLE_WORD_NOT_FOUND(9002, "Không tìm thấy từ ví dụ với id đã cho", HttpStatus.NOT_FOUND);
 
     private final int code;
     private final String message;
