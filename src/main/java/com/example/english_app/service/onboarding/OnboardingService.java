@@ -556,8 +556,13 @@ public class OnboardingService {
      * Nếu lastActivityAt cách hiện tại > 30 phút → expired.
      */
     private boolean isSessionExpired(PlacementTestSession session) {
-        if (session.getLastActivityAt() == null) return false;
-        return session.getLastActivityAt().isBefore(LocalDateTime.now().minusMinutes(30));
+        final int SESSION_TIMEOUT_MINUTES = 30;
+        if (session.getLastActivityAt() == null) {
+            // Fallback: dùng startedAt nếu chưa có lastActivityAt
+            if (session.getStartedAt() == null) return false;
+            return session.getStartedAt().plusMinutes(SESSION_TIMEOUT_MINUTES).isBefore(LocalDateTime.now());
+        }
+        return session.getLastActivityAt().plusMinutes(SESSION_TIMEOUT_MINUTES).isBefore(LocalDateTime.now());
     }
 
     /**
@@ -662,6 +667,7 @@ public class OnboardingService {
         long correct = answers.stream().filter(PlacementTestAnswer::getIsCorrect).count();
         return (short) Math.round((double) correct / answers.size() * 100);
     }
+
 
     private String buildResultMessage(CefrLevel level) {
         return switch (level) {

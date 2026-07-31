@@ -54,6 +54,7 @@ public enum ErrorCode {
     PHONEME_NOT_FOUND(9001, "Không tìm thấy âm IPA với id đã cho", HttpStatus.NOT_FOUND),
     EXAMPLE_WORD_NOT_FOUND(9002, "Không tìm thấy từ ví dụ với id đã cho", HttpStatus.NOT_FOUND);
 
+
     private final int code;
     private final String message;
     private final HttpStatus httpStatus;
