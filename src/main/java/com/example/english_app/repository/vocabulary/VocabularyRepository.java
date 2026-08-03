@@ -12,6 +12,8 @@ import org.springframework.data.domain.Pageable;
 
 public interface VocabularyRepository extends JpaRepository<Vocabulary, Long> {
     boolean existsByWord(String word);
+    
+    long countByTopicId(Short topicId);
 
     @Query("SELECT v FROM Vocabulary v WHERE " +
         "(:topicId IS NULL OR v.topic.id = :topicId) AND " +

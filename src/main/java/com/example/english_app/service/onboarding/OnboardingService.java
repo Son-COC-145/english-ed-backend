@@ -6,6 +6,8 @@ import com.example.english_app.dto.request.PlacementAnswerRequest;
 import com.example.english_app.dto.response.OnboardingStatusResponse;
 import com.example.english_app.dto.response.PlacementQuestionResponse;
 import com.example.english_app.dto.response.PlacementResultResponse;
+import com.example.english_app.dto.response.roadmap.RoadmapResponse;
+import com.example.english_app.dto.response.roadmap.RoadmapModule;
 import com.example.english_app.entity.enums.CefrLevel;
 import com.example.english_app.entity.enums.Skill;
 import com.example.english_app.entity.gamification.DailyGoal;
@@ -16,13 +18,13 @@ import com.example.english_app.entity.onboarding.StudentOnboarding;
 import com.example.english_app.entity.question.Question;
 import com.example.english_app.entity.user.User;
 import com.example.english_app.exception.ErrorCode;
-import com.example.english_app.repository.user.UserRepository;
 import com.example.english_app.repository.gamification.DailyGoalRepository;
 import com.example.english_app.repository.gamification.StudentStatRepository;
 import com.example.english_app.repository.onboarding.OnboardingRepository;
-import com.example.english_app.repository.question.PlacementTestSessionRepository;
 import com.example.english_app.repository.question.PlacementTestAnswerRepository;
+import com.example.english_app.repository.question.PlacementTestSessionRepository;
 import com.example.english_app.repository.question.QuestionRepository;
+import com.example.english_app.repository.user.UserRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -60,6 +62,7 @@ public class OnboardingService {
     private final DailyGoalRepository dailyGoalRepository;
     private final StudentStatRepository studentStatRepository;
     private final ObjectMapper objectMapper;
+    private final RoadmapGenerationService roadmapGenerationService;
 
     // ONBOARDING STATUS
 
@@ -111,6 +114,7 @@ public class OnboardingService {
                 .userName(user.getFullName())
                 .placementCefrLevel(placementDone ? onboarding.getPlacementCefrLevel().name() : null)
                 .dailyGoalXp(onboarding.getDailyGoalXp())
+                .roadmapGenerated(onboarding.getRoadmapJson() != null)
                 .build();
     }
 
@@ -147,8 +151,8 @@ public class OnboardingService {
         });
 
         // Kiểm tra session đang dở
-        Optional<PlacementTestSession> existingSession = sessionRepository
-                .findByStudentIdAndIsCompletedFalse(user.getId());
+        Optional<PlacementTestSession> existingSession =
+                sessionRepository.findByStudentIdAndIsCompletedFalse(user.getId());
 
         if (existingSession.isPresent()) {
             PlacementTestSession existing = existingSession.get();
@@ -225,8 +229,7 @@ public class OnboardingService {
         Map<String, Object> content;
         try {
             content = objectMapper.readValue(nextQuestion.getContentJson(),
-                    new TypeReference<Map<String, Object>>() {
-                    });
+                    new TypeReference<Map<String, Object>>() {});
         } catch (JsonProcessingException e) {
             log.error("Failed to parse question content JSON for question {}", nextQuestion.getId(), e);
             content = Map.of("raw", nextQuestion.getContentJson());
@@ -299,8 +302,7 @@ public class OnboardingService {
 
         // Tự động kết thúc nếu đủ câu hỏi hoặc confidence >= confidenceThreshold
         if (answeredCount >= maxPlacementQuestions ||
-                (session.getConfidenceScore() != null
-                        && session.getConfidenceScore().doubleValue() >= confidenceThreshold)) {
+            (session.getConfidenceScore() != null && session.getConfidenceScore().doubleValue() >= confidenceThreshold)) {
             completePlacementTest(session.getId(), userId);
             return null;
         }
@@ -340,8 +342,7 @@ public class OnboardingService {
 
         // CAT: Sử dụng CEFR level ước tính cuối cùng
         CefrLevel finalLevel = session.getCurrentCefrEstimate() != null
-                ? session.getCurrentCefrEstimate()
-                : CefrLevel.A1;
+                ? session.getCurrentCefrEstimate() : CefrLevel.A1;
 
         // Lưu vào StudentOnboarding
         StudentOnboarding onboarding = onboardingRepository.findByStudentId(userId)
@@ -359,9 +360,23 @@ public class OnboardingService {
 
         onboardingRepository.save(onboarding);
         log.info("Placement test completed for user {}. CEFR level: {}", userId, finalLevel);
+        
+        List<String> suggestedModules = new ArrayList<>();
+        boolean roadmapGenerated = false;
+        try {
+            RoadmapResponse roadmap = roadmapGenerationService.generateAndPersist(userId, finalLevel, onboarding.getGoalSurveyJson());
+            if (roadmap != null && roadmap.getMilestones() != null && !roadmap.getMilestones().isEmpty()) {
+                suggestedModules = roadmap.getMilestones().get(0).getModules().stream()
+                        .map(RoadmapModule::getTitle)
+                        .collect(Collectors.toList());
+            }
+            roadmapGenerated = true;
+        } catch (Exception e) {
+            log.error("Roadmap generation failed for user {}, but placement result is saved.", userId, e);
+            suggestedModules = buildSuggestedModules(finalLevel);
+        }
 
-        Map<String, Short> skillScores = buildSkillScoreMap(vocabScore, grammarScore, readingScore, listeningScore,
-                pronunciationScore);
+        Map<String, Short> skillScores = buildSkillScoreMap(vocabScore, grammarScore, readingScore, listeningScore, pronunciationScore);
         List<String> strengths = getTopSkills(skillScores, true);
         List<String> weaknesses = getTopSkills(skillScores, false);
 
@@ -381,7 +396,8 @@ public class OnboardingService {
                 .cefrDescription(buildCefrDescription(finalLevel))
                 .strengths(strengths)
                 .weaknesses(weaknesses)
-                .suggestedModules(buildSuggestedModules(finalLevel))
+                .roadmapGenerated(roadmapGenerated)
+                .suggestedModules(suggestedModules)
                 .build();
     }
 
@@ -412,6 +428,23 @@ public class OnboardingService {
 
         List<String> strengths = getTopSkills(skillScores, true);
         List<String> weaknesses = getTopSkills(skillScores, false);
+        
+        List<String> suggestedModules = new ArrayList<>();
+        if (onboarding.getRoadmapJson() != null) {
+            try {
+                RoadmapResponse roadmap = objectMapper.readValue(onboarding.getRoadmapJson(), RoadmapResponse.class);
+                if (roadmap.getMilestones() != null && !roadmap.getMilestones().isEmpty()) {
+                    suggestedModules = roadmap.getMilestones().get(0).getModules().stream()
+                            .map(RoadmapModule::getTitle)
+                            .collect(Collectors.toList());
+                }
+            } catch (Exception e) {
+                log.warn("Failed to parse roadmap_json for user {}", userId);
+                suggestedModules = buildSuggestedModules(onboarding.getPlacementCefrLevel());
+            }
+        } else {
+            suggestedModules = buildSuggestedModules(onboarding.getPlacementCefrLevel());
+        }
 
         return PlacementResultResponse.builder()
                 .cefrLevel(onboarding.getPlacementCefrLevel().name())
@@ -427,8 +460,25 @@ public class OnboardingService {
                 .cefrDescription(buildCefrDescription(onboarding.getPlacementCefrLevel()))
                 .strengths(strengths)
                 .weaknesses(weaknesses)
-                .suggestedModules(buildSuggestedModules(onboarding.getPlacementCefrLevel()))
+                .roadmapGenerated(onboarding.getRoadmapJson() != null)
+                .suggestedModules(suggestedModules)
                 .build();
+    }
+    
+    public RoadmapResponse getRoadmap(Long userId) {
+        StudentOnboarding onboarding = onboardingRepository.findByStudentId(userId)
+                .orElseThrow(() -> ErrorCode.SYSTEM_ERROR.toException());
+                
+        if (onboarding.getRoadmapJson() == null) {
+            throw ErrorCode.ROADMAP_NOT_GENERATED.toException();
+        }
+        
+        try {
+            return objectMapper.readValue(onboarding.getRoadmapJson(), RoadmapResponse.class);
+        } catch (Exception e) {
+            log.error("Failed to parse roadmap_json for user {}", userId, e);
+            throw ErrorCode.SYSTEM_ERROR.toException();
+        }
     }
 
     // SETTINGS
@@ -499,7 +549,7 @@ public class OnboardingService {
         log.info("Onboarding completed for user {}", userId);
     }
 
-    // PRIVATE HELPERS
+    //  PRIVATE HELPERS
 
     private User findUserById(Long userId) {
         return userRepository.findById(userId)
@@ -511,17 +561,20 @@ public class OnboardingService {
      * Nếu lastActivityAt cách hiện tại > 30 phút → expired.
      */
     private boolean isSessionExpired(PlacementTestSession session) {
-        if (session.getLastActivityAt() == null)
-            return false;
-        return session.getLastActivityAt().isBefore(LocalDateTime.now().minusMinutes(30));
+        final int SESSION_TIMEOUT_MINUTES = 30;
+        if (session.getLastActivityAt() == null) {
+            // Fallback: dùng startedAt nếu chưa có lastActivityAt
+            if (session.getStartedAt() == null) return false;
+            return session.getStartedAt().plusMinutes(SESSION_TIMEOUT_MINUTES).isBefore(LocalDateTime.now());
+        }
+        return session.getLastActivityAt().plusMinutes(SESSION_TIMEOUT_MINUTES).isBefore(LocalDateTime.now());
     }
 
     /**
      * Xây dựng Map điểm kỹ năng dùng cho Radar Chart và Top Skills.
      * Tránh lặp code giữa completePlacementTest() và getPlacementResult().
      */
-    private Map<String, Short> buildSkillScoreMap(short vocab, short grammar, short reading, short listening,
-            short pronunciation) {
+    private Map<String, Short> buildSkillScoreMap(short vocab, short grammar, short reading, short listening, short pronunciation) {
         Map<String, Short> map = new LinkedHashMap<>();
         map.put("Từ vựng", vocab);
         map.put("Ngữ pháp", grammar);
@@ -555,16 +608,14 @@ public class OnboardingService {
         if (currentIndex + 1 < levels.length) {
             candidates = questionRepository
                     .findRandomByCefrLevelExcluding(levels[currentIndex + 1], excludeIds);
-            if (!candidates.isEmpty())
-                return candidates.get(0);
+            if (!candidates.isEmpty()) return candidates.get(0);
         }
 
         // Tìm level dưới
         if (currentIndex - 1 >= 0) {
             candidates = questionRepository
                     .findRandomByCefrLevelExcluding(levels[currentIndex - 1], excludeIds);
-            if (!candidates.isEmpty())
-                return candidates.get(0);
+            if (!candidates.isEmpty()) return candidates.get(0);
         }
 
         return null;
@@ -593,7 +644,7 @@ public class OnboardingService {
                 .findBySessionIdOrderByAnsweredAtAsc(session.getId());
 
         int answeredCount = answers.size();
-
+        
         // Đếm số lần sai liên tiếp
         int wrongStreak = 0;
         for (int i = answeredCount - 1; i >= 0; i--) {
@@ -605,7 +656,7 @@ public class OnboardingService {
         }
 
         double confidence = (answeredCount / (double) maxPlacementQuestions) * 100.0;
-
+        
         // Dừng sớm nếu sai liên tiếp vượt quá maxWrongStreak
         if (wrongStreak >= maxWrongStreak) {
             confidence = 100.0;
@@ -614,13 +665,14 @@ public class OnboardingService {
         session.setConfidenceScore(java.math.BigDecimal.valueOf(Math.min(confidence, 100.0)));
     }
 
+
     private short calculateSkillScore(List<PlacementTestAnswer> answers) {
-        if (answers == null || answers.isEmpty())
-            return 0;
+        if (answers == null || answers.isEmpty()) return 0;
 
         long correct = answers.stream().filter(PlacementTestAnswer::getIsCorrect).count();
         return (short) Math.round((double) correct / answers.size() * 100);
     }
+
 
     private String buildResultMessage(CefrLevel level) {
         return switch (level) {
