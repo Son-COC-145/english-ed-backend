@@ -37,3 +37,4 @@ public interface TopicRepository extends JpaRepository<Topic, Short> {
                                @Param("categories") List<String> categories,
                                Pageable pageable);
 }
+

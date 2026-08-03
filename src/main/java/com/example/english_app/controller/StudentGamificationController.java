@@ -69,3 +69,4 @@ public class StudentGamificationController {
         return ResponseEntity.ok(ApiResponse.success(gameficationService.getMinigameResult(id)));
     }
 }
+

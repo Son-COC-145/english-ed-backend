@@ -19,3 +19,4 @@ public interface UserSubscriptionRepository extends JpaRepository<UserSubscripti
             SubscriptionStatus status,
             LocalDateTime currentDate);
 }
+

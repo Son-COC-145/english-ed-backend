@@ -29,3 +29,4 @@ public interface VocabularyRepository extends JpaRepository<Vocabulary, Long> {
             @Param("wordSearch") String wordSearch,
             Pageable pageable);
 }
+

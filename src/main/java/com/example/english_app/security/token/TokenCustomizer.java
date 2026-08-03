@@ -23,3 +23,4 @@ public class TokenCustomizer implements OAuth2TokenCustomizer<JwtEncodingContext
         });
     }
 }
+

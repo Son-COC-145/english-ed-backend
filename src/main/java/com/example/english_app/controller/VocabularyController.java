@@ -72,3 +72,4 @@ public class VocabularyController {
         return ResponseEntity.ok(ApiResponse.success("Xóa từ vựng thành công"));
     }
 }
+

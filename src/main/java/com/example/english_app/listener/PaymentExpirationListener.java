@@ -1,6 +1,6 @@
 package com.example.english_app.listener;
 
-import com.example.english_app.service.subsription.PaymentService;
+import com.example.english_app.service.subscription.PaymentService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.connection.Message;
 import org.springframework.data.redis.listener.KeyExpirationEventMessageListener;
@@ -36,3 +36,4 @@ public class PaymentExpirationListener extends KeyExpirationEventMessageListener
         }
     }
 }
+

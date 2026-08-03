@@ -22,3 +22,4 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 
     long countByCefrLevelAndIsActiveTrue(CefrLevel cefrLevel);
 }
+

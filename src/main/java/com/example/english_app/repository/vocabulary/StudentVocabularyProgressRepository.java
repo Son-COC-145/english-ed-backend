@@ -17,3 +17,4 @@ public interface StudentVocabularyProgressRepository extends JpaRepository<Stude
     
     Page<StudentVocabularyProgress> findByStudentId(Long studentId, Pageable pageable);
 }
+

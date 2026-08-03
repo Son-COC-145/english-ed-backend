@@ -16,3 +16,4 @@ public interface PlacementTestAnswerRepository extends JpaRepository<PlacementTe
 
     boolean existsBySessionIdAndQuestionId(Long sessionId, Long questionId);
 }
+

@@ -11,3 +11,4 @@ public interface OnboardingRepository extends JpaRepository<StudentOnboarding, L
 
     boolean existsByStudentId(Long studentId);
 }
+

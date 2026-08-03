@@ -32,3 +32,4 @@ public class MiniGameController {
                 ApiResponse.success(gameficationService.procesGameSubmit(request)));
     }
 }
+

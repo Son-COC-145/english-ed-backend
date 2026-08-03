@@ -1,4 +1,4 @@
-package com.example.english_app.service.subsription;
+package com.example.english_app.service.subscription;
 
 import com.example.english_app.dto.request.SubscriptionPlanRequest;
 import com.example.english_app.dto.response.SubscriptionPlanResponse;
@@ -75,3 +75,5 @@ public class SubscriptionPlanService {
         subscriptionPlanRepository.delete(plan);
     }
 }
+
+

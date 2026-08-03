@@ -13,4 +13,5 @@ public class MinigameSubmitResponse {
     private Short currentStreak;
     private LearningStatus newVocabularyStatus;
     private Boolean levelUp;
+    private Long resultId; // Thêm trường này để client có thể gửi làm result_ref_id
 }

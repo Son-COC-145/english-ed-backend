@@ -11,6 +11,7 @@ public enum ErrorCode {
     TOKEN_REVOKED(1004, "Token đã bị thu hồi", HttpStatus.UNAUTHORIZED),
     ACCESS_DENIED(1005, "Bạn không có quyền thực hiện hành động này", HttpStatus.FORBIDDEN),
     INVALID_RESET_LINK(1006, "Link đặt lại mật khẩu không hợp lệ hoặc đã hết hạn", HttpStatus.BAD_REQUEST),
+    UNAUTHORIZED(1007, "Không có quyền truy cập", HttpStatus.UNAUTHORIZED), // Được dời lên từ cuối file của dev
     PASSWORD_MISMATCH(1010, "Mật khẩu xác nhận không khớp", HttpStatus.BAD_REQUEST),
     INCORRECT_OLD_PASSWORD(1011, "Mật khẩu cũ không đúng", HttpStatus.BAD_REQUEST),
 
@@ -35,14 +36,6 @@ public enum ErrorCode {
     PRONUNCIATION_UNAVAILABLE(5011, "Dịch vụ chấm phát âm tạm thời không khả dụng", HttpStatus.SERVICE_UNAVAILABLE),
     ROADMAP_NOT_GENERATED(5012, "Lộ trình chưa được tạo. Vui lòng hoàn thành bài kiểm tra phân loại trước.", HttpStatus.NOT_FOUND),
 
-    // System
-    SYSTEM_ERROR(9999, "Lỗi hệ thống máy chủ", HttpStatus.INTERNAL_SERVER_ERROR),
-    // Vocabulary
-    TOPIC_NOT_FOUND(8001, "Chủ đề không tồn tại", HttpStatus.NOT_FOUND),
-    TOPIC_ALREADY_EXISTS(8002, "Chủ đề đã tồn tại", HttpStatus.BAD_REQUEST),
-    VOCABULARY_NOT_FOUND(8003, "Từ vựng không tồn tại", HttpStatus.NOT_FOUND),
-    VOCABULARY_ALREADY_EXISTS(8004, "Từ vựng đã tồn tại", HttpStatus.BAD_REQUEST),
-
     // AI Quota
     QUOTA_EXCEEDED(6001, "Bạn đã hết lượt sử dụng AI hôm nay. Vui lòng nâng cấp gói Premium!", HttpStatus.FORBIDDEN),
 
@@ -50,10 +43,33 @@ public enum ErrorCode {
     PLAN_NOT_FOUND(7001, "Gói cước không tồn tại", HttpStatus.NOT_FOUND),
     PLAN_ALREADY_EXISTS(7002, "Tên gói cước đã tồn tại", HttpStatus.BAD_REQUEST),
 
-    // IPA Module
-    PHONEME_NOT_FOUND(9001, "Không tìm thấy âm IPA với id đã cho", HttpStatus.NOT_FOUND),
-    EXAMPLE_WORD_NOT_FOUND(9002, "Không tìm thấy từ ví dụ với id đã cho", HttpStatus.NOT_FOUND);
+    // Vocabulary
+    TOPIC_NOT_FOUND(8001, "Chủ đề không tồn tại", HttpStatus.NOT_FOUND),
+    TOPIC_ALREADY_EXISTS(8002, "Chủ đề đã tồn tại", HttpStatus.BAD_REQUEST),
+    VOCABULARY_NOT_FOUND(8003, "Từ vựng không tồn tại", HttpStatus.NOT_FOUND),
+    VOCABULARY_ALREADY_EXISTS(8004, "Từ vựng đã tồn tại", HttpStatus.BAD_REQUEST),
 
+    // Speaking Coach
+    SCENARIO_NOT_FOUND(8101, "Kịch bản giao tiếp không tồn tại", HttpStatus.NOT_FOUND),
+    SCENARIO_ALREADY_EXISTS(8102, "Tên kịch bản giao tiếp đã tồn tại", HttpStatus.BAD_REQUEST),
+    SESSION_NOT_FOUND(8103, "Không tìm thấy phiên giao tiếp", HttpStatus.NOT_FOUND),
+
+    // Classroom
+    COURSE_NOT_FOUND(9001, "Khóa học không tồn tại", HttpStatus.NOT_FOUND),
+    STUDENT_ALREADY_IN_COURSE(9002, "Học viên đã tham gia khóa học này", HttpStatus.BAD_REQUEST),
+    MATERIAL_NOT_FOUND(9003, "Tài liệu giảng dạy không tồn tại", HttpStatus.NOT_FOUND),
+    SYLLABUS_NOT_FOUND(9004, "Lộ trình học không tồn tại", HttpStatus.NOT_FOUND),
+    ASSIGNMENT_NOT_FOUND(9005, "Bài tập không tồn tại", HttpStatus.NOT_FOUND),
+    SUBMISSION_NOT_FOUND(9006, "Bài nộp không tồn tại", HttpStatus.NOT_FOUND),
+    STUDENT_NOT_IN_COURSE(9007, "Học viên không thuộc khóa học này", HttpStatus.FORBIDDEN),
+    COURSE_ACCESS_DENIED(9008, "Bạn không có quyền truy cập vào khóa học này", HttpStatus.FORBIDDEN),
+
+    // IPA Module
+    PHONEME_NOT_FOUND(9101, "Không tìm thấy âm IPA với id đã cho", HttpStatus.NOT_FOUND),
+    EXAMPLE_WORD_NOT_FOUND(9102, "Không tìm thấy từ ví dụ với id đã cho", HttpStatus.NOT_FOUND),
+
+    // System
+    SYSTEM_ERROR(9999, "Lỗi hệ thống máy chủ", HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final int code;
     private final String message;

@@ -11,3 +11,4 @@ public interface PlacementTestSessionRepository extends JpaRepository<PlacementT
 
     Optional<PlacementTestSession> findTopByStudentIdOrderByStartedAtDesc(Long studentId);
 }
+

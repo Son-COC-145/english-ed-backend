@@ -21,3 +21,4 @@ public interface SubscriptionPlanRepository extends JpaRepository<SubscriptionPl
             @Param("name") PlanName name,
             Pageable pageable);
 }
+
