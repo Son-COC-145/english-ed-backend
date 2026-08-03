@@ -5,7 +5,13 @@ import com.example.english_app.entity.onboarding.PlacementTestSession;
 import com.example.english_app.entity.user.User;
 import com.example.english_app.exception.AppException;
 import com.example.english_app.exception.ErrorCode;
-import com.example.english_app.repository.*;
+import com.example.english_app.repository.gamification.DailyGoalRepository;
+import com.example.english_app.repository.gamification.StudentStatRepository;
+import com.example.english_app.repository.onboarding.OnboardingRepository;
+import com.example.english_app.repository.question.PlacementTestAnswerRepository;
+import com.example.english_app.repository.question.PlacementTestSessionRepository;
+import com.example.english_app.repository.question.QuestionRepository;
+import com.example.english_app.repository.user.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -35,13 +41,13 @@ import static org.mockito.Mockito.*;
 @DisplayName("OnboardingService — Session Timeout Tests")
 class OnboardingSessionTimeoutTest {
 
-    @Mock private UserRepository                    userRepository;
-    @Mock private OnboardingRepository              onboardingRepository;
-    @Mock private PlacementTestSessionRepository    sessionRepository;
-    @Mock private PlacementTestAnswerRepository     answerRepository;
-    @Mock private QuestionRepository                questionRepository;
-    @Mock private DailyGoalRepository               dailyGoalRepository;
-    @Mock private StudentStatRepository             studentStatRepository;
+    @Mock private UserRepository userRepository;
+    @Mock private OnboardingRepository onboardingRepository;
+    @Mock private PlacementTestSessionRepository sessionRepository;
+    @Mock private PlacementTestAnswerRepository answerRepository;
+    @Mock private QuestionRepository questionRepository;
+    @Mock private DailyGoalRepository dailyGoalRepository;
+    @Mock private StudentStatRepository studentStatRepository;
     @Mock private RoadmapGenerationService          roadmapGenerationService;
     @Mock private ObjectMapper                      objectMapper;
 

@@ -18,10 +18,10 @@ import com.example.english_app.entity.subscription.UserSubscription;
 import com.example.english_app.entity.user.User;
 import com.example.english_app.exception.AppException;
 import com.example.english_app.exception.ErrorCode;
-import com.example.english_app.repository.SubscriptionPlanRepository;
-import com.example.english_app.repository.UserRepository;
-import com.example.english_app.repository.UserSubscriptionRepository;
-import com.example.english_app.service.AiRateLimiterService;
+import com.example.english_app.repository.subscription.SubscriptionPlanRepository;
+import com.example.english_app.repository.user.UserRepository;
+import com.example.english_app.repository.subscription.UserSubscriptionRepository;
+import com.example.english_app.service.integration.AiRateLimiterService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

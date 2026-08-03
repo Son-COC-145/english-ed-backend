@@ -1,7 +1,7 @@
 package com.example.english_app.security.userdetails;
 
 import com.example.english_app.exception.ErrorCode;
-import com.example.english_app.repository.UserRepository;
+import com.example.english_app.repository.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;

@@ -9,7 +9,7 @@ import com.example.english_app.entity.ipa.PronunciationPracticeLog;
 import com.example.english_app.event.PronunciationCompletedEvent;
 import com.example.english_app.exception.AppException;
 import com.example.english_app.exception.ErrorCode;
-import com.example.english_app.repository.UserRepository;
+import com.example.english_app.repository.user.UserRepository;
 import com.example.english_app.repository.ipa.IpaExampleWordRepository;
 import com.example.english_app.repository.ipa.PronunciationPracticeLogRepository;
 import com.example.english_app.service.audio.AudioAssessmentPort;

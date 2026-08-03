@@ -1,13 +1,12 @@
 package com.example.english_app.service.onboarding;
 
 import com.example.english_app.dto.response.PronunciationScoreResult;
-import com.example.english_app.entity.enums.Skill;
 import com.example.english_app.entity.onboarding.PlacementTestAnswer;
 import com.example.english_app.entity.onboarding.PlacementTestSession;
 import com.example.english_app.entity.user.User;
 import com.example.english_app.exception.AppException;
-import com.example.english_app.repository.PlacementTestAnswerRepository;
-import com.example.english_app.repository.PlacementTestSessionRepository;
+import com.example.english_app.repository.question.PlacementTestAnswerRepository;
+import com.example.english_app.repository.question.PlacementTestSessionRepository;
 import com.example.english_app.service.audio.AudioAssessmentPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

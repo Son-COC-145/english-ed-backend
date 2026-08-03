@@ -1,4 +1,4 @@
-package com.example.english_app.repository;
+package com.example.english_app.repository.gamification;
 
 import java.util.Optional;
 

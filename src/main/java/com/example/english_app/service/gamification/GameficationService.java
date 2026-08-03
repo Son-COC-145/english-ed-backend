@@ -1,4 +1,4 @@
-package com.example.english_app.service;
+package com.example.english_app.service.gamification;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -16,11 +16,11 @@ import com.example.english_app.entity.vocabulary.MinigameResult;
 import com.example.english_app.entity.vocabulary.StudentVocabularyProgress;
 import com.example.english_app.entity.vocabulary.Vocabulary;
 import com.example.english_app.exception.ErrorCode;
-import com.example.english_app.repository.MinigameResultRepository;
-import com.example.english_app.repository.StudentStatRepository;
-import com.example.english_app.repository.StudentVocabularyProgressRepository;
-import com.example.english_app.repository.UserRepository;
-import com.example.english_app.repository.VocabularyRepository;
+import com.example.english_app.repository.gamification.MinigameResultRepository;
+import com.example.english_app.repository.gamification.StudentStatRepository;
+import com.example.english_app.repository.vocabulary.StudentVocabularyProgressRepository;
+import com.example.english_app.repository.user.UserRepository;
+import com.example.english_app.repository.vocabulary.VocabularyRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.context.SecurityContextHolder;

@@ -3,7 +3,7 @@ package com.example.english_app.service.ipa;
 import com.example.english_app.entity.gamification.StudentStat;
 import com.example.english_app.entity.ipa.FailedJob;
 import com.example.english_app.event.PronunciationCompletedEvent;
-import com.example.english_app.repository.StudentStatRepository;
+import com.example.english_app.repository.gamification.StudentStatRepository;
 import com.example.english_app.repository.ipa.FailedJobRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

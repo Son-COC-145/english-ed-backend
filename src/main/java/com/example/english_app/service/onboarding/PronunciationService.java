@@ -1,12 +1,11 @@
 package com.example.english_app.service.onboarding;
 
 import com.example.english_app.dto.response.PronunciationScoreResult;
-import com.example.english_app.entity.enums.Skill;
 import com.example.english_app.entity.onboarding.PlacementTestAnswer;
 import com.example.english_app.entity.onboarding.PlacementTestSession;
 import com.example.english_app.exception.ErrorCode;
-import com.example.english_app.repository.PlacementTestAnswerRepository;
-import com.example.english_app.repository.PlacementTestSessionRepository;
+import com.example.english_app.repository.question.PlacementTestAnswerRepository;
+import com.example.english_app.repository.question.PlacementTestSessionRepository;
 import com.example.english_app.service.audio.AudioAssessmentPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

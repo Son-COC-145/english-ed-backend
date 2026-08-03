@@ -2,12 +2,12 @@ package com.example.english_app.service.onboarding;
 
 import com.example.english_app.dto.response.PlacementResultResponse;
 import com.example.english_app.entity.enums.CefrLevel;
-import com.example.english_app.entity.onboarding.PlacementTestAnswer;
 import com.example.english_app.entity.onboarding.PlacementTestSession;
 import com.example.english_app.entity.onboarding.StudentOnboarding;
 import com.example.english_app.entity.user.User;
-import com.example.english_app.repository.*;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.example.english_app.repository.onboarding.OnboardingRepository;
+import com.example.english_app.repository.question.PlacementTestAnswerRepository;
+import com.example.english_app.repository.question.PlacementTestSessionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

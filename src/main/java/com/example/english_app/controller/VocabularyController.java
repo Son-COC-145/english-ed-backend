@@ -6,7 +6,7 @@ import com.example.english_app.dto.response.PageResponse;
 import com.example.english_app.dto.response.VocabularyResponse;
 import com.example.english_app.entity.enums.CefrLevel;
 import com.example.english_app.entity.enums.VocabularyStatus;
-import com.example.english_app.service.VocabularyService;
+import com.example.english_app.service.vocabulary.VocabularyService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

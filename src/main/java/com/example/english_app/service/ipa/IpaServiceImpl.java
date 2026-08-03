@@ -9,7 +9,7 @@ import com.example.english_app.entity.ipa.StudentPhonemeBookmark;
 import com.example.english_app.entity.ipa.StudentPhonemeBookmarkId;
 import com.example.english_app.exception.AppException;
 import com.example.english_app.exception.ErrorCode;
-import com.example.english_app.repository.UserRepository;
+import com.example.english_app.repository.user.UserRepository;
 import com.example.english_app.repository.ipa.IpaPhonemeRepository;
 import com.example.english_app.repository.ipa.StudentPhonemeBookmarkRepository;
 import lombok.RequiredArgsConstructor;

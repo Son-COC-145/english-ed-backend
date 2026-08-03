@@ -4,7 +4,7 @@ import com.example.english_app.dto.request.TopicRequest;
 import com.example.english_app.dto.response.ApiResponse;
 import com.example.english_app.dto.response.PageResponse;
 import com.example.english_app.dto.response.TopicResponse;
-import com.example.english_app.service.TopicService;
+import com.example.english_app.service.vocabulary.TopicService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

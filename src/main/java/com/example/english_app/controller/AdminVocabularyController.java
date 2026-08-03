@@ -4,11 +4,11 @@ import com.example.english_app.dto.response.AiVocabularyResponse;
 import com.example.english_app.entity.enums.VocabularyStatus;
 import com.example.english_app.entity.vocabulary.Topic;
 import com.example.english_app.entity.vocabulary.Vocabulary;
-import com.example.english_app.repository.TopicRepository;
-import com.example.english_app.repository.VocabularyRepository;
-import com.example.english_app.service.AiTextService;
-import com.example.english_app.service.ImageGenerationService;
-import com.example.english_app.service.TtsGenerationService;
+import com.example.english_app.repository.vocabulary.TopicRepository;
+import com.example.english_app.repository.vocabulary.VocabularyRepository;
+import com.example.english_app.service.integration.AiTextService;
+import com.example.english_app.service.integration.ImageGenerationService;
+import com.example.english_app.service.integration.TtsGenerationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.swagger.v3.oas.annotations.Operation;

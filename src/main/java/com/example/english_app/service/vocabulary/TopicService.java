@@ -1,11 +1,11 @@
-package com.example.english_app.service;
+package com.example.english_app.service.vocabulary;
 
 import com.example.english_app.dto.request.TopicRequest;
 import com.example.english_app.dto.response.PageResponse;
 import com.example.english_app.dto.response.TopicResponse;
 import com.example.english_app.entity.vocabulary.Topic;
 import com.example.english_app.exception.ErrorCode;
-import com.example.english_app.repository.TopicRepository;
+import com.example.english_app.repository.vocabulary.TopicRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

@@ -2,7 +2,7 @@ package com.example.english_app.scheduler;
 
 import com.example.english_app.entity.gamification.StudentStat;
 import com.example.english_app.entity.ipa.FailedJob;
-import com.example.english_app.repository.StudentStatRepository;
+import com.example.english_app.repository.gamification.StudentStatRepository;
 import com.example.english_app.repository.ipa.FailedJobRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

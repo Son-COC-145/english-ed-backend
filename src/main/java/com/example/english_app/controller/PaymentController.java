@@ -1,6 +1,6 @@
 package com.example.english_app.controller;
 
-import com.example.english_app.service.PaymentService;
+import com.example.english_app.service.subsription.PaymentService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;

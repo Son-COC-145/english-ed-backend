@@ -1,10 +1,10 @@
-package com.example.english_app.service;
+package com.example.english_app.service.subsription;
 
 import com.example.english_app.dto.request.SubscriptionPlanRequest;
 import com.example.english_app.dto.response.SubscriptionPlanResponse;
 import com.example.english_app.entity.enums.PlanName;
 import com.example.english_app.entity.subscription.SubscriptionPlan;
-import com.example.english_app.repository.SubscriptionPlanRepository;
+import com.example.english_app.repository.subscription.SubscriptionPlanRepository;
 import com.example.english_app.exception.AppException;
 import com.example.english_app.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;

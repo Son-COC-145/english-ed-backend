@@ -1,4 +1,4 @@
-package com.example.english_app.repository;
+package com.example.english_app.repository.question;
 
 import com.example.english_app.entity.enums.CefrLevel;
 import com.example.english_app.entity.enums.Skill;

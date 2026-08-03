@@ -1,4 +1,4 @@
-package com.example.english_app.repository;
+package com.example.english_app.repository.subscription;
 
 import com.example.english_app.entity.subscription.PaymentTransaction;
 import org.springframework.data.jpa.repository.JpaRepository;

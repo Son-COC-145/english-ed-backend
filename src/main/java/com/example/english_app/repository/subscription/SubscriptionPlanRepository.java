@@ -1,4 +1,4 @@
-package com.example.english_app.repository;
+package com.example.english_app.repository.subscription;
 
 import com.example.english_app.entity.enums.PlanName;
 import com.example.english_app.entity.subscription.SubscriptionPlan;

@@ -3,7 +3,7 @@ package com.example.english_app.controller;
 import com.example.english_app.dto.request.SubscriptionPlanRequest;
 import com.example.english_app.dto.response.SubscriptionPlanResponse;
 import com.example.english_app.entity.enums.PlanName;
-import com.example.english_app.service.SubscriptionPlanService;
+import com.example.english_app.service.subsription.SubscriptionPlanService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
