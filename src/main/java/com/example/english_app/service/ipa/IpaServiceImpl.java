@@ -29,7 +29,7 @@ public class IpaServiceImpl implements IpaService {
     private final UserRepository userRepository;
 
     @Override
-    @Cacheable(value = "ipa_phonemes", key = "{#type, #isCommonError}", sync = true)
+    @Cacheable(value = "ipa_phonemes_v2", key = "{#type, #isCommonError}", sync = true)
     @Transactional(readOnly = true)
     public List<IpaPhonemeResponse> getAllPhonemes(PhonemeType type, Boolean isCommonError) {
         return ipaPhonemeRepository.findByFilters(type, isCommonError).stream()
@@ -38,7 +38,7 @@ public class IpaServiceImpl implements IpaService {
     }
 
     @Override
-    @Cacheable(value = "ipa_phoneme_detail", key = "#id", sync = true)
+    @Cacheable(value = "ipa_phoneme_detail_v2", key = "#id", sync = true)
     @Transactional(readOnly = true)
     public IpaPhonemeDetailResponse getPhonemeDetail(Short id) {
         return ipaPhonemeRepository.findByIdWithWords(id)

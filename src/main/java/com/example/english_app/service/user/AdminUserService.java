@@ -88,7 +88,9 @@ public class AdminUserService {
 
     public void deleteUser(Long id) {
         User user = userRepository.findById(id).orElseThrow(() -> new RuntimeException("User not found"));
-        userRepository.delete(user);
+        // Đổi thành Soft Delete để tránh lỗi Foreign Key Constraint (người dùng đã có dữ liệu học tập)
+        user.setIsActive(false);
+        userRepository.save(user);
     }
 
     private UserResponse toUserResponse(User user) {

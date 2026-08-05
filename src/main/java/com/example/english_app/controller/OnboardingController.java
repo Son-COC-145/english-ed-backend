@@ -89,13 +89,17 @@ public class OnboardingController {
     @PostMapping(value = "/placement-test/pronunciation/submit-answer", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<PronunciationScoreResult>> submitPronunciationAnswer(
             Authentication auth,
-            @RequestParam Long sessionId,
+            @RequestParam("sessionId") Long sessionId,
+            @RequestParam("questionId") Long questionId,
             @RequestPart("audioFile") MultipartFile audioFile,
             @RequestParam("word") String word,
             @RequestParam("wordIndex") int wordIndex) {
+
         Long userId = getUserId(auth);
-        return ResponseEntity.ok(ApiResponse.success(
-                pronunciationService.submitPronunciation(userId, sessionId, audioFile, word, wordIndex)));
+        PronunciationScoreResult result = pronunciationService.submitPronunciation(
+                userId, sessionId, questionId, audioFile, word, wordIndex);
+        
+        return ResponseEntity.ok(ApiResponse.success(result));
     }
 
     @Operation(summary = "Kết thúc bài kiểm tra")
@@ -142,6 +146,14 @@ public class OnboardingController {
         Long userId = getUserId(auth);
         onboardingService.completeOnboarding(userId);
         return ResponseEntity.ok(ApiResponse.success("Chúc mừng bạn đã hoàn thành onboarding!"));
+    }
+
+    @Operation(summary = "Reset Onboarding (Dành cho test/Dev)")
+    @PostMapping("/reset")
+    public ResponseEntity<ApiResponse<Void>> resetOnboarding(Authentication auth) {
+        Long userId = getUserId(auth);
+        onboardingService.resetOnboarding(userId);
+        return ResponseEntity.ok(ApiResponse.success("Reset thành công. Hãy tải lại trang để làm lại."));
     }
 
     //  HELPER

@@ -1,5 +1,5 @@
 -- V8__seed_ipa_data.sql
--- Seed IPA Phonemes
+-- Seed IPA Phonemes (5 âm cơ bản — dữ liệu đầy đủ 44 âm được bổ sung trong V12)
 INSERT INTO ipa_phonemes (symbol, phoneme_type, name_vi, audio_male_url, audio_female_url, cefr_intro_level, is_common_vn_error)
 VALUES
   ('iː', 'VOWEL_MONO', 'Âm i dài', 'https://cdn.example.com/phonemes/ii_male.mp3', 'https://cdn.example.com/phonemes/ii_female.mp3', 'A1', false),

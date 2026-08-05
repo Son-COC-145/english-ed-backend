@@ -45,7 +45,7 @@ import java.util.stream.Collectors;
 @Transactional
 public class OnboardingService {
 
-    @Value("${onboarding.placement.max-questions:35}")
+    @Value("${onboarding.placement.max-questions:30}")
     private int maxPlacementQuestions;
 
     @Value("${onboarding.placement.confidence-threshold:85.0}")
@@ -152,7 +152,7 @@ public class OnboardingService {
 
         // Kiểm tra session đang dở
         Optional<PlacementTestSession> existingSession =
-                sessionRepository.findByStudentIdAndIsCompletedFalse(user.getId());
+                sessionRepository.findTopByStudentIdAndIsCompletedFalseOrderByStartedAtDesc(user.getId());
 
         if (existingSession.isPresent()) {
             PlacementTestSession existing = existingSession.get();
@@ -370,6 +370,10 @@ public class OnboardingService {
                         .map(RoadmapModule::getTitle)
                         .collect(Collectors.toList());
             }
+            // IMPORTANT: Update the managed entity so the outer transaction doesn't overwrite it with null
+            if (roadmap != null) {
+                onboarding.setRoadmapJson(objectMapper.writeValueAsString(roadmap));
+            }
             roadmapGenerated = true;
         } catch (Exception e) {
             log.error("Roadmap generation failed for user {}, but placement result is saved.", userId, e);
@@ -547,6 +551,29 @@ public class OnboardingService {
 
         onboardingRepository.save(onboarding);
         log.info("Onboarding completed for user {}", userId);
+    }
+
+    public void resetOnboarding(Long userId) {
+        onboardingRepository.findByStudentId(userId).ifPresent(ob -> {
+            ob.setPlacementCefrLevel(null);
+            ob.setPlacementVocabScore(null);
+            ob.setPlacementGrammarScore(null);
+            ob.setPlacementReadingScore(null);
+            ob.setPlacementListeningScore(null);
+            ob.setPlacementPronunciationScore(null);
+            ob.setPlacementCompletedAt(null);
+            ob.setOnboardingCompleted(false);
+            ob.setOnboardingCompletedAt(null);
+            ob.setRoadmapJson(null);
+            onboardingRepository.save(ob);
+            log.info("Onboarding reset for user {}", userId);
+        });
+
+        // Cancel any pending test sessions
+        sessionRepository.findTopByStudentIdAndIsCompletedFalseOrderByStartedAtDesc(userId).ifPresent(s -> {
+            s.setIsCompleted(true);
+            sessionRepository.save(s);
+        });
     }
 
     //  PRIVATE HELPERS

@@ -83,7 +83,7 @@ server:
 
 onboarding:
   placement:
-    max-questions: 35
+    max-questions: 30
     confidence-threshold: 85.0
     max-wrong-streak: 3
 

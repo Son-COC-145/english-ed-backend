@@ -7,7 +7,7 @@ import java.util.Optional;
 
 public interface PlacementTestSessionRepository extends JpaRepository<PlacementTestSession, Long> {
 
-    Optional<PlacementTestSession> findByStudentIdAndIsCompletedFalse(Long studentId);
+    Optional<PlacementTestSession> findTopByStudentIdAndIsCompletedFalseOrderByStartedAtDesc(Long studentId);
 
     Optional<PlacementTestSession> findTopByStudentIdOrderByStartedAtDesc(Long studentId);
 }
