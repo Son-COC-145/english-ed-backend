@@ -127,8 +127,8 @@ public class PronunciationService {
             throw ErrorCode.PLACEMENT_TEST_ALREADY_COMPLETED.toException();
         }
 
-        // Guard: timeout (30 phút không hoạt động)
-        if (isSessionExpired(session)) {
+        // Guard: timeout — dùng method trên entity (single source of truth)
+        if (session.isExpired()) {
             session.setIsCompleted(true);
             sessionRepository.save(session);
             throw ErrorCode.PLACEMENT_TEST_EXPIRED.toException();
@@ -137,14 +137,6 @@ public class PronunciationService {
         return session;
     }
 
-    /**
-     * Kiểm tra session có hết hạn chưa (> 30 phút không hoạt động).
-     * Mirror logic của OnboardingService để giữ nhất quán mà không tạo coupling.
-     */
-    private boolean isSessionExpired(PlacementTestSession session) {
-        if (session.getLastActivityAt() == null) return false;
-        return session.getLastActivityAt().isBefore(LocalDateTime.now().minusMinutes(30));
-    }
 
     // ─── Answer Recording ─────────────────────────────────────────────────────
 
@@ -156,12 +148,8 @@ public class PronunciationService {
      *   <li>skill = PRONUNCIATION
      *   <li>answer_given = từ đã phát âm (reference text)
      *   <li>is_correct = overallScore ≥ 60 (hoặc null nếu UNAVAILABLE → false)
-     *   <li>question = null (pronunciation không dùng question từ ngân hàng câu hỏi)
+     *   <li>question = câu hỏi đã fetch từ DB (nullable FK cho phép bởi schema)
      * </ul>
-     *
-     * <p>Note: Trường {@code question} được set null vì pronunciation assessment
-     * không lấy câu hỏi từ bảng {@code questions}.
-     * Đây là use-case hợp lệ — nullable FK được cho phép bởi schema.
      */
     private void recordPronunciationAnswer(
             PlacementTestSession session,

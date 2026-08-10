@@ -6,9 +6,12 @@ import com.example.english_app.dto.response.ipa.PronunciationResultResponse;
 import com.example.english_app.entity.enums.PhonemeType;
 import com.example.english_app.service.ipa.IpaPronunciationService;
 import com.example.english_app.service.ipa.IpaService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -20,6 +23,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/ipa/phonemes")
 @RequiredArgsConstructor
+@PreAuthorize("isAuthenticated()") // BUG-03: Bảo vệ toàn bộ controller
+@Tag(name = "IPA Phonemes", description = "Module 1: Học phát âm IPA")
 public class IpaController {
 
     private final IpaService              ipaService;
@@ -71,9 +76,17 @@ public class IpaController {
 
     // ─── Helper ──────────────────────────────────────────────────────────────
 
+    /**
+     * SECURITY-01: Guard null claim — throw 401 thay vì NullPointerException.
+     * JWT claim "userId" có thể không tồn tại nếu token bị forge hoặc issue sai.
+     */
     private Long extractUserId(Authentication authentication) {
         Jwt jwt = (Jwt) authentication.getPrincipal();
         Number userId = jwt.getClaim("userId");
+        if (userId == null) {
+            throw new com.example.english_app.exception.AppException(
+                    com.example.english_app.exception.ErrorCode.UNAUTHORIZED);
+        }
         return userId.longValue();
     }
 }

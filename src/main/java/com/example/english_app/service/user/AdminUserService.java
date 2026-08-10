@@ -1,6 +1,5 @@
 package com.example.english_app.service.user;
 
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
@@ -73,21 +72,21 @@ public class AdminUserService {
     }
 
     public UserResponse activate(Long id) {
-        User user = userRepository.findById(id).orElseThrow(() -> new RuntimeException("User not found"));
+        User user = userRepository.findById(id).orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
         user.setIsActive(true);
 
         return toUserResponse(userRepository.save(user));
     }
 
     public UserResponse deactivate(Long id) {
-        User user = userRepository.findById(id).orElseThrow(() -> new RuntimeException("User not found"));
+        User user = userRepository.findById(id).orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
         user.setIsActive(false);
 
         return toUserResponse(userRepository.save(user));
     }
 
     public void deleteUser(Long id) {
-        User user = userRepository.findById(id).orElseThrow(() -> new RuntimeException("User not found"));
+        User user = userRepository.findById(id).orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
         // Đổi thành Soft Delete để tránh lỗi Foreign Key Constraint (người dùng đã có dữ liệu học tập)
         user.setIsActive(false);
         userRepository.save(user);

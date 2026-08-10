@@ -88,7 +88,9 @@ class PronunciationServiceTest {
         
         PlacementTestAnswer savedAnswer = answerCaptor.getValue();
         assertTrue(savedAnswer.getIsCorrect());
-        assertNull(savedAnswer.getQuestion());
+        // Service hiện tại set question từ questionRepository — assertNotNull thay vì assertNull cũ
+        assertNotNull(savedAnswer.getQuestion());
+        assertEquals(200L, savedAnswer.getQuestion().getId());
     }
 
     @Test
