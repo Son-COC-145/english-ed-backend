@@ -29,7 +29,14 @@ public class IpaServiceImpl implements IpaService {
     private final UserRepository userRepository;
 
     @Override
-    @Cacheable(value = "ipa_phonemes", key = "{#type, #isCommonError}", sync = true)
+    @Cacheable(
+            value = "ipa_phonemes_v2",
+            // PERF-02: key dạng "ALL-ALL", "CONSONANT-true", v.v.
+            // Rõ ràng, human-readable trong Redis inspector, tránh
+            // mước có thể xảy ra với key {null, null} khó phân biệt.
+            key = "(#type == null ? 'ALL' : #type.name()) + '-' + (#isCommonError == null ? 'ALL' : #isCommonError)",
+            sync = true
+    )
     @Transactional(readOnly = true)
     public List<IpaPhonemeResponse> getAllPhonemes(PhonemeType type, Boolean isCommonError) {
         return ipaPhonemeRepository.findByFilters(type, isCommonError).stream()
@@ -38,7 +45,11 @@ public class IpaServiceImpl implements IpaService {
     }
 
     @Override
-    @Cacheable(value = "ipa_phoneme_detail", key = "#id", sync = true)
+    @Cacheable(
+            value = "ipa_phoneme_detail_v2",
+            key = "#id",   // Short ID — đủ rõ ràng, không có null
+            sync = true
+    )
     @Transactional(readOnly = true)
     public IpaPhonemeDetailResponse getPhonemeDetail(Short id) {
         return ipaPhonemeRepository.findByIdWithWords(id)

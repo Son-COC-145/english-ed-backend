@@ -5,8 +5,6 @@ import com.example.english_app.entity.onboarding.PlacementTestSession;
 import com.example.english_app.entity.user.User;
 import com.example.english_app.exception.AppException;
 import com.example.english_app.exception.ErrorCode;
-import com.example.english_app.repository.gamification.DailyGoalRepository;
-import com.example.english_app.repository.gamification.StudentStatRepository;
 import com.example.english_app.repository.onboarding.OnboardingRepository;
 import com.example.english_app.repository.question.PlacementTestAnswerRepository;
 import com.example.english_app.repository.question.PlacementTestSessionRepository;
@@ -31,30 +29,30 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.verify;
 
 /**
- * Unit tests cho auto-save session timeout 30 phút — Module 0 Gap Analysis.
+ * Unit tests cho auto-save session timeout 30 phút.
+ * Đã migrate từ OnboardingService → PlacementTestService sau refactoring SRP.
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-@DisplayName("OnboardingService — Session Timeout Tests")
+@DisplayName("PlacementTestService — Session Timeout Tests")
 class OnboardingSessionTimeoutTest {
 
-    @Mock private UserRepository userRepository;
-    @Mock private OnboardingRepository onboardingRepository;
+    @Mock private UserRepository                 userRepository;
+    @Mock private OnboardingRepository           onboardingRepository;
     @Mock private PlacementTestSessionRepository sessionRepository;
-    @Mock private PlacementTestAnswerRepository answerRepository;
-    @Mock private QuestionRepository questionRepository;
-    @Mock private DailyGoalRepository dailyGoalRepository;
-    @Mock private StudentStatRepository studentStatRepository;
-    @Mock private RoadmapGenerationService          roadmapGenerationService;
-    @Mock private ObjectMapper                      objectMapper;
+    @Mock private PlacementTestAnswerRepository  answerRepository;
+    @Mock private QuestionRepository             questionRepository;
+    @Mock private RoadmapGenerationService       roadmapGenerationService;
+    @Mock private PlacementResultFactory         resultFactory;
+    @Mock private ObjectMapper                   objectMapper;
 
     @InjectMocks
-    private OnboardingService onboardingService;
+    private PlacementTestService placementTestService;
 
-    private User                mockUser;
+    private User                 mockUser;
     private PlacementTestSession activeSession;
 
     @BeforeEach
@@ -78,10 +76,14 @@ class OnboardingSessionTimeoutTest {
         given(sessionRepository.findById(100L)).willReturn(Optional.of(activeSession));
         given(answerRepository.countBySessionId(100L)).willReturn(0L);
         given(answerRepository.findBySessionIdOrderByAnsweredAtAsc(100L)).willReturn(Collections.emptyList());
-        given(questionRepository.findRandomByCefrLevelExcluding(any(), any())).willReturn(Collections.emptyList());
+        // New API: findOneRandomByCefrLevelExcluding returns Optional
+        given(questionRepository.findOneRandomByCefrLevelExcluding(any(), any())).willReturn(Optional.empty());
 
-        assertThatCode(() -> onboardingService.getNextQuestion(100L, 1L))
-                .doesNotThrowAnyException();
+        // PLACEMENT_TEST_ALREADY_COMPLETED vì hết câu hỏi trong ngân hàng — nhưng KHÔNG phải EXPIRED
+        assertThatThrownBy(() -> placementTestService.getNextQuestion(100L, 1L))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode())
+                        .isNotEqualTo(ErrorCode.PLACEMENT_TEST_EXPIRED));
     }
 
     @Test
@@ -90,7 +92,7 @@ class OnboardingSessionTimeoutTest {
         activeSession.setLastActivityAt(LocalDateTime.now().minusMinutes(45));
         given(sessionRepository.findById(100L)).willReturn(Optional.of(activeSession));
 
-        assertThatThrownBy(() -> onboardingService.getNextQuestion(100L, 1L))
+        assertThatThrownBy(() -> placementTestService.getNextQuestion(100L, 1L))
                 .isInstanceOf(AppException.class)
                 .satisfies(ex -> assertThat(((AppException) ex).getErrorCode())
                         .isEqualTo(ErrorCode.PLACEMENT_TEST_EXPIRED));
@@ -100,17 +102,19 @@ class OnboardingSessionTimeoutTest {
     }
 
     @Test
-    @DisplayName("lastActivityAt=null, startedAt=5 phút trước → fallback hợp lệ, không throw")
+    @DisplayName("lastActivityAt=null, startedAt=5 phút trước → fallback hợp lệ, không EXPIRED")
     void noLastActivity_recentStartedAt_sessionValid() {
         activeSession.setLastActivityAt(null);
         activeSession.setStartedAt(LocalDateTime.now().minusMinutes(5));
         given(sessionRepository.findById(100L)).willReturn(Optional.of(activeSession));
         given(answerRepository.countBySessionId(100L)).willReturn(0L);
         given(answerRepository.findBySessionIdOrderByAnsweredAtAsc(100L)).willReturn(Collections.emptyList());
-        given(questionRepository.findRandomByCefrLevelExcluding(any(), any())).willReturn(Collections.emptyList());
+        given(questionRepository.findOneRandomByCefrLevelExcluding(any(), any())).willReturn(Optional.empty());
 
-        assertThatCode(() -> onboardingService.getNextQuestion(100L, 1L))
-                .doesNotThrowAnyException();
+        assertThatThrownBy(() -> placementTestService.getNextQuestion(100L, 1L))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode())
+                        .isNotEqualTo(ErrorCode.PLACEMENT_TEST_EXPIRED));
     }
 
     @Test
@@ -120,7 +124,7 @@ class OnboardingSessionTimeoutTest {
         activeSession.setStartedAt(LocalDateTime.now().minusMinutes(60));
         given(sessionRepository.findById(100L)).willReturn(Optional.of(activeSession));
 
-        assertThatThrownBy(() -> onboardingService.getNextQuestion(100L, 1L))
+        assertThatThrownBy(() -> placementTestService.getNextQuestion(100L, 1L))
                 .isInstanceOf(AppException.class)
                 .satisfies(ex -> assertThat(((AppException) ex).getErrorCode())
                         .isEqualTo(ErrorCode.PLACEMENT_TEST_EXPIRED));

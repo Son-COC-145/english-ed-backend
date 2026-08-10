@@ -77,10 +77,12 @@ public class IpaPronunciationServiceImpl implements IpaPronunciationService {
 
         // 6. Build phoneme detail list — Azure ở granularity FullText không trả phoneme-level
         // Tạo single-entry list từ word-level score để giữ consistent response contract
+        // BUG-04: null-safe color — Azure có thể không trả color trong một số trường hợp biên
+        String scoreColor = azureResult.getScoreColor() != null ? azureResult.getScoreColor() : "GRAY";
         List<PhonemeScoreDto> phonemes = List.of(new PhonemeScoreDto(
                 exampleWord.getIpaTranscription(),
                 azureResult.getAccuracyScore(),
-                azureResult.getScoreColor()
+                scoreColor
         ));
 
         // 7. Serialize phoneme detail thành JSON để lưu JSONB
@@ -137,6 +139,14 @@ public class IpaPronunciationServiceImpl implements IpaPronunciationService {
         return overallScore != null && overallScore >= 70;
     }
 
+    /**
+     * Đếm âm tiết bằng cách đếm nguyên âm (heuristic đơn giản).
+     *
+     * <p><b>TODO LOGIC-02:</b> Cách này cho false positive với từ có âm câm (silent-e).
+     * Ví dụ: "make", "cake" → đếm ra 2 nguyên âm nhưng thực tế chỉ 1 âm tiết.
+     * Có thể cải thiện bằng CMU Pronouncing Dictionary hoặc thư viện Syllabify.
+     * Hiện tại ảnh hưởng thấp vì {@code stressCorrect} chỉ là heuristic bổ sung.
+     */
     private int countSyllables(String word) {
         return (int) word.toLowerCase().chars()
                 .filter(c -> "aeiou".indexOf(c) >= 0)

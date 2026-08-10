@@ -6,6 +6,7 @@ import com.example.english_app.security.userdetails.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -41,6 +42,9 @@ public class SecurityConfig {
         private final CustomOAuth2UserService oAuth2UserService;
         private final OAuth2SuccessHandler oAuth2SuccessHandler;
 
+        @Value("${app.cors.allowed-origins}")
+        private List<String> allowedOrigins;
+
         @Bean
         @Order(2)
         public SecurityFilterChain defaultFilterChain(
@@ -74,7 +78,7 @@ public class SecurityConfig {
                                                 .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**")
                                                 .permitAll()
                                                 .anyRequest().authenticated())
-                                .formLogin(Customizer.withDefaults())
+                                .formLogin(form -> form.disable())
                                 .oauth2Login(oauth2 -> oauth2
                                                 .userInfoEndpoint(userInfo -> userInfo
                                                                 .userService(oAuth2UserService))
@@ -128,7 +132,7 @@ public class SecurityConfig {
         @Bean
         public CorsConfigurationSource corsConfigurationSource() {
                 CorsConfiguration config = new CorsConfiguration();
-                config.setAllowedOriginPatterns(List.of("*"));
+                config.setAllowedOriginPatterns(allowedOrigins);
                 config.setAllowedMethods(List.of(
                                 "GET", "POST", "PUT", "DELETE",
                                 "PATCH", "OPTIONS"));

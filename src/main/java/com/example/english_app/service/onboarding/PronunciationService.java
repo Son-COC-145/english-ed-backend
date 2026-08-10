@@ -4,6 +4,8 @@ import com.example.english_app.dto.response.PronunciationScoreResult;
 import com.example.english_app.entity.onboarding.PlacementTestAnswer;
 import com.example.english_app.entity.onboarding.PlacementTestSession;
 import com.example.english_app.exception.ErrorCode;
+import com.example.english_app.entity.question.Question;
+import com.example.english_app.repository.question.QuestionRepository;
 import com.example.english_app.repository.question.PlacementTestAnswerRepository;
 import com.example.english_app.repository.question.PlacementTestSessionRepository;
 import com.example.english_app.service.audio.AudioAssessmentPort;
@@ -38,6 +40,7 @@ public class PronunciationService {
     private final AudioAssessmentPort audioAssessmentPort;
     private final PlacementTestSessionRepository sessionRepository;
     private final PlacementTestAnswerRepository answerRepository;
+    private final QuestionRepository questionRepository;
 
     // ─── Public API ───────────────────────────────────────────────────────────
 
@@ -56,6 +59,7 @@ public class PronunciationService {
      *
      * @param userId    ID user lấy từ JWT.
      * @param sessionId ID session đang làm bài.
+     * @param questionId ID câu hỏi đang làm
      * @param audioFile File audio từ multipart/form-data.
      * @param word      Từ tham chiếu cần phát âm.
      * @param wordIndex Vị trí của từ trong bộ câu hỏi phát âm (dùng để log).
@@ -65,12 +69,17 @@ public class PronunciationService {
     public PronunciationScoreResult submitPronunciation(
             Long userId,
             Long sessionId,
+            Long questionId,
             MultipartFile audioFile,
             String word,
             int wordIndex) {
 
         // 1. Validate session
         PlacementTestSession session = validateSessionForPronunciation(sessionId, userId);
+
+        // Fetch question
+        Question question = questionRepository.findById(questionId)
+                .orElseThrow(() -> ErrorCode.SYSTEM_ERROR.toException());
 
         // 2. Đọc audio bytes
         byte[] audioBytes = readAudioBytes(audioFile);
@@ -82,7 +91,7 @@ public class PronunciationService {
                 userId, sessionId, word, wordIndex, result.getStatus(), result.getOverallScore());
 
         // 4. Ghi kết quả vào PlacementTestAnswer
-        recordPronunciationAnswer(session, word, result);
+        recordPronunciationAnswer(session, question, word, result);
 
         // 5. Cập nhật lastActivityAt
         session.setLastActivityAt(LocalDateTime.now());
@@ -118,8 +127,8 @@ public class PronunciationService {
             throw ErrorCode.PLACEMENT_TEST_ALREADY_COMPLETED.toException();
         }
 
-        // Guard: timeout (30 phút không hoạt động)
-        if (isSessionExpired(session)) {
+        // Guard: timeout — dùng method trên entity (single source of truth)
+        if (session.isExpired()) {
             session.setIsCompleted(true);
             sessionRepository.save(session);
             throw ErrorCode.PLACEMENT_TEST_EXPIRED.toException();
@@ -128,14 +137,6 @@ public class PronunciationService {
         return session;
     }
 
-    /**
-     * Kiểm tra session có hết hạn chưa (> 30 phút không hoạt động).
-     * Mirror logic của OnboardingService để giữ nhất quán mà không tạo coupling.
-     */
-    private boolean isSessionExpired(PlacementTestSession session) {
-        if (session.getLastActivityAt() == null) return false;
-        return session.getLastActivityAt().isBefore(LocalDateTime.now().minusMinutes(30));
-    }
 
     // ─── Answer Recording ─────────────────────────────────────────────────────
 
@@ -147,15 +148,12 @@ public class PronunciationService {
      *   <li>skill = PRONUNCIATION
      *   <li>answer_given = từ đã phát âm (reference text)
      *   <li>is_correct = overallScore ≥ 60 (hoặc null nếu UNAVAILABLE → false)
-     *   <li>question = null (pronunciation không dùng question từ ngân hàng câu hỏi)
+     *   <li>question = câu hỏi đã fetch từ DB (nullable FK cho phép bởi schema)
      * </ul>
-     *
-     * <p>Note: Trường {@code question} được set null vì pronunciation assessment
-     * không lấy câu hỏi từ bảng {@code questions}.
-     * Đây là use-case hợp lệ — nullable FK được cho phép bởi schema.
      */
     private void recordPronunciationAnswer(
             PlacementTestSession session,
+            Question question,
             String word,
             PronunciationScoreResult result) {
 
@@ -164,7 +162,7 @@ public class PronunciationService {
 
         PlacementTestAnswer answer = PlacementTestAnswer.builder()
                 .session(session)
-                .question(null)          // Không có question entity cho pronunciation
+                .question(question)
                 .answerGiven(word)
                 .isCorrect(isCorrect)
                 .timeSpentMs(null)       // Thời gian ghi âm không được client gửi lên

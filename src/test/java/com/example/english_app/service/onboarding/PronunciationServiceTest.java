@@ -5,8 +5,10 @@ import com.example.english_app.entity.onboarding.PlacementTestAnswer;
 import com.example.english_app.entity.onboarding.PlacementTestSession;
 import com.example.english_app.entity.user.User;
 import com.example.english_app.exception.AppException;
+import com.example.english_app.entity.question.Question;
 import com.example.english_app.repository.question.PlacementTestAnswerRepository;
 import com.example.english_app.repository.question.PlacementTestSessionRepository;
+import com.example.english_app.repository.question.QuestionRepository;
 import com.example.english_app.service.audio.AudioAssessmentPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,11 +38,15 @@ class PronunciationServiceTest {
     @Mock
     private PlacementTestAnswerRepository answerRepository;
 
+    @Mock
+    private QuestionRepository questionRepository;
+
     @InjectMocks
     private PronunciationService pronunciationService;
 
     private PlacementTestSession mockSession;
     private User mockUser;
+    private Question mockQuestion;
 
     @BeforeEach
     void setUp() {
@@ -52,12 +58,14 @@ class PronunciationServiceTest {
                 .lastActivityAt(LocalDateTime.now())
                 .isCompleted(false)
                 .build();
+        mockQuestion = Question.builder().id(200L).build();
     }
 
     @Test
     void submitPronunciation_ShouldSaveCorrectAnswer_WhenScoreIs60OrHigher() throws Exception {
         // Arrange
         when(sessionRepository.findById(100L)).thenReturn(Optional.of(mockSession));
+        when(questionRepository.findById(200L)).thenReturn(Optional.of(mockQuestion));
         
         PronunciationScoreResult scoreResult = PronunciationScoreResult.builder()
                 .word("hello")
@@ -70,7 +78,7 @@ class PronunciationServiceTest {
         MockMultipartFile audioFile = new MockMultipartFile("audioFile", "test.wav", "audio/wav", "dummy_audio".getBytes());
 
         // Act
-        PronunciationScoreResult result = pronunciationService.submitPronunciation(1L, 100L, audioFile, "hello", 1);
+        PronunciationScoreResult result = pronunciationService.submitPronunciation(1L, 100L, 200L, audioFile, "hello", 1);
 
         // Assert
         assertEquals((short) 65, result.getOverallScore());
@@ -80,13 +88,16 @@ class PronunciationServiceTest {
         
         PlacementTestAnswer savedAnswer = answerCaptor.getValue();
         assertTrue(savedAnswer.getIsCorrect());
-        assertNull(savedAnswer.getQuestion());
+        // Service hiện tại set question từ questionRepository — assertNotNull thay vì assertNull cũ
+        assertNotNull(savedAnswer.getQuestion());
+        assertEquals(200L, savedAnswer.getQuestion().getId());
     }
 
     @Test
     void submitPronunciation_ShouldSaveIncorrectAnswer_WhenScoreIsBelow60() throws Exception {
         // Arrange
         when(sessionRepository.findById(100L)).thenReturn(Optional.of(mockSession));
+        when(questionRepository.findById(200L)).thenReturn(Optional.of(mockQuestion));
         
         PronunciationScoreResult scoreResult = PronunciationScoreResult.builder()
                 .word("hello")
@@ -99,7 +110,7 @@ class PronunciationServiceTest {
         MockMultipartFile audioFile = new MockMultipartFile("audioFile", "test.wav", "audio/wav", "dummy_audio".getBytes());
 
         // Act
-        pronunciationService.submitPronunciation(1L, 100L, audioFile, "hello", 1);
+        pronunciationService.submitPronunciation(1L, 100L, 200L, audioFile, "hello", 1);
 
         // Assert
         ArgumentCaptor<PlacementTestAnswer> answerCaptor = ArgumentCaptor.forClass(PlacementTestAnswer.class);
@@ -117,7 +128,7 @@ class PronunciationServiceTest {
 
         // Act & Assert
         AppException exception = assertThrows(AppException.class, () -> {
-            pronunciationService.submitPronunciation(2L, 100L, audioFile, "hello", 1); // User 2 trying to access user 1's session
+            pronunciationService.submitPronunciation(2L, 100L, 200L, audioFile, "hello", 1); // User 2 trying to access user 1's session
         });
         assertEquals(1005, exception.getErrorCode().getCode()); // ACCESS_DENIED
     }

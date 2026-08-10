@@ -9,7 +9,8 @@ import com.example.english_app.dto.response.PlacementQuestionResponse;
 import com.example.english_app.dto.response.PlacementResultResponse;
 import com.example.english_app.dto.response.PronunciationScoreResult;
 import com.example.english_app.dto.response.roadmap.RoadmapResponse;
-import com.example.english_app.service.onboarding.OnboardingService;
+import com.example.english_app.service.onboarding.OnboardingLifecycleService;
+import com.example.english_app.service.onboarding.PlacementTestService;
 import com.example.english_app.service.onboarding.PronunciationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -30,39 +31,37 @@ import org.springframework.web.multipart.MultipartFile;
 @Tag(name = "Onboarding", description = "Module 0: Onboarding & Placement Test")
 public class OnboardingController {
 
-    private final OnboardingService onboardingService;
-    private final PronunciationService pronunciationService;
+    private final OnboardingLifecycleService lifecycleService;
+    private final PlacementTestService       placementTestService;
+    private final PronunciationService       pronunciationService;
 
-    //  ONBOARDING STATUS
+    // ─── Onboarding Status ────────────────────────────────────────────────────
 
     @Operation(summary = "Lấy trạng thái onboarding hiện tại")
     @GetMapping("/status")
     public ResponseEntity<ApiResponse<OnboardingStatusResponse>> getStatus(Authentication auth) {
-        Long userId = getUserId(auth);
         return ResponseEntity.ok(ApiResponse.success(
-                onboardingService.getOnboardingStatus(userId)));
+                lifecycleService.getStatus(userId(auth))));
     }
 
-    //  GOAL SURVEY
+    // ─── Goal Survey ──────────────────────────────────────────────────────────
 
     @Operation(summary = "Nộp khảo sát mục tiêu học tập")
     @PostMapping("/goal-survey")
     public ResponseEntity<ApiResponse<Void>> submitGoalSurvey(
             Authentication auth,
             @Valid @RequestBody GoalSurveyRequest request) {
-        Long userId = getUserId(auth);
-        onboardingService.submitGoalSurvey(userId, request);
+        lifecycleService.submitGoalSurvey(userId(auth), request);
         return ResponseEntity.ok(ApiResponse.success("Lưu khảo sát thành công"));
     }
 
-    //  PLACEMENT TEST
+    // ─── Placement Test ───────────────────────────────────────────────────────
 
     @Operation(summary = "Bắt đầu bài kiểm tra phân loại trình độ")
     @PostMapping("/placement-test/start")
     public ResponseEntity<ApiResponse<PlacementQuestionResponse>> startTest(Authentication auth) {
-        Long userId = getUserId(auth);
         return ResponseEntity.ok(ApiResponse.success(
-                onboardingService.startPlacementTest(userId)));
+                placementTestService.startTest(userId(auth))));
     }
 
     @Operation(summary = "Lấy câu hỏi tiếp theo")
@@ -70,9 +69,8 @@ public class OnboardingController {
     public ResponseEntity<ApiResponse<PlacementQuestionResponse>> getNextQuestion(
             Authentication auth,
             @RequestParam Long sessionId) {
-        Long userId = getUserId(auth);
         return ResponseEntity.ok(ApiResponse.success(
-                onboardingService.getNextQuestion(sessionId, userId)));
+                placementTestService.getNextQuestion(sessionId, userId(auth))));
     }
 
     @Operation(summary = "Nộp câu trả lời")
@@ -80,22 +78,24 @@ public class OnboardingController {
     public ResponseEntity<ApiResponse<PlacementQuestionResponse>> submitAnswer(
             Authentication auth,
             @Valid @RequestBody PlacementAnswerRequest request) {
-        Long userId = getUserId(auth);
         return ResponseEntity.ok(ApiResponse.success(
-                onboardingService.submitAnswer(userId, request)));
+                placementTestService.submitAnswer(userId(auth), request)));
     }
 
     @Operation(summary = "Nộp câu trả lời phát âm (audio)")
-    @PostMapping(value = "/placement-test/pronunciation/submit-answer", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/placement-test/pronunciation/submit-answer",
+                 consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<PronunciationScoreResult>> submitPronunciationAnswer(
             Authentication auth,
-            @RequestParam Long sessionId,
-            @RequestPart("audioFile") MultipartFile audioFile,
-            @RequestParam("word") String word,
-            @RequestParam("wordIndex") int wordIndex) {
-        Long userId = getUserId(auth);
-        return ResponseEntity.ok(ApiResponse.success(
-                pronunciationService.submitPronunciation(userId, sessionId, audioFile, word, wordIndex)));
+            @RequestParam("sessionId")  Long sessionId,
+            @RequestParam("questionId") Long questionId,
+            @RequestPart("audioFile")   MultipartFile audioFile,
+            @RequestParam("word")       String word,
+            @RequestParam("wordIndex")  int wordIndex) {
+
+        PronunciationScoreResult result = pronunciationService.submitPronunciation(
+                userId(auth), sessionId, questionId, audioFile, word, wordIndex);
+        return ResponseEntity.ok(ApiResponse.success(result));
     }
 
     @Operation(summary = "Kết thúc bài kiểm tra")
@@ -103,52 +103,59 @@ public class OnboardingController {
     public ResponseEntity<ApiResponse<PlacementResultResponse>> completeTest(
             Authentication auth,
             @RequestParam Long sessionId) {
-        Long userId = getUserId(auth);
         return ResponseEntity.ok(ApiResponse.success(
-                onboardingService.completePlacementTest(sessionId, userId)));
-    }
-
-    @Operation(summary = "Lấy lộ trình học tập")
-    @GetMapping("/roadmap")
-    public ResponseEntity<ApiResponse<RoadmapResponse>> getRoadmap(Authentication auth) {
-        Long userId = getUserId(auth);
-        return ResponseEntity.ok(ApiResponse.success(
-                onboardingService.getRoadmap(userId)));
+                placementTestService.completeTest(sessionId, userId(auth))));
     }
 
     @Operation(summary = "Xem kết quả bài kiểm tra")
     @GetMapping("/placement-test/result")
     public ResponseEntity<ApiResponse<PlacementResultResponse>> getResult(Authentication auth) {
-        Long userId = getUserId(auth);
         return ResponseEntity.ok(ApiResponse.success(
-                onboardingService.getPlacementResult(userId)));
+                placementTestService.getResult(userId(auth))));
     }
 
-    //  SETTINGS
+    // ─── Roadmap ──────────────────────────────────────────────────────────────
+
+    @Operation(summary = "Lấy lộ trình học tập")
+    @GetMapping("/roadmap")
+    public ResponseEntity<ApiResponse<RoadmapResponse>> getRoadmap(Authentication auth) {
+        return ResponseEntity.ok(ApiResponse.success(
+                lifecycleService.getRoadmap(userId(auth))));
+    }
+
+    // ─── Settings ─────────────────────────────────────────────────────────────
 
     @Operation(summary = "Lưu cài đặt cá nhân hóa")
     @PostMapping("/settings")
     public ResponseEntity<ApiResponse<Void>> saveSettings(
             Authentication auth,
             @Valid @RequestBody OnboardingSettingsRequest request) {
-        Long userId = getUserId(auth);
-        onboardingService.saveSettings(userId, request);
+        lifecycleService.saveSettings(userId(auth), request);
         return ResponseEntity.ok(ApiResponse.success("Lưu cài đặt thành công"));
     }
 
     @Operation(summary = "Hoàn thành toàn bộ quá trình onboarding")
     @PostMapping("/complete")
     public ResponseEntity<ApiResponse<Void>> completeOnboarding(Authentication auth) {
-        Long userId = getUserId(auth);
-        onboardingService.completeOnboarding(userId);
+        lifecycleService.completeOnboarding(userId(auth));
         return ResponseEntity.ok(ApiResponse.success("Chúc mừng bạn đã hoàn thành onboarding!"));
     }
 
-    //  HELPER
+    @Operation(summary = "Reset Onboarding (Chỉ dành cho ADMIN)")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/reset")
+    public ResponseEntity<ApiResponse<Void>> resetOnboarding(
+            @RequestParam Long targetUserId) {
+        lifecycleService.resetOnboarding(targetUserId);
+        return ResponseEntity.ok(ApiResponse.success("Reset onboarding cho userId=" + targetUserId + " thành công."));
+    }
 
-    private Long getUserId(Authentication authentication) {
-        Jwt jwt = (Jwt) authentication.getPrincipal();
-        Number userId = jwt.getClaim("userId");
-        return userId != null ? userId.longValue() : null;
+    // ─── Helper ───────────────────────────────────────────────────────────────
+
+    private Long userId(Authentication auth) {
+        Jwt jwt = (Jwt) auth.getPrincipal();
+        Number id = jwt.getClaim("userId");
+        return id != null ? id.longValue() : null;
     }
 }
+
