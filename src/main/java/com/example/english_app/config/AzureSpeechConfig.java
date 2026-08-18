@@ -30,4 +30,9 @@ public record AzureSpeechConfig(
     public String sttEndpoint() {
         return String.format("https://%s.stt.speech.microsoft.com", region);
     }
+
+    /** Trả về URL của Text-to-Speech REST API cho region hiện tại */
+    public String ttsEndpoint() {
+        return String.format("https://%s.tts.speech.microsoft.com/cognitiveservices/v1", region);
+    }
 }

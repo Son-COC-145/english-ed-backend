@@ -56,7 +56,7 @@ public class AzureAudioAnalysisService implements AudioAssessmentPort {
     private static final String SUBSCRIPTION_KEY_HEADER   = "Ocp-Apim-Subscription-Key";
     private static final String PRONUNCIATION_ASSESS_HEADER = "Pronunciation-Assessment";
     private static final String STT_PATH =
-            "/speech/recognition/conversation/cognitiveservices/v1?language=en-US";
+            "/speech/recognition/conversation/cognitiveservices/v1?language=en-US&format=detailed";
 
     // ─── Score thresholds ─────────────────────────────────────────────────────
 
@@ -194,7 +194,7 @@ public class AzureAudioAnalysisService implements AudioAssessmentPort {
             Map<String, Object> config = Map.of(
                     "ReferenceText",  referenceText,
                     "GradingSystem",  "HundredMark",
-                    "Granularity",    "FullText",
+                    "Granularity",    "Phoneme",
                     "EnableMiscue",   false
             );
             String json = objectMapper.writeValueAsString(config);
@@ -229,19 +229,25 @@ public class AzureAudioAnalysisService implements AudioAssessmentPort {
             JsonNode root = objectMapper.readTree(responseBody);
 
             String recognitionStatus = root.path("RecognitionStatus").asText();
+            log.debug("Azure raw response for word='{}': {}", word, responseBody);
             if (!"Success".equals(recognitionStatus)) {
                 log.warn("Azure recognition status: {} for word='{}'", recognitionStatus, word);
                 return buildUnavailableResult(word);
             }
 
-            JsonNode assessment = root
-                    .path("NBest").get(0)
-                    .path("PronunciationAssessment");
+            // Azure REST API trả AccuracyScore trực tiếp ở NBest[0],
+            // KHÔNG có wrapper PronunciationAssessment như Speech SDK.
+            // FluencyScore/CompletenessScore/PronScore không có sẵn qua REST API ở format này.
+            // → Dùng AccuracyScore từ NBest[0] làm điểm chính cho luyện tập single-word IPA.
+            JsonNode nBest = root.path("NBest").get(0);
 
-            short accuracyScore     = (short) assessment.path("AccuracyScore").asInt(0);
-            short fluencyScore      = (short) assessment.path("FluencyScore").asInt(0);
-            short completenessScore = (short) assessment.path("CompletenessScore").asInt(0);
-            short pronScore         = (short) assessment.path("PronScore").asInt(0);
+            short accuracyScore     = (short) nBest.path("AccuracyScore").asInt(0);
+            // Proxy: dùng accuracyScore cho các metric còn lại vì REST API không trả riêng
+            short fluencyScore      = accuracyScore;
+            short completenessScore = accuracyScore;
+            short pronScore         = accuracyScore;
+
+            log.info("Azure scores for word='{}': accuracy={}", word, accuracyScore);
 
             short overallScore = calculateOverallScore(pronScore, accuracyScore, completenessScore);
             String scoreColor  = classifyColor(overallScore);

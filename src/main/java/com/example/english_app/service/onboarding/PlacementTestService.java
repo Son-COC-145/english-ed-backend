@@ -193,14 +193,12 @@ public class PlacementTestService {
                     .placementResult(result)
                     .previousAnswerCorrect(isCorrect)
                     .previousCorrectAnswer(question.getCorrectAnswer())
-                    .previousExplanation(question.getExplanation())
                     .build();
         }
 
         PlacementQuestionResponse nextQuestion = getNextQuestion(session.getId(), userId);
         nextQuestion.setPreviousAnswerCorrect(isCorrect);
         nextQuestion.setPreviousCorrectAnswer(question.getCorrectAnswer());
-        nextQuestion.setPreviousExplanation(question.getExplanation());
         return nextQuestion;
     }
 
