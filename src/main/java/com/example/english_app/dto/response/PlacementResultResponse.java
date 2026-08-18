@@ -33,4 +33,5 @@ public class PlacementResultResponse {
     
     private boolean roadmapGenerated;
     private List<String> suggestedModules;
+    private List<String> diagnosticTips;
 }

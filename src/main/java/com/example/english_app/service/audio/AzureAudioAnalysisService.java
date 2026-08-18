@@ -235,19 +235,52 @@ public class AzureAudioAnalysisService implements AudioAssessmentPort {
                 return buildUnavailableResult(word);
             }
 
-            // Azure REST API trả AccuracyScore trực tiếp ở NBest[0],
-            // KHÔNG có wrapper PronunciationAssessment như Speech SDK.
-            // FluencyScore/CompletenessScore/PronScore không có sẵn qua REST API ở format này.
-            // → Dùng AccuracyScore từ NBest[0] làm điểm chính cho luyện tập single-word IPA.
             JsonNode nBest = root.path("NBest").get(0);
+            if (nBest == null) {
+                return buildUnavailableResult(word);
+            }
 
-            short accuracyScore     = (short) nBest.path("AccuracyScore").asInt(0);
-            // Proxy: dùng accuracyScore cho các metric còn lại vì REST API không trả riêng
-            short fluencyScore      = accuracyScore;
-            short completenessScore = accuracyScore;
-            short pronScore         = accuracyScore;
+            JsonNode pronNode = nBest.path("PronunciationAssessment");
+            short accuracyScore     = 0;
+            short fluencyScore      = 0;
+            short completenessScore = 100;
+            short pronScore         = 0;
 
-            log.info("Azure scores for word='{}': accuracy={}", word, accuracyScore);
+            if (!pronNode.isMissingNode()) {
+                accuracyScore     = (short) Math.round(pronNode.path("AccuracyScore").asDouble(0));
+                pronScore         = (short) Math.round(pronNode.path("PronScore").asDouble(accuracyScore));
+                fluencyScore      = (short) Math.round(pronNode.path("FluencyScore").asDouble(accuracyScore));
+                completenessScore = (short) Math.round(pronNode.path("CompletenessScore").asDouble(100.0));
+            } else if (nBest.has("AccuracyScore")) {
+                accuracyScore     = (short) Math.round(nBest.path("AccuracyScore").asDouble(0));
+                pronScore         = (short) Math.round(nBest.path("PronScore").asDouble(accuracyScore));
+                fluencyScore      = (short) Math.round(nBest.path("FluencyScore").asDouble(accuracyScore));
+                completenessScore = (short) Math.round(nBest.path("CompletenessScore").asDouble(100.0));
+            }
+
+            // Fallback từ mảng Words nếu accuracyScore vẫn là 0
+            if (accuracyScore == 0 && nBest.has("Words") && nBest.path("Words").size() > 0) {
+                JsonNode firstWordNode = nBest.path("Words").get(0).path("PronunciationAssessment");
+                if (!firstWordNode.isMissingNode()) {
+                    accuracyScore = (short) Math.round(firstWordNode.path("AccuracyScore").asDouble(0));
+                    pronScore = accuracyScore;
+                    fluencyScore = accuracyScore;
+                    completenessScore = 100;
+                }
+            }
+
+            // Fallback từ Confidence nếu Azure không trả accuracy score
+            if (accuracyScore == 0 && nBest.has("Confidence")) {
+                double conf = nBest.path("Confidence").asDouble(0);
+                if (conf > 0) {
+                    accuracyScore = (short) Math.round(conf * 100.0);
+                    pronScore = accuracyScore;
+                    fluencyScore = accuracyScore;
+                    completenessScore = 100;
+                }
+            }
+
+            log.info("Azure scores for word='{}': accuracy={}, pron={}, fluency={}", word, accuracyScore, pronScore, fluencyScore);
 
             short overallScore = calculateOverallScore(pronScore, accuracyScore, completenessScore);
             String scoreColor  = classifyColor(overallScore);

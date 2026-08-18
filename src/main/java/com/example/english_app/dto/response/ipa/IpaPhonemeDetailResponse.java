@@ -15,6 +15,7 @@ public record IpaPhonemeDetailResponse(
         String audioFemaleUrl,
         String videoMouthUrl,
         Boolean isCommonVnError,
+        String pronunciationTipVi,
         CefrLevel cefrIntroLevel,
         List<IpaExampleWordResponse> exampleWords
 ) implements Serializable {

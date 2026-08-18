@@ -25,12 +25,18 @@ public class GlobalExceptionHandler {
 
         ErrorCode errorCode = ex.getErrorCode();
 
+        // Ưu tiên custom message (nếu có) hơn message mặc định của ErrorCode.
+        // Custom message được set khi dùng new AppException(errorCode, "chi tiết lỗi cụ thể").
+        String message = (ex.getMessage() != null && !ex.getMessage().equals(errorCode.getMessage()))
+                ? ex.getMessage()
+                : errorCode.getMessage();
+
         ErrorResponse response = ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())
                 .status(errorCode.getHttpStatus().value())
                 .error(errorCode.getHttpStatus().getReasonPhrase())
                 .code(errorCode.getCode())
-                .message(errorCode.getMessage())
+                .message(message)
                 .path(request.getRequestURI())
                 .build();
 

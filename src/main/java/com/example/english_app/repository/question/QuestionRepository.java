@@ -38,6 +38,34 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
             @Param("excludeIds") List<Long> excludeIds);
 
     long countByCefrLevelAndIsActiveTrue(CefrLevel cefrLevel);
+
+    @Query("SELECT q FROM Question q WHERE " +
+           "(:level IS NULL OR q.cefrLevel = :level) AND " +
+           "(:skill IS NULL OR q.skill = :skill) AND " +
+           "(:isActive IS NULL OR q.isActive = :isActive) " +
+           "ORDER BY q.id DESC")
+    org.springframework.data.domain.Page<Question> findByFilters(
+            @Param("level") CefrLevel level,
+            @Param("skill") Skill skill,
+            @Param("isActive") Boolean isActive,
+            org.springframework.data.domain.Pageable pageable);
+
+    long countByIsActiveTrue();
+    long countByIsActiveFalse();
+
+    /** Đếm số câu hỏi active theo từng CEFR level: trả về [cefrLevel, count]. */
+    @Query("SELECT q.cefrLevel, COUNT(q) FROM Question q WHERE q.isActive = true GROUP BY q.cefrLevel")
+    List<Object[]> countActiveGroupByLevel();
+
+    /** Đếm số câu hỏi active theo từng kỹ năng: trả về [skill, count]. */
+    @Query("SELECT q.skill, COUNT(q) FROM Question q WHERE q.isActive = true GROUP BY q.skill")
+    List<Object[]> countActiveGroupBySkill();
+
+    /** Breakdown đầy đủ (cefrLevel, skill, isActive, count) cho bảng thống kê chi tiết. */
+    @Query("SELECT q.cefrLevel, q.skill, q.isActive, COUNT(q) FROM Question q " +
+           "GROUP BY q.cefrLevel, q.skill, q.isActive ORDER BY q.cefrLevel, q.skill")
+    List<Object[]> countGroupByLevelAndSkillAndActive();
 }
+
 
 

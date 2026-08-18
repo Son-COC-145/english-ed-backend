@@ -77,6 +77,7 @@ public class PlacementResultFactory {
 
         Map<String, Short> radarData = buildSkillScoreMap(scores);
         List<String> suggestedModules = extractSuggestedModules(roadmapJson, cefrLevel);
+        List<String> diagnosticTips = buildDiagnosticTips(scores, cefrLevel);
 
         int totalCorrect = (int) answers.stream().filter(PlacementTestAnswer::getIsCorrect).count();
 
@@ -96,6 +97,7 @@ public class PlacementResultFactory {
                 .weaknesses(getTopSkills(radarData, false))
                 .roadmapGenerated(roadmapGenerated)
                 .suggestedModules(suggestedModules)
+                .diagnosticTips(diagnosticTips)
                 .build();
     }
 
@@ -167,6 +169,29 @@ public class PlacementResultFactory {
             case B2     -> "Tự tin giao tiếp hầu hết tình huống thường gặp";
             case C1     -> "Thành thạo, xử lý được nội dung phức tạp";
         };
+    }
+
+    private List<String> buildDiagnosticTips(SkillScores scores, CefrLevel level) {
+        List<String> tips = new ArrayList<>();
+        if (scores.getPronunciation() < 60) {
+            tips.add("Phát âm: Cần luyện kỹ bảng âm IPA (đặc biệt các cặp âm dễ nhầm như /iː/-/ɪ/, /s/-/ʃ/) để cải thiện độ chuẩn xác.");
+        }
+        if (scores.getListening() < 60) {
+            tips.add("Kỹ năng nghe: Luyện nghe các đoạn hội thoại ngắn có phụ đề, chú ý nhận diện âm đuôi và nối âm.");
+        }
+        if (scores.getVocab() < 60) {
+            tips.add("Từ vựng: Cần bổ sung 10-15 từ vựng chủ đề mỗi ngày và duy trì ôn tập lặp lại qua Flashcard.");
+        }
+        if (scores.getGrammar() < 60) {
+            tips.add("Ngữ pháp: Củng cố lại các thì cơ bản (Hiện tại đơn, Quá khứ đơn) và cấu trúc câu thông dụng.");
+        }
+        if (scores.getReading() < 60) {
+            tips.add("Đọc hiểu: Tập thói quen đọc các bài đọc ngắn và rèn luyện kỹ năng Skimming/Scanning để nắm ý chính.");
+        }
+        if (tips.isEmpty()) {
+            tips.add("Nền tảng của bạn rất vững chắc! Hãy duy trì luyện phản xạ giao tiếp nâng cao và mở rộng vốn từ học thuật.");
+        }
+        return tips;
     }
 
     // ─── Value Object ─────────────────────────────────────────────────────────

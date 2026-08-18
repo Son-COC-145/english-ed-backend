@@ -45,6 +45,9 @@ public class IpaPhoneme {
     @Builder.Default
     private Boolean isCommonVnError = false;
 
+    @Column(name = "pronunciation_tip_vi", columnDefinition = "text")
+    private String pronunciationTipVi;
+
     @OneToMany(mappedBy = "phoneme", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @Builder.Default
     private java.util.List<IpaExampleWord> exampleWords = new java.util.ArrayList<>();
