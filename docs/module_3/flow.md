@@ -1,6 +1,6 @@
 # Kiến trúc Luồng Xử Lý (Flow Architecture) - Module 3
 
-*Tài liệu mô tả ĐẦY ĐỦ các luồng nghiệp vụ chuẩn cho hệ thống AI Speaking Coach (Phản xạ giao tiếp).*
+*Tài liệu mô tả ĐẦY ĐỦ các luồng nghiệp vụ chuẩn và Đặc tả API (API Specification) chi tiết nhất cho hệ thống AI Speaking Coach (Phản xạ giao tiếp).*
 
 ---
 
@@ -24,6 +24,12 @@ sequenceDiagram
     BE->>DB: is_active = true
     BE-->>Teacher: Kịch bản khả dụng cho Học viên
 ```
+
+### 📦 Đặc tả API tương ứng (SpeakingScenarioController)
+- **`GET /api/v1/speaking-scenarios`**: Lấy danh sách Kịch bản. (Hỗ trợ phân trang, filter theo role học viên/giáo viên).
+- **`POST /api/v1/speaking-scenarios`**: Tạo mới Kịch bản (Context, Hint phrases, CEFR level, System Prompt, Persona).
+- **`PUT /api/v1/speaking-scenarios/{id}`**: Cập nhật kịch bản (Bao gồm việc Activate/Deactivate kịch bản để public cho học viên).
+- **`DELETE /api/v1/speaking-scenarios/{id}`**: Xóa kịch bản.
 
 ---
 
@@ -49,6 +55,18 @@ sequenceDiagram
     BE-->>App: Trả về Session ID & Câu chào mở màn (Text + Audio)
     App->>Student: Play Audio câu chào
 ```
+
+### 📦 Đặc tả API tương ứng (SpeakingSessionController)
+- **`POST /api/v1/speaking-session/start`**:
+  - **Request Body:** `{"scenarioId": 15}`
+  - **Response (200 OK):**
+    ```json
+    {
+      "sessionId": "a1b2c3d4-...",
+      "initialGreeting": "Hello! Welcome to the coffee shop. What can I get for you today?",
+      "audioUrl": "https://cdn.../greeting.mp3"
+    }
+    ```
 
 ---
 
@@ -92,6 +110,15 @@ sequenceDiagram
     App->>Student: Tự động Play Audio AI trả lời
 ```
 
+### 📦 Đặc tả API tương ứng (SpeakingSessionController)
+- **`POST /api/v1/speaking-session/{id}/audio-input`**:
+  - **Content-Type:** `multipart/form-data`
+  - **Body:** `file` (File audio người dùng vừa thu âm).
+  - **Response:** `202 Accepted` (Báo hiệu backend đã nhận file và bắt đầu xử lý STT).
+- **`GET /api/v1/speaking-session/{id}/stream-response`**:
+  - **Content-Type:** `text/event-stream` (Server-Sent Events)
+  - **Event Stream:** Trả về liên tục các chunk chữ từ LLM (`event: text`) và URL file audio hoàn chỉnh ở cuối luồng (`event: audio`).
+
 ---
 
 ## 4. Luồng Phân tích & Đánh giá Hậu kỳ (Post-Conversation Evaluation)
@@ -128,3 +155,7 @@ sequenceDiagram
     BE-->>App: Trả về Báo cáo (Report) hoàn chỉnh
     App->>Student: Hiển thị giao diện "Sửa lỗi" và "Điểm XP"
 ```
+
+### 📦 Đặc tả API tương ứng (SpeakingSessionController)
+- **`POST /api/v1/speaking-session/{id}/end`**:
+  - **Response (200 OK):** Trả về JSON chứa Report toàn bộ cuộc gọi (bao gồm transcript, điểm phát âm, danh sách lỗi ngữ pháp và đề xuất cải thiện).
