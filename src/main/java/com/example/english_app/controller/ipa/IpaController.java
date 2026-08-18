@@ -1,5 +1,6 @@
 package com.example.english_app.controller.ipa;
 
+import com.example.english_app.dto.response.ApiResponse;
 import com.example.english_app.dto.response.ipa.IpaPhonemeDetailResponse;
 import com.example.english_app.dto.response.ipa.IpaPhonemeResponse;
 import com.example.english_app.dto.response.ipa.PronunciationResultResponse;
@@ -33,26 +34,26 @@ public class IpaController {
     // ─── Phase 1: IPA Sound Library ──────────────────────────────────────────
 
     @GetMapping
-    public ResponseEntity<Map<String, Object>> getAllPhonemes(
+    public ResponseEntity<ApiResponse<List<IpaPhonemeResponse>>> getAllPhonemes(
             @RequestParam(required = false) PhonemeType type,
             @RequestParam(required = false) Boolean isCommonError) {
         List<IpaPhonemeResponse> data = ipaService.getAllPhonemes(type, isCommonError);
-        return ResponseEntity.ok(Map.of("code", 200, "data", data));
+        return ResponseEntity.ok(ApiResponse.success(data));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Map<String, Object>> getPhonemeDetail(@PathVariable Short id) {
+    public ResponseEntity<ApiResponse<IpaPhonemeDetailResponse>> getPhonemeDetail(@PathVariable Short id) {
         IpaPhonemeDetailResponse data = ipaService.getPhonemeDetail(id);
-        return ResponseEntity.ok(Map.of("code", 200, "data", data));
+        return ResponseEntity.ok(ApiResponse.success(data));
     }
 
     @PostMapping("/{id}/bookmark")
-    public ResponseEntity<Map<String, Object>> toggleBookmark(
+    public ResponseEntity<ApiResponse<Map<String, Boolean>>> toggleBookmark(
             @PathVariable Short id,
             Authentication authentication) {
         Long userId = extractUserId(authentication);
         Map<String, Boolean> data = ipaService.toggleBookmark(userId, id);
-        return ResponseEntity.ok(Map.of("code", 200, "data", data));
+        return ResponseEntity.ok(ApiResponse.success(data));
     }
 
     // ─── Phase 2: AI Assessment Engine ───────────────────────────────────────
@@ -65,13 +66,13 @@ public class IpaController {
      * Magic byte validation nằm trong AudioAssessmentPort.
      */
     @PostMapping(value = "/practice", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<Map<String, Object>> practice(
+    public ResponseEntity<ApiResponse<PronunciationResultResponse>> practice(
             @RequestParam Long exampleWordId,
             @RequestParam MultipartFile audio,
             Authentication authentication) {
         Long userId = extractUserId(authentication);
         PronunciationResultResponse data = ipaPronunciationService.assess(userId, exampleWordId, audio);
-        return ResponseEntity.ok(Map.of("code", 200, "data", data));
+        return ResponseEntity.ok(ApiResponse.success(data));
     }
 
     // ─── Helper ──────────────────────────────────────────────────────────────

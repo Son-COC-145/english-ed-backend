@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Configuration;
  * không bị ràng buộc với Spring annotation.
  */
 @Configuration
-@EnableConfigurationProperties(AzureSpeechConfig.class)
+@EnableConfigurationProperties({AzureSpeechConfig.class, AzureBlobStorageConfig.class})
 public class AzureSpeechAutoConfig {
     // Không cần thêm bean — @EnableConfigurationProperties đã đủ.
 }

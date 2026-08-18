@@ -102,7 +102,7 @@ public class RoadmapGenerationService {
         // 2. Lấy Speaking Scenarios (tuỳ vào focusSkills)
         boolean hasSpeaking = focusSkills != null && focusSkills.stream().anyMatch(s -> s.equalsIgnoreCase("Giao tiếp"));
         
-        List<RoadmapMilestone> milestones = assembleMilestones(level, topics, hasSpeaking);
+        List<RoadmapMilestone> milestones = assembleMilestones(level, topics, hasSpeaking, focusSkills);
 
         return RoadmapResponse.builder()
                 .cefrLevel(level.name())
@@ -125,7 +125,7 @@ public class RoadmapGenerationService {
         return primaryTopics;
     }
 
-    private List<RoadmapMilestone> assembleMilestones(CefrLevel level, List<Topic> topics, boolean includeSpeaking) {
+    private List<RoadmapMilestone> assembleMilestones(CefrLevel level, List<Topic> topics, boolean includeSpeaking, List<String> focusSkills) {
         List<RoadmapMilestone> milestones = new ArrayList<>();
         
         int week = 1;
@@ -157,6 +157,17 @@ public class RoadmapGenerationService {
                             .cefrLevel(level.name())
                             .build());
                 }
+            }
+
+            // 3. IPA Module (Module 1) - Chỉ thêm vào Tuần 1
+            if (week == 1 && (level == CefrLevel.A1 || level == CefrLevel.A2 || (focusSkills != null && focusSkills.stream().anyMatch(s -> s.equalsIgnoreCase("Phát âm") || s.equalsIgnoreCase("Giao tiếp"))))) {
+                modules.add(RoadmapModule.builder()
+                        .type("IPA_PRONUNCIATION")
+                        .title("Nền tảng phát âm IPA")
+                        .topicId(null)
+                        .itemCount(44)
+                        .cefrLevel(level.name())
+                        .build());
             }
 
             // Chỉ tạo milestone nếu có module

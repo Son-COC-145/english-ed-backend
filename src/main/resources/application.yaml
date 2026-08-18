@@ -115,5 +115,8 @@ elevenlabs:
 azure:
   speech:
     subscription-key: ${AZURE_SPEECH_KEY:}
-    region: ${AZURE_SPEECH_REGION:southeastasia}
-    timeout-seconds: 5
+    region: ${AZURE_SPEECH_REGION:japaneast}
+    timeout-seconds: 10
+  storage:
+    connection-string: ${AZURE_STORAGE_CONNECTION_STRING:}
+    container-name: ${AZURE_STORAGE_CONTAINER_NAME:english-app-media}
