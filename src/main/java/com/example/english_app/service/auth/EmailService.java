@@ -17,6 +17,9 @@ public class EmailService {
     @Value("${spring.mail.username}")
     private String fromEmail;
 
+    @Value("${app.frontend-url}")
+    private String frontendUrl;
+
     // Gửi email reset password
     @Async
     public void sendResetPasswordEmail(String email,
@@ -28,7 +31,7 @@ public class EmailService {
             message.setSubject("Đặt lại mật khẩu");
             message.setText(
                     "Nhấn vào link để đặt lại mật khẩu:\n\n"
-                            + "http://localhost:3000/reset-password?token="
+                            + frontendUrl + "/reset-password?token="
                             + resetToken
                             + "\n\nLink có hiệu lực trong 15 phút.");
             mailSender.send(message);
