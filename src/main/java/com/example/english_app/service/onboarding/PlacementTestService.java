@@ -102,6 +102,66 @@ public class PlacementTestService {
     }
 
     /**
+     * Bỏ qua bài kiểm tra phân loại (Dành cho người mới bắt đầu từ con số 0).
+     * Gán trực tiếp CEFR A1, điểm sàn 20/100, và tự động sinh Roadmap A1.
+     */
+    public PlacementResultResponse skipTest(Long userId) {
+        com.example.english_app.entity.user.User user = userRepository.findById(userId)
+                .orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
+
+        StudentOnboarding onboarding = onboardingRepository.findByStudentId(userId)
+                .orElseGet(() -> StudentOnboarding.builder().student(user).build());
+
+        if (onboarding.getPlacementCefrLevel() != null) {
+            throw ErrorCode.PLACEMENT_TEST_ALREADY_COMPLETED.toException();
+        }
+
+        // Đóng session đang dở (nếu có)
+        sessionRepository.findTopByStudentIdAndIsCompletedFalseOrderByStartedAtDesc(userId)
+                .ifPresent(s -> {
+                    s.setIsCompleted(true);
+                    sessionRepository.save(s);
+                });
+
+        short baselineScore = 20;
+        onboarding.setPlacementCefrLevel(CefrLevel.A1);
+        onboarding.setPlacementVocabScore(baselineScore);
+        onboarding.setPlacementGrammarScore(baselineScore);
+        onboarding.setPlacementReadingScore(baselineScore);
+        onboarding.setPlacementListeningScore(baselineScore);
+        onboarding.setPlacementPronunciationScore(baselineScore);
+        onboarding.setPlacementCompletedAt(LocalDateTime.now());
+        onboardingRepository.save(onboarding);
+
+        log.info("Placement test skipped for user {}. Assigned default CEFR: A1 with baseline scores: {}", userId, baselineScore);
+
+        // Tự động sinh Roadmap
+        String roadmapJson = null;
+        boolean roadmapGenerated = false;
+        try {
+            var roadmap = roadmapGenerationService.generateAndPersist(userId, CefrLevel.A1, onboarding.getGoalSurveyJson());
+            if (roadmap != null) {
+                roadmapJson = objectMapper.writeValueAsString(roadmap);
+                onboarding.setRoadmapJson(roadmapJson);
+                onboardingRepository.save(onboarding);
+            }
+            roadmapGenerated = true;
+        } catch (Exception e) {
+            log.error("Roadmap generation failed during skipTest for user {}", userId, e);
+        }
+
+        SkillScores scores = SkillScores.builder()
+                .vocab(baselineScore)
+                .grammar(baselineScore)
+                .reading(baselineScore)
+                .listening(baselineScore)
+                .pronunciation(baselineScore)
+                .build();
+
+        return resultFactory.buildResponse(CefrLevel.A1, scores, Collections.emptyList(), roadmapJson, roadmapGenerated);
+    }
+
+    /**
      * Lấy câu hỏi tiếp theo trong session đang chạy.
      * KHÔNG dùng readOnly=true vì có thể ghi session (đánh dấu expired).
      */

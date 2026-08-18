@@ -85,7 +85,9 @@ class RoadmapGenerationServiceTest {
         assertEquals(CefrLevel.B1.name(), result.getCefrLevel());
         assertEquals(1, result.getTotalWeeks());
         assertEquals(1, result.getMilestones().size()); // Only 1 topic found
-        assertEquals(1, result.getMilestones().get(0).getModules().size()); // Only vocab module added
+        assertEquals(2, result.getMilestones().get(0).getModules().size()); // Vocab + IPA module added for week 1
+        assertEquals("VOCABULARY", result.getMilestones().get(0).getModules().get(0).getType());
+        assertEquals("IPA_PRONUNCIATION", result.getMilestones().get(0).getModules().get(1).getType());
         
         verify(onboardingRepository).save(mockOnboarding);
         assertEquals("{\"dummy\":\"json\"}", mockOnboarding.getRoadmapJson());

@@ -1,8 +1,10 @@
 package com.example.english_app.service.ipa;
 
 import com.example.english_app.entity.ipa.IpaExampleWord;
+import com.example.english_app.entity.ipa.IpaMinimalPair;
 import com.example.english_app.entity.ipa.IpaPhoneme;
 import com.example.english_app.repository.ipa.IpaExampleWordRepository;
+import com.example.english_app.repository.ipa.IpaMinimalPairRepository;
 import com.example.english_app.repository.ipa.IpaPhonemeRepository;
 import com.example.english_app.service.audio.AzureTtsService;
 import com.example.english_app.service.storage.AzureBlobStorageService;
@@ -12,8 +14,6 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,14 +28,15 @@ public class IpaMediaGeneratorService {
 
     private final IpaPhonemeRepository phonemeRepository;
     private final IpaExampleWordRepository exampleWordRepository;
+    private final IpaMinimalPairRepository minimalPairRepository;
     private final AzureTtsService ttsService;
     private final AzureBlobStorageService blobStorageService;
 
     /**
      * Tự động quét DB, sinh âm thanh qua Azure TTS và lưu vào Azure Blob Storage.
      *
-     * @param overwriteAll nếu true sẽ sinh lại toàn bộ kể cả khi đã có link thật.
-     *                     nếu false chỉ sinh cho những record đang dùng link cdn.example.com
+     * @param overwriteAll nếu true sẽ sinh lại toàn bộ kể cả khi đã có link Azure.
+     *                     nếu false chỉ sinh cho những record chưa có link Azure Blob Storage.
      * @return Báo cáo kết quả
      */
     @CacheEvict(value = {"ipa_phonemes_v2", "ipa_phoneme_detail_v2"}, allEntries = true)
@@ -45,6 +46,7 @@ public class IpaMediaGeneratorService {
 
         int phonemesUpdated = 0;
         int wordsUpdated = 0;
+        int pairsUpdated = 0;
 
         // 1. Xử lý âm vị (Phonemes)
         List<IpaPhoneme> phonemes = phonemeRepository.findAll();
@@ -97,18 +99,53 @@ public class IpaMediaGeneratorService {
             }
         }
 
-        log.info("Batch generation complete! Updated {} phonemes and {} example words.", phonemesUpdated, wordsUpdated);
+        // 3. Xử lý cặp âm dễ nhầm lẫn (Minimal Pairs)
+        List<IpaMinimalPair> pairs = minimalPairRepository.findAll();
+        for (IpaMinimalPair pair : pairs) {
+            boolean needAudio1 = overwriteAll || isPlaceholder(pair.getAudio1Url());
+            boolean needAudio2 = overwriteAll || isPlaceholder(pair.getAudio2Url());
+
+            if (needAudio1) {
+                try {
+                    byte[] audio1 = ttsService.synthesizeWord(pair.getWord1(), AzureTtsService.VOICE_MALE_US);
+                    String blobName = "audio/minimal_pairs/" + sanitize(pair.getWord1()) + ".mp3";
+                    String url = blobStorageService.uploadAudio(blobName, audio1, "audio/mpeg");
+                    pair.setAudio1Url(url);
+                } catch (Exception e) {
+                    log.error("Failed to generate audio for pair word1 {}: {}", pair.getWord1(), e.getMessage());
+                }
+            }
+
+            if (needAudio2) {
+                try {
+                    byte[] audio2 = ttsService.synthesizeWord(pair.getWord2(), AzureTtsService.VOICE_MALE_US);
+                    String blobName = "audio/minimal_pairs/" + sanitize(pair.getWord2()) + ".mp3";
+                    String url = blobStorageService.uploadAudio(blobName, audio2, "audio/mpeg");
+                    pair.setAudio2Url(url);
+                } catch (Exception e) {
+                    log.error("Failed to generate audio for pair word2 {}: {}", pair.getWord2(), e.getMessage());
+                }
+            }
+
+            if (needAudio1 || needAudio2) {
+                minimalPairRepository.save(pair);
+                pairsUpdated++;
+            }
+        }
+
+        log.info("Batch generation complete! Updated {} phonemes, {} example words, and {} minimal pairs.", phonemesUpdated, wordsUpdated, pairsUpdated);
 
         Map<String, Object> result = new HashMap<>();
         result.put("phonemesUpdated", phonemesUpdated);
         result.put("wordsUpdated", wordsUpdated);
+        result.put("minimalPairsUpdated", pairsUpdated);
         result.put("status", "SUCCESS");
-        result.put("message", String.format("Đã tự động tạo và lưu trữ thành công %d âm vị và %d từ vựng lên Azure Blob Storage!", phonemesUpdated, wordsUpdated));
+        result.put("message", String.format("Đã tự động tạo và lưu trữ thành công %d âm vị, %d từ vựng và %d cặp âm lên Azure Blob Storage!", phonemesUpdated, wordsUpdated, pairsUpdated));
         return result;
     }
 
     private boolean isPlaceholder(String url) {
-        return url == null || url.isBlank() || url.contains("example.com") || !url.startsWith("http");
+        return url == null || url.isBlank() || !url.contains(".blob.core.windows.net");
     }
 
     private String sanitize(String input) {
@@ -116,3 +153,4 @@ public class IpaMediaGeneratorService {
         return input.replaceAll("[^a-zA-Z0-9_-]", "_");
     }
 }
+

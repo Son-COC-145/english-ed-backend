@@ -67,6 +67,8 @@ public enum ErrorCode {
     // IPA Module
     PHONEME_NOT_FOUND(9101, "Không tìm thấy âm IPA với id đã cho", HttpStatus.NOT_FOUND),
     EXAMPLE_WORD_NOT_FOUND(9102, "Không tìm thấy từ ví dụ với id đã cho", HttpStatus.NOT_FOUND),
+    PRONUNCIATION_RULE_NOT_FOUND(9103, "Không tìm thấy quy tắc phát âm", HttpStatus.NOT_FOUND),
+    MINIMAL_PAIR_NOT_FOUND(9104, "Không tìm thấy cặp âm đối lập", HttpStatus.NOT_FOUND),
 
     // System
     SYSTEM_ERROR(9999, "Lỗi hệ thống máy chủ", HttpStatus.INTERNAL_SERVER_ERROR);

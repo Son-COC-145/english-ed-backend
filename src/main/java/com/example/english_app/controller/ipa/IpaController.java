@@ -1,10 +1,9 @@
 package com.example.english_app.controller.ipa;
 
 import com.example.english_app.dto.response.ApiResponse;
-import com.example.english_app.dto.response.ipa.IpaPhonemeDetailResponse;
-import com.example.english_app.dto.response.ipa.IpaPhonemeResponse;
-import com.example.english_app.dto.response.ipa.PronunciationResultResponse;
+import com.example.english_app.dto.response.ipa.*;
 import com.example.english_app.entity.enums.PhonemeType;
+import com.example.english_app.entity.enums.PronunciationRuleCategory;
 import com.example.english_app.service.ipa.IpaPronunciationService;
 import com.example.english_app.service.ipa.IpaService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -25,14 +24,36 @@ import java.util.Map;
 @RequestMapping("/api/v1/ipa/phonemes")
 @RequiredArgsConstructor
 @PreAuthorize("isAuthenticated()") // BUG-03: Bảo vệ toàn bộ controller
-@Tag(name = "IPA Phonemes", description = "Module 1: Học phát âm IPA")
+@Tag(name = "IPA Phonemes", description = "Module 1: Học phát âm IPA & Quy tắc ngữ âm")
 public class IpaController {
 
     private final IpaService              ipaService;
     private final IpaPronunciationService ipaPronunciationService;
+    private final com.example.english_app.service.audio.AzureTtsService azureTtsService;
 
-    // ─── Phase 1: IPA Sound Library ──────────────────────────────────────────
+    @Operation(summary = "Phát âm thanh động qua Azure TTS (Fallback tức thì nếu từ thiếu audio)")
+    @GetMapping(value = "/tts/stream", produces = "audio/mpeg")
+    public ResponseEntity<byte[]> streamTts(
+            @RequestParam String text,
+            @RequestParam(defaultValue = "WORD") String type,
+            @RequestParam(defaultValue = "MALE") String voice) {
+        String voiceName = "FEMALE".equalsIgnoreCase(voice) 
+                ? com.example.english_app.service.audio.AzureTtsService.VOICE_FEMALE_US 
+                : com.example.english_app.service.audio.AzureTtsService.VOICE_MALE_US;
+        
+        byte[] audioBytes = "PHONEME".equalsIgnoreCase(type)
+                ? azureTtsService.synthesizePhoneme(text, voiceName)
+                : azureTtsService.synthesizeWord(text, voiceName);
+        
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, "audio/mpeg")
+                .header(org.springframework.http.HttpHeaders.CACHE_CONTROL, "public, max-age=86400")
+                .body(audioBytes);
+    }
 
+    // ─── Phase 1: IPA Sound Library & Mastery ────────────────────────────────
+
+    @Operation(summary = "Lấy danh sách tất cả các âm IPA")
     @GetMapping
     public ResponseEntity<ApiResponse<List<IpaPhonemeResponse>>> getAllPhonemes(
             @RequestParam(required = false) PhonemeType type,
@@ -41,12 +62,50 @@ public class IpaController {
         return ResponseEntity.ok(ApiResponse.success(data));
     }
 
+    @Operation(summary = "Lấy bảng nhiệt độ thành thạo 44 âm IPA của người dùng (Mastery Heatmap)")
+    @GetMapping("/mastery")
+    public ResponseEntity<ApiResponse<IpaMasterySummaryResponse>> getPhonemeMastery(Authentication authentication) {
+        Long userId = extractUserId(authentication);
+        return ResponseEntity.ok(ApiResponse.success(ipaService.getPhonemeMastery(userId)));
+    }
+
+    @Operation(summary = "Lấy danh sách các cặp âm dễ gây nhầm lẫn (Minimal Pairs)")
+    @GetMapping("/minimal-pairs")
+    public ResponseEntity<ApiResponse<List<IpaMinimalPairResponse>>> getMinimalPairs() {
+        return ResponseEntity.ok(ApiResponse.success(ipaService.getMinimalPairs()));
+    }
+
+    @Operation(summary = "Lấy danh sách các Quy tắc Trọng âm & Ghép âm / Nối âm (Pronunciation Rules)")
+    @GetMapping("/rules")
+    public ResponseEntity<ApiResponse<List<PronunciationRuleResponse>>> getPronunciationRules(
+            @RequestParam(required = false) PronunciationRuleCategory category) {
+        return ResponseEntity.ok(ApiResponse.success(ipaService.getPronunciationRules(category)));
+    }
+
+    @Operation(summary = "Lấy chi tiết một Quy tắc Ngữ âm (kèm ví dụ, audio mẫu & giải thích)")
+    @GetMapping("/rules/{id}")
+    public ResponseEntity<ApiResponse<PronunciationRuleDetailResponse>> getPronunciationRuleDetail(
+            @PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(ipaService.getPronunciationRuleDetail(id)));
+    }
+
+    @Operation(summary = "Lấy chi tiết 1 âm IPA (kèm video khẩu hình, gợi ý sửa lỗi & từ ví dụ)")
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<IpaPhonemeDetailResponse>> getPhonemeDetail(@PathVariable Short id) {
         IpaPhonemeDetailResponse data = ipaService.getPhonemeDetail(id);
         return ResponseEntity.ok(ApiResponse.success(data));
     }
 
+    @Operation(summary = "Lấy lịch sử luyện tập phát âm gần nhất của 1 âm IPA")
+    @GetMapping("/{id}/history")
+    public ResponseEntity<ApiResponse<List<IpaPracticeHistoryResponse>>> getPracticeHistory(
+            @PathVariable Short id,
+            Authentication authentication) {
+        Long userId = extractUserId(authentication);
+        return ResponseEntity.ok(ApiResponse.success(ipaService.getPracticeHistory(userId, id)));
+    }
+
+    @Operation(summary = "Lưu / Bỏ lưu âm IPA (Bookmark toggle)")
     @PostMapping("/{id}/bookmark")
     public ResponseEntity<ApiResponse<Map<String, Boolean>>> toggleBookmark(
             @PathVariable Short id,
@@ -54,6 +113,14 @@ public class IpaController {
         Long userId = extractUserId(authentication);
         Map<String, Boolean> data = ipaService.toggleBookmark(userId, id);
         return ResponseEntity.ok(ApiResponse.success(data));
+    }
+
+    @Operation(summary = "Lấy danh sách âm IPA đã lưu (Bookmark list) – sắp xếp mới nhất trước")
+    @GetMapping("/bookmarks")
+    public ResponseEntity<ApiResponse<List<com.example.english_app.dto.response.ipa.IpaPhonemeBookmarkResponse>>> getBookmarkedPhonemes(
+            Authentication authentication) {
+        Long userId = extractUserId(authentication);
+        return ResponseEntity.ok(ApiResponse.success(ipaService.getBookmarkedPhonemes(userId)));
     }
 
     // ─── Phase 2: AI Assessment Engine ───────────────────────────────────────
@@ -65,6 +132,7 @@ public class IpaController {
      * <p>File size đã được giới hạn ở tầng Spring filter (max-file-size=5MB).
      * Magic byte validation nằm trong AudioAssessmentPort.
      */
+    @Operation(summary = "Luyện tập phát âm từ ví dụ (Gửi file audio chấm điểm AI)")
     @PostMapping(value = "/practice", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<PronunciationResultResponse>> practice(
             @RequestParam Long exampleWordId,

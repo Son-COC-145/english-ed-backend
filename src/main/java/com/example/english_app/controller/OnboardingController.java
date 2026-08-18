@@ -8,6 +8,7 @@ import com.example.english_app.dto.response.OnboardingStatusResponse;
 import com.example.english_app.dto.response.PlacementQuestionResponse;
 import com.example.english_app.dto.response.PlacementResultResponse;
 import com.example.english_app.dto.response.PronunciationScoreResult;
+import com.example.english_app.dto.response.roadmap.RoadmapProgressResponse;
 import com.example.english_app.dto.response.roadmap.RoadmapResponse;
 import com.example.english_app.service.onboarding.OnboardingLifecycleService;
 import com.example.english_app.service.onboarding.PlacementTestService;
@@ -107,6 +108,13 @@ public class OnboardingController {
                 placementTestService.completeTest(sessionId, userId(auth))));
     }
 
+    @Operation(summary = "Bỏ qua bài kiểm tra (Dành cho người mới bắt đầu từ con số 0)")
+    @PostMapping("/placement-test/skip")
+    public ResponseEntity<ApiResponse<PlacementResultResponse>> skipTest(Authentication auth) {
+        return ResponseEntity.ok(ApiResponse.success(
+                placementTestService.skipTest(userId(auth))));
+    }
+
     @Operation(summary = "Xem kết quả bài kiểm tra")
     @GetMapping("/placement-test/result")
     public ResponseEntity<ApiResponse<PlacementResultResponse>> getResult(Authentication auth) {
@@ -121,6 +129,13 @@ public class OnboardingController {
     public ResponseEntity<ApiResponse<RoadmapResponse>> getRoadmap(Authentication auth) {
         return ResponseEntity.ok(ApiResponse.success(
                 lifecycleService.getRoadmap(userId(auth))));
+    }
+
+    @Operation(summary = "Lấy tiến độ hoàn thành lộ trình học tập")
+    @GetMapping("/roadmap/progress")
+    public ResponseEntity<ApiResponse<RoadmapProgressResponse>> getRoadmapProgress(Authentication auth) {
+        return ResponseEntity.ok(ApiResponse.success(
+                lifecycleService.getRoadmapProgress(userId(auth))));
     }
 
     // ─── Settings ─────────────────────────────────────────────────────────────
