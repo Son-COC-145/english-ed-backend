@@ -55,4 +55,4 @@ application.properties
 application-*.properties
 
 ### Documentation ###
-docs/
+docs-local/
