@@ -1,6 +1,6 @@
 # Kiến trúc Luồng Xử Lý (Flow Architecture) - Module 2
 
-*Tài liệu mô tả ĐẦY ĐỦ các luồng nghiệp vụ chuẩn cho hệ thống Học Từ Vựng, Minigame và Quản lý Gói cước.*
+*Tài liệu mô tả ĐẦY ĐỦ các luồng nghiệp vụ chuẩn và Đặc tả API (API Specification) chi tiết nhất cho hệ thống Học Từ Vựng, Minigame và Quản lý Gói cước.*
 
 ---
 
@@ -41,6 +41,22 @@ sequenceDiagram
     System-->>Admin: Hoàn tất
 ```
 
+### 📦 Đặc tả API tương ứng
+
+#### 1.1 Quản trị Chủ đề (TopicController)
+- **`GET /api/v1/topic`**: Lấy danh sách Topic.
+  - **Query:** `page`, `size`, `sort`.
+  - **Response:** `Page<TopicResponse>` (id, name, description, image_url, status).
+- **`POST /api/v1/topic`**: Tạo mới Topic.
+  - **Body (JSON/Form-data):** `name`, `description`, `file (Image)`.
+- **`PUT /api/v1/topic/{id}`**: Cập nhật Topic.
+- **`DELETE /api/v1/topic/{id}`**: Xóa/Ẩn Topic.
+
+#### 1.2 Sinh nội dung AI (AdminVocabularyController)
+- **`POST /api/v1/admin/vocabularies/generate`**: Yêu cầu AI sinh nội dung.
+  - **Body (JSON):** `{"topicId": 12, "words": ["apple", "banana"], "level": "A1"}`
+  - **Response:** `200 OK` (Trả về list vocabulary preview ở trạng thái DRAFT).
+
 ---
 
 ## 2. Luồng Học Tập Flashcard (Student Flow)
@@ -67,6 +83,26 @@ sequenceDiagram
     Student->>App: Bấm lật thẻ & nghe Audio (App lấy Cache)
 ```
 
+### 📦 Đặc tả API tương ứng
+- **`GET /api/v1/vocabulary?topicId={id}`** (VocabularyController)
+  - **Query Params:** `topicId` (Long), `page` (int), `size` (int).
+  - **Response (200 OK):**
+    ```json
+    {
+      "content": [
+        {
+          "id": 1,
+          "word": "Apple",
+          "ipa": "/ˈæp.əl/",
+          "meaning": "Quả táo",
+          "audioUrlUs": "https://cdn.../apple_us.mp3",
+          "imageUrl": "https://cdn.../apple.png",
+          "examples": ["I eat an apple."]
+        }
+      ]
+    }
+    ```
+
 ---
 
 ## 3. Luồng Chơi & Chấm điểm Minigame
@@ -88,6 +124,26 @@ stateDiagram-v2
     GainXP --> UpdateProgress: Cập nhật DB (Vocabulary Progress)
     UpdateProgress --> [*]
 ```
+
+### 📦 Đặc tả API tương ứng
+
+#### 3.1 Ghi nhận kết quả Game (MiniGameController / StudentGamificationController)
+- **`POST /api/v1/gamification/minigame-results`** (hoặc submit endpoint tương tự)
+  - **Request Body:** 
+    ```json
+    {
+      "gameType": "MATCHING_WORDS",
+      "topicId": 5,
+      "correctAnswers": 10,
+      "totalQuestions": 12,
+      "timeTakenSeconds": 45
+    }
+    ```
+  - **Response (200 OK):** Trả về số điểm XP đạt được và level hiện tại.
+
+#### 3.2 Lấy thống kê và tiến độ
+- **`GET /api/v1/gamification/stat`**: Lấy thông tin thống kê XP, Streak của user.
+- **`GET /api/v1/gamification/vocabulary-progress`**: Lấy % hoàn thành các Topic từ vựng.
 
 ---
 
@@ -122,30 +178,11 @@ sequenceDiagram
     end
 ```
 
----
-
-## 5. Luồng Kiểm soát Rate Limit (Redis API Gateway)
-Giới hạn lượt sử dụng AI cho các tài khoản gói Basic.
-
-```mermaid
-sequenceDiagram
-    actor User
-    participant BE as Backend System
-    participant Redis as Redis Cache
-    participant LLM as Third-party AI
-
-    User->>BE: Yêu cầu tính năng AI (Hỏi chatbot/Sinh câu)
-    BE->>BE: Kiểm tra Gói cước (Basic hay Premium)
-    
-    alt Là tài khoản PREMIUM
-        BE->>LLM: Pass - Cho phép gọi AI ngay lập tức
-    else Là tài khoản BASIC
-        BE->>Redis: INCR key "ai_usage:{userId}:{date}"
-        Redis-->>BE: Số lượt hiện tại
-        
-        alt Lượt < Giới hạn cho phép
-            BE->>LLM: Cho phép gọi AI
-        else Quá giới hạn
-            BE-->>User: HTTP 429 / 403 (QUOTA_EXCEEDED) - Yêu cầu nâng cấp
-        end
-    end
+### 📦 Đặc tả API tương ứng
+- **`GET /api/v1/subscription-plans`** (SubscriptionPlanController)
+  - Lấy danh sách gói cước (Tên, Giá tiền, Các tính năng).
+- **`POST /api/v1/payments/create`** (PaymentController)
+  - **Request Body:** `{"planId": 2, "returnUrl": "myapp://payment-return"}`
+  - **Response:** `{"paymentUrl": "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?..."}`
+- **`GET /api/v1/payments/vnpay-ipn`** (PaymentController)
+  - Do Server VNPAY gọi ẩn dưới background. Nhận các tham số `vnp_SecureHash`, `vnp_TxnRef`,... để verify chữ ký và update trạng thái đơn hàng.

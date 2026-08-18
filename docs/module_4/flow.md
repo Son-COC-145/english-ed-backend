@@ -1,115 +1,130 @@
 # Kiến trúc Luồng Xử Lý (Flow Architecture) - Module 4
 
-*Tài liệu mô tả ĐẦY ĐỦ các luồng nghiệp vụ chuẩn cho Hệ thống Phân quyền, Giáo trình Lớp Học, Bài Tập và Gamification.*
+*Tài liệu mô tả ĐẦY ĐỦ các luồng nghiệp vụ chuẩn và Đặc tả API (API Specification) chi tiết nhất cho hệ thống Học với Giáo viên & Quản lý Lớp học.*
 
 ---
 
-## 1. Luồng Quản trị Quyền & Tổ chức Khóa học (Admin Role)
-Quy trình Quản trị viên khởi tạo môi trường học tập.
-
-```mermaid
-sequenceDiagram
-    actor Admin
-    participant BE as Backend System
-    participant DB as Database
-
-    %% User Management
-    Admin->>BE: Tạo tài khoản Nhân viên
-    BE->>DB: Thêm User với Role.TEACHER
-    
-    %% Course Management
-    Admin->>BE: Tạo Khóa Học mới (Course)
-    BE->>DB: Lưu thông tin Course
-    
-    Admin->>BE: Phân công Giáo viên phụ trách
-    BE->>DB: Gắn Teacher_ID vào Course
-    
-    Admin->>BE: Thêm Sinh viên vào lớp
-    BE->>DB: Lưu quan hệ Course_Student
-    BE-->>Admin: Xác nhận thiết lập xong
-```
-
----
-
-## 2. Luồng Thiết lập Giáo trình & Tài liệu (Teacher Syllabus)
-Giáo viên tải tài liệu và cấu hình chương trình giảng dạy.
+## 1. Luồng Quản lý Tài liệu & Syllabus (Teacher Flow)
+Giáo viên quản lý tài liệu học tập và lộ trình học (Syllabus) của lớp học.
 
 ```mermaid
 sequenceDiagram
     actor Teacher
-    participant BE as Backend System
+    participant App as Web/App (Teacher Dashboard)
+    participant BE as Backend (TeachingMaterial & Syllabus)
     participant Cloud as Cloud Storage (S3/Cloudinary)
     participant DB as Database
 
-    Teacher->>BE: Upload File Bài giảng (Slide/MP4)
-    BE->>Cloud: Streaming luồng Upload
-    Cloud-->>BE: Trả về Secure URL File
-    BE->>DB: Lưu TeachingMaterial
-    
-    Teacher->>BE: Cấu hình Lộ trình Tuần học (Syllabus)
-    BE->>DB: Link TeachingMaterial vào SyllabusItem tương ứng
-    BE-->>Teacher: Giáo trình đã sẵn sàng
+    %% Quản lý Syllabus
+    Teacher->>App: Tạo/Sửa Syllabus (Khung chương trình)
+    App->>BE: POST/PUT /api/v1/courses/{courseId}/syllabus
+    BE->>DB: Lưu Syllabus Item
+    BE-->>App: Thành công
+
+    %% Tải lên tài liệu
+    Teacher->>App: Upload Tài liệu (PDF, MP4, Slide)
+    App->>BE: POST /api/v1/courses/{courseId}/materials (Multipart)
+    BE->>Cloud: Upload File lên Cloud
+    Cloud-->>BE: Trả về File URL
+    BE->>DB: Lưu bản ghi Teaching Material (Gắn với Course)
+    BE-->>App: Thành công
 ```
+
+### 📦 Đặc tả API tương ứng
+
+#### 1.1 Quản lý Syllabus (SyllabusController)
+- **`GET /api/v1/courses/{courseId}/syllabus`**: Lấy lộ trình.
+- **`POST /api/v1/courses/{courseId}/syllabus`**: Tạo lộ trình.
+  - **Body (JSON):** `{"title": "Week 1", "description": "Intro"}`
+- **`PUT /api/v1/courses/{courseId}/syllabus/{itemId}`**: Cập nhật mục lục Syllabus.
+- **`DELETE /api/v1/courses/{courseId}/syllabus/{itemId}`**: Xóa.
+
+#### 1.2 Quản lý Tài liệu giảng dạy (TeachingMaterialController)
+- **`GET /api/v1/courses/{courseId}/materials`**: Lấy danh sách tài liệu.
+- **`POST /api/v1/courses/{courseId}/materials`**:
+  - **Content-Type:** `multipart/form-data`
+  - **Body:** `file` (File PDF/Docx/MP4), `title`, `description`.
+  - **Response:** `200 OK` (Trả về metadata của file kèm URL).
+- **`PUT /api/v1/courses/{courseId}/materials/{materialId}`**: Đổi tên tài liệu.
+- **`DELETE /api/v1/courses/{courseId}/materials/{materialId}`**: Xóa file (Đồng thời xóa trên cloud).
 
 ---
 
-## 3. Vòng đời Xử lý Bài Tập Về Nhà (Assignment Lifecycle)
-Tương tác 2 chiều giữa Giáo viên (Giao bài & Chấm) và Học viên (Làm bài & Nộp).
-
-```mermaid
-stateDiagram-v2
-    [*] --> CREATED: Giáo viên tạo Assignment (Đặt Deadline, Đính kèm tài liệu)
-    
-    state Student_Phase {
-        CREATED --> PENDING: Sinh viên nhận được bài
-        PENDING --> IN_PROGRESS: Sinh viên mở giao diện làm bài
-        IN_PROGRESS --> SUBMITTED: Sinh viên nộp bài (Upload file/Text)
-    }
-    
-    state Teacher_Phase {
-        SUBMITTED --> GRADING: Giáo viên mở list bài chưa chấm
-        GRADING --> GRADED: Giáo viên cho Điểm & Nhận xét Text/Audio
-    }
-    
-    GRADED --> Notified: Push Notification tới App Sinh viên
-    Notified --> [*]
-```
-
----
-
-## 4. Động cơ Gamification Trung Tâm (Global XP & Streak Engine)
-Kiến trúc Micro-service/Event-driven xử lý điểm XP và Chuỗi ngày học (Streak) độc lập nhưng kết nối mọi tính năng.
+## 2. Luồng Giao Bài Tập & Chấm Điểm (Assignment & Grading Flow)
+Quy trình Giáo viên giao bài tập (Assignment), Học viên nộp bài (Submission) và Giáo viên chấm điểm (Grade).
 
 ```mermaid
 sequenceDiagram
-    participant AnyModule as Nguồn Sự kiện (Vocab, MiniGame, Speaking, Assignment)
-    participant GameEngine as Gamification Service
+    actor Teacher
+    actor Student
+    participant App as Web/App
+    participant BE as Backend (AssignmentController)
     participant DB as Database
-    participant Client as Mobile/Web App
 
-    AnyModule->>GameEngine: Event: Hoàn thành nhiệm vụ (Student_ID, Action_Type, Score)
+    %% Teacher giao bài
+    Teacher->>App: Tạo bài tập mới
+    App->>BE: POST /api/v1/teacher/courses/{courseId}/assignments
+    BE->>DB: Lưu Assignment (Tên, Deadline, Mô tả)
+    BE-->>App: Thành công
     
-    %% Xử lý Điểm Kinh nghiệm
-    GameEngine->>GameEngine: Map Action_Type với Bảng Điểm XP cấu hình
-    GameEngine->>DB: UPDATE student_stats SET total_xp += base_xp + bonus
+    %% Student làm và nộp
+    Student->>App: Mở danh sách Bài tập
+    App->>BE: GET /api/v1/student/courses/{courseId}/assignments
+    BE-->>App: Trả về danh sách (Kèm trạng thái)
+    Student->>App: Nộp bài (Upload file / Text)
+    App->>BE: POST /api/v1/student/courses/{courseId}/assignments/{id}/submit
+    BE->>DB: Lưu Submission
+    BE-->>App: Nộp bài thành công
     
-    %% Xử lý Chuỗi Ngày Học (Streak)
-    GameEngine->>DB: Lấy timestamp tương tác cuối cùng (Last Active Date)
-    
-    alt Nếu là Tương tác Ngày Mới (Sau 0h)
-        GameEngine->>GameEngine: Increment Streak (+1)
-        GameEngine->>DB: Lưu số ngày Streak mới
-        alt Nếu đạt Cột mốc Thưởng (ví dụ: 7 ngày, 30 ngày)
-            GameEngine->>GameEngine: Cộng thêm cực lớn XP Thưởng (+500 XP)
-        end
-    else Cùng ngày
-        GameEngine->>GameEngine: Bỏ qua (Chỉ cộng XP ở trên, không tăng Streak)
-    else Ngắt quãng thời gian (> 24h)
-        GameEngine->>GameEngine: Đứt chuỗi -> Reset Streak = 1
-    end
-    
-    %% Trả Data Về
-    GameEngine-->>AnyModule: Object Result (Added_XP, Is_Streak_Updated, Current_Streak)
-    AnyModule-->>Client: Trả về chung trong Response của API
-    Client->>Client: Cập nhật Global Store & Chạy Hiệu ứng Tung Hoa/Kinh Nghiệm
+    %% Teacher chấm điểm
+    Teacher->>App: Xem danh sách bài đã nộp
+    App->>BE: GET /api/v1/teacher/courses/{courseId}/assignments/{id}/submissions
+    BE-->>App: Danh sách Submission
+    Teacher->>App: Chấm điểm & Ghi nhận xét
+    App->>BE: PUT .../submissions/{submissionId}/grade
+    BE->>DB: Cập nhật Score & Feedback
+    BE-->>App: Hoàn tất
 ```
+
+### 📦 Đặc tả API tương ứng
+
+#### 2.1 Giáo viên Giao bài & Chấm điểm (TeacherAssignmentController)
+- **`POST /api/v1/teacher/courses/{courseId}/assignments`**:
+  - **Body (JSON):** `{"title": "Homework 1", "dueDate": "2023-12-31T23:59:59Z"}`
+- **`GET /api/v1/teacher/courses/{courseId}/assignments/{assignmentId}/submissions`**: Lấy bài nộp.
+- **`PUT /api/v1/teacher/courses/{courseId}/assignments/{assignmentId}/submissions/{submissionId}/grade`**:
+  - **Body (JSON):** `{"score": 9.5, "feedback": "Good job!", "audioFeedbackUrl": "..."}`
+
+#### 2.2 Học viên Nộp bài (StudentAssignmentController)
+- **`GET /api/v1/student/courses/{courseId}/assignments`**: Xem bài tập được giao.
+- **`POST /api/v1/student/courses/{courseId}/assignments/{id}/submit`**: (Có thể nhận JSON hoặc Multipart tùy theo cấu hình).
+
+---
+
+## 3. Luồng Quản Trị Hệ Thống (Admin Flow)
+Admin quản lý User (Giáo viên, Học viên) và phân quyền.
+
+```mermaid
+sequenceDiagram
+    actor Admin
+    participant App as Admin Panel
+    participant BE as Backend (AdminUserController)
+    participant DB as Database
+
+    Admin->>App: Tìm kiếm User / Lọc Teacher
+    App->>BE: GET /api/v1/admin/users
+    BE->>DB: Query Users
+    BE-->>App: Trả về danh sách
+    
+    Admin->>App: Khóa tài khoản / Mở khóa
+    App->>BE: PATCH /api/v1/admin/users/{id}/deactivate
+    BE->>DB: Cập nhật status = INACTIVE
+    BE-->>App: Thành công
+```
+
+### 📦 Đặc tả API tương ứng (AdminUserController)
+- **`GET /api/v1/admin/users`**: Lấy danh sách toàn bộ User (Có phân trang, lọc theo `role`).
+- **`POST /api/v1/admin/users`**: Tạo thủ công tài khoản (Thường dùng cấp tài khoản Teacher).
+- **`PUT /api/v1/admin/users/{id}`**: Sửa thông tin User.
+- **`PATCH /api/v1/admin/users/{id}/activate`**: Mở khóa tài khoản.
+- **`PATCH /api/v1/admin/users/{id}/deactivate`**: Khóa tài khoản.
