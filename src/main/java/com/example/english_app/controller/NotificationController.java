@@ -29,6 +29,13 @@ public class NotificationController {
         return ResponseEntity.ok(ApiResponse.success("Token registered successfully"));
     }
 
+    @DeleteMapping("/token")
+    @Operation(summary = "Remove FCM device token (Call this on Logout)")
+    public ResponseEntity<ApiResponse<String>> removeToken(@RequestParam String token) {
+        notificationService.removeDeviceToken(token);
+        return ResponseEntity.ok(ApiResponse.success("Token removed successfully"));
+    }
+
     @GetMapping
     @Operation(summary = "Get paginated user notifications")
     public ResponseEntity<ApiResponse<PageResponse<NotificationResponse>>> getNotifications(Pageable pageable) {

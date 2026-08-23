@@ -19,7 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class FcmConfig {
     
-    // --- Cấu hình cho Render.com (Đọc từ Secret File bằng biến môi trường) ---
+    // Cấu hình cho Render.com (Đọc từ Secret File bằng biến môi trường) ---
     // Trên Render, biến môi trường FIREBASE_CONFIG_PATH sẽ trỏ tới file Secret.
     @Value("${FIREBASE_CONFIG_PATH:/etc/secrets/firebase-adminsdk.json}")
     private String firebaseConfigPathEnv;
@@ -30,8 +30,8 @@ public class FcmConfig {
     @Bean
     public FirebaseApp firebaseApp() throws IOException {
         /* 
-        // --- CẤU HÌNH ĐỂ CHẠY LOCAL (Sử dụng file trong thư mục resources) ---
-        // Khi test dưới local, bạn hãy uncomment đoạn này và comment đoạn Render bên dưới
+        CẤU HÌNH ĐỂ CHẠY LOCAL (Sử dụng file trong thư mục resources) 
+        Khi test dưới local, bạn hãy uncomment đoạn này và comment đoạn Render bên dưới
         log.info("Initializing Firebase Application from classpath: {}", firebaseConfigPath);
         ClassPathResource resource = new ClassPathResource(firebaseConfigPath);
         try (InputStream serviceAccount = resource.getInputStream()) {
