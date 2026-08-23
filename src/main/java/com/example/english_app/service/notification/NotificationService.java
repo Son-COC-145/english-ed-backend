@@ -55,6 +55,15 @@ public class NotificationService {
         log.info("Device token registered for user: {}", currentUserId);        
     }
 
+    @Transactional
+    public void removeDeviceToken(String token) {
+        Long currentUserId = getCurrentUserId();
+        if (currentUserId == null) return;
+        userDeviceTokenRepository.findByUserIdAndToken(currentUserId, token)
+                .ifPresent(userDeviceTokenRepository::delete);
+        log.info("Device token removed for user: {}", currentUserId);
+    }
+
     @Transactional(readOnly = true)
     public PageResponse<NotificationResponse> getUserNotifications(Pageable pageable) {
         Long userId = getCurrentUserId();
