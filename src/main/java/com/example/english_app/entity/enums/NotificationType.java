@@ -5,5 +5,7 @@ public enum NotificationType {
     ASSIGNMENT_DUE,
     NEW_MATERIAL,
     TEACHER_COMMENT,
-    SYSTEM
+    SYSTEM,
+    ASSIGNMENT,
+    GRADE
 }

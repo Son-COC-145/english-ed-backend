@@ -1,0 +1,1 @@
+ALTER TABLE user_device_tokens ALTER COLUMN id TYPE BIGINT;
