@@ -26,5 +26,20 @@ public interface VocabularyRepository extends JpaRepository<Vocabulary, Long> {
             @Param("cefrLevel") CefrLevel cefrLevel,
             @Param("wordSearch") String wordSearch,
             Pageable pageable);
+
+    @Query(value = """
+        SELECT v.* FROM vocabularies v
+        WHERE v.topic_id IN (:topicIds)
+        AND NOT EXISTS (
+            SELECT 1 FROM student_vocabulary_progress svp 
+            WHERE svp.vocabulary_id = v.id AND svp.student_id = :studentId
+        )
+        ORDER BY RANDOM()
+        LIMIT :limit
+        """, nativeQuery = true)
+    java.util.List<Vocabulary> findRandomNewVocabularies(
+        @Param("topicIds") java.util.List<Long> topicIds, 
+        @Param("studentId") Long studentId, 
+        @Param("limit") int limit);
 }
 

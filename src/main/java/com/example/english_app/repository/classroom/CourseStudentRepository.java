@@ -33,4 +33,9 @@ public interface CourseStudentRepository extends JpaRepository<CourseStudent, Lo
     boolean existsByCourseIdAndStudentId(Long courseId, Long studentId);
 
     List<CourseStudent> findByCourseId(Long courseId);
+
+    @Query("SELECT cs.course FROM CourseStudent cs " +
+           "WHERE cs.student.id = :studentId AND cs.status = 'ACTIVE'")
+    List<com.example.english_app.entity.classroom.Course> findActiveCoursesByStudentId(
+           @Param("studentId") Long studentId);
 }

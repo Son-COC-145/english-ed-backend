@@ -23,4 +23,10 @@ public interface SyllabusItemRepository extends JpaRepository<SyllabusItem, Long
             @Param("keyword") String keyword,
             @Param("weekNumber") Short weekNumber,
             Pageable pageable);
+
+    @Query("SELECT t.id FROM SyllabusItem si JOIN si.topics t " +
+           "WHERE si.course.id IN :courseIds AND si.weekNumber IN :weekNumbers")
+    List<Long> findTopicIdsByCoursesAndWeeks(
+           @Param("courseIds") List<Long> courseIds, 
+           @Param("weekNumbers") List<Short> weekNumbers);
 }

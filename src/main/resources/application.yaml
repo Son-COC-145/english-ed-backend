@@ -105,3 +105,8 @@ elevenlabs:
 firebase:
   config:
     path: firebase-adminsdk.json
+
+gamification:
+  daily-mission:
+    new-words-limit: 5
+    review-words-limit: 15

@@ -5,7 +5,9 @@ import lombok.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.hibernate.annotations.UpdateTimestamp;
+import com.example.english_app.entity.vocabulary.Topic;
 
 @Entity
 @Table(name = "syllabus_items")
@@ -40,6 +42,14 @@ public class SyllabusItem {
     @JoinColumn(name = "material_id")
     private TeachingMaterial material;
 
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "syllabus_item_topics",
+        joinColumns = @JoinColumn(name = "syllabus_item_id"),
+        inverseJoinColumns = @JoinColumn(name = "topic_id")
+    )
+    private List<Topic> topics;
+
     @Column(name = "sort_order", nullable = false)
     @Builder.Default
     private Short sortOrder = 0;
@@ -47,4 +57,5 @@ public class SyllabusItem {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
 }

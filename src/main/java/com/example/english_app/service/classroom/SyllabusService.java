@@ -18,6 +18,8 @@ import com.example.english_app.mapper.ClassroomMapper;
 import com.example.english_app.repository.classroom.CourseRepository;
 import com.example.english_app.repository.classroom.SyllabusItemRepository;
 import com.example.english_app.repository.classroom.TeachingMaterialRepository;
+import com.example.english_app.repository.vocabulary.TopicRepository;
+import com.example.english_app.entity.vocabulary.Topic;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +30,7 @@ public class SyllabusService {
     private final SyllabusItemRepository syllabusItemRepository;
     private final CourseRepository courseRepository;
     private final TeachingMaterialRepository teachingMaterialRepository;
+    private final TopicRepository topicRepository;
     private final ClassroomMapper classroomMapper;
 
     @Transactional
@@ -51,6 +54,11 @@ public class SyllabusService {
                 .scheduledDate(request.getScheduledDate())
                 .sortOrder(request.getSortOrder())
                 .build();
+
+        if (request.getTopicIds() != null && !request.getTopicIds().isEmpty()) {
+            List<Topic> topics = topicRepository.findAllById(request.getTopicIds());
+            item.setTopics(topics);
+        }
 
         return classroomMapper.toSyllabusItemResponse(syllabusItemRepository.save(item));
     }
@@ -100,6 +108,13 @@ public class SyllabusService {
         item.setDescription(request.getDescription());
         item.setScheduledDate(request.getScheduledDate());
         item.setSortOrder(request.getSortOrder());
+
+        if (request.getTopicIds() != null && !request.getTopicIds().isEmpty()) {
+            List<Topic> topics = topicRepository.findAllById(request.getTopicIds());
+            item.setTopics(topics);
+        } else {
+            item.setTopics(null);
+        }
 
         return classroomMapper.toSyllabusItemResponse(syllabusItemRepository.save(item));
     }

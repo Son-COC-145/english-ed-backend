@@ -203,12 +203,6 @@ public class AuthService {
         redisTemplate.delete("refresh_token:" + refreshToken);
     }
 
-    public UserResponse getCurrentUser(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
-        return toUserResponse(user);
-    }
-
     private UserResponse toUserResponse(User user) {
         return UserResponse.builder()
                 .id(user.getId())
