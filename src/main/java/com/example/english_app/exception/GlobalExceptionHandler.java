@@ -106,4 +106,12 @@ public class GlobalExceptionHandler {
                 .status(errorCode.getHttpStatus())
                 .body(response);
     }
+
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<Void> handleNoResourceFoundException(
+            org.springframework.web.servlet.resource.NoResourceFoundException ex) {
+        // Trả về 404 trống để tránh lỗi HttpMediaTypeNotAcceptableException
+        // khi trình duyệt tự động tìm kiếm favicon.ico hoặc robots.txt
+        return ResponseEntity.notFound().build();
+    }
 }

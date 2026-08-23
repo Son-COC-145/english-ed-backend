@@ -1,6 +1,7 @@
 package com.example.english_app.controller;
 
 import com.example.english_app.dto.response.ApiResponse;
+import com.example.english_app.dto.response.DailyMissionResponse;
 import com.example.english_app.dto.response.MinigameResultDetailResponse;
 import com.example.english_app.dto.response.PageResponse;
 import com.example.english_app.dto.response.StudentStatResponse;
@@ -29,6 +30,12 @@ public class StudentGamificationController {
     @GetMapping("/stat")
     public ResponseEntity<ApiResponse<StudentStatResponse>> getStudentStat() {
         return ResponseEntity.ok(ApiResponse.success(gameficationService.getStudentStat()));
+    }
+
+    @Operation(summary = "Lấy danh sách nhiệm vụ học hàng ngày (Daily Mission)")
+    @GetMapping("/daily-mission")
+    public ResponseEntity<ApiResponse<DailyMissionResponse>> getDailyMission() {
+        return ResponseEntity.ok(ApiResponse.success(gameficationService.getDailyMission()));
     }
 
     @Operation(summary = "Lấy danh sách tiến trình học từ vựng (phân trang)")
