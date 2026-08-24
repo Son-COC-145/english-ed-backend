@@ -32,6 +32,7 @@ public enum ErrorCode {
     PLACEMENT_TEST_ALREADY_COMPLETED(5002, "Bạn đã hoàn thành bài kiểm tra phân loại", HttpStatus.BAD_REQUEST),
     PLACEMENT_TEST_NOT_FOUND(5003, "Không tìm thấy bài kiểm tra phân loại", HttpStatus.NOT_FOUND),
     PLACEMENT_TEST_EXPIRED(5004, "Bài kiểm tra đã hết hạn", HttpStatus.BAD_REQUEST),
+    ANSWER_ALREADY_SUBMITTED(5005, "Câu hỏi này đã được trả lời trong phiên làm bài hiện tại", HttpStatus.CONFLICT),
     AUDIO_PROCESSING_FAILED(5010, "Không thể xử lý audio", HttpStatus.BAD_REQUEST),
     PRONUNCIATION_UNAVAILABLE(5011, "Dịch vụ chấm phát âm tạm thời không khả dụng", HttpStatus.SERVICE_UNAVAILABLE),
     ROADMAP_NOT_GENERATED(5012, "Lộ trình chưa được tạo. Vui lòng hoàn thành bài kiểm tra phân loại trước.", HttpStatus.NOT_FOUND),

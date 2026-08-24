@@ -73,7 +73,7 @@ class OnboardingSessionTimeoutTest {
     @DisplayName("Session còn hạn (10 phút trước) → không throw PLACEMENT_TEST_EXPIRED")
     void sessionActive_within30Min_continuesNormally() {
         activeSession.setLastActivityAt(LocalDateTime.now().minusMinutes(10));
-        given(sessionRepository.findById(100L)).willReturn(Optional.of(activeSession));
+        given(sessionRepository.findByIdWithStudent(100L)).willReturn(Optional.of(activeSession));
         given(answerRepository.countBySessionId(100L)).willReturn(0L);
         given(answerRepository.findBySessionIdOrderByAnsweredAtAsc(100L)).willReturn(Collections.emptyList());
         // New API: findOneRandomByCefrLevelExcluding returns Optional
@@ -90,7 +90,7 @@ class OnboardingSessionTimeoutTest {
     @DisplayName("Session hết hạn (45 phút trước) → throw PLACEMENT_TEST_EXPIRED + đánh dấu completed")
     void sessionExpired_45MinAgo_throwsExpiredException() {
         activeSession.setLastActivityAt(LocalDateTime.now().minusMinutes(45));
-        given(sessionRepository.findById(100L)).willReturn(Optional.of(activeSession));
+        given(sessionRepository.findByIdWithStudent(100L)).willReturn(Optional.of(activeSession));
 
         assertThatThrownBy(() -> placementTestService.getNextQuestion(100L, 1L))
                 .isInstanceOf(AppException.class)
@@ -106,7 +106,7 @@ class OnboardingSessionTimeoutTest {
     void noLastActivity_recentStartedAt_sessionValid() {
         activeSession.setLastActivityAt(null);
         activeSession.setStartedAt(LocalDateTime.now().minusMinutes(5));
-        given(sessionRepository.findById(100L)).willReturn(Optional.of(activeSession));
+        given(sessionRepository.findByIdWithStudent(100L)).willReturn(Optional.of(activeSession));
         given(answerRepository.countBySessionId(100L)).willReturn(0L);
         given(answerRepository.findBySessionIdOrderByAnsweredAtAsc(100L)).willReturn(Collections.emptyList());
         given(questionRepository.findOneRandomByCefrLevelExcluding(any(), any())).willReturn(Optional.empty());
@@ -122,7 +122,7 @@ class OnboardingSessionTimeoutTest {
     void noLastActivity_oldStartedAt_sessionExpired() {
         activeSession.setLastActivityAt(null);
         activeSession.setStartedAt(LocalDateTime.now().minusMinutes(60));
-        given(sessionRepository.findById(100L)).willReturn(Optional.of(activeSession));
+        given(sessionRepository.findByIdWithStudent(100L)).willReturn(Optional.of(activeSession));
 
         assertThatThrownBy(() -> placementTestService.getNextQuestion(100L, 1L))
                 .isInstanceOf(AppException.class)

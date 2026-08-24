@@ -118,8 +118,10 @@ class Module0And1FlowTest {
         @Test
         @DisplayName("Luồng 0.1: Khởi đầu Onboarding -> Status ban đầu là GOAL_SURVEY")
         void testInitialOnboardingStatus() {
+            // getStatus() dùng findByStudentIdWithUser (JOIN FETCH).
+            // Khi trả Optional.empty(), service fallback dùng findUser(userId) để lấy fullName.
+            given(onboardingRepository.findByStudentIdWithUser(1L)).willReturn(Optional.empty());
             given(userRepository.findById(1L)).willReturn(Optional.of(mockUser));
-            given(onboardingRepository.findByStudentId(1L)).willReturn(Optional.empty());
 
             OnboardingStatusResponse status = lifecycleService.getStatus(1L);
 
