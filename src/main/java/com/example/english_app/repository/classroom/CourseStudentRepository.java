@@ -4,6 +4,7 @@ import com.example.english_app.entity.classroom.CourseStudent;
 import com.example.english_app.entity.enums.ClassStudentStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -14,6 +15,7 @@ import java.util.Optional;
 
 @Repository
 public interface CourseStudentRepository extends JpaRepository<CourseStudent, Long> {
+    @EntityGraph(attributePaths = {"student"})
     @Query("SELECT cs FROM CourseStudent cs " +
             "WHERE cs.course.id = :courseId " +
             "AND (:status IS NULL OR cs.status = :status) " +
@@ -26,6 +28,7 @@ public interface CourseStudentRepository extends JpaRepository<CourseStudent, Lo
             @Param("status") ClassStudentStatus status,
             Pageable pageable);
 
+    @EntityGraph(attributePaths = {"course"})
     Page<CourseStudent> findAllByStudentId(Long studentId, Pageable pageable);
 
     Optional<CourseStudent> findByCourseIdAndStudentId(Long courseId, Long studentId);
