@@ -1,3 +1,6 @@
+-- ===============================================
+-- Migration: V1__init.sql
+-- ===============================================
 --
 -- PostgreSQL database dump
 --
@@ -1351,4 +1354,1480 @@ ALTER TABLE ONLY public.teaching_materials
 --
 
 -- \unrestrict EXQKXQfpYJt5HZcsgmeWgImgWGIk5Dxfx0w7dfnSVkXbzPSDo7IqWeLkYRttqo5
+
+
+
+-- ===============================================
+-- Migration: V2__seed_placement_questions.sql
+-- ===============================================
+INSERT INTO questions (cefr_level, skill, question_type, content_json, correct_answer, timeout_seconds, is_active, created_at) VALUES
+-- A1 (8 questions)
+('A1', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "I have a ___ and a sister.", "options": ["brother", "book", "car", "dog"]}'::jsonb, 'brother', 30, true, CURRENT_TIMESTAMP),
+('A1', 'GRAMMAR', 'MULTIPLE_CHOICE', '{"question": "She ___ from Spain.", "options": ["am", "is", "are", "be"]}'::jsonb, 'is', 30, true, CURRENT_TIMESTAMP),
+('A1', 'READING', 'READING_COMPREHENSION', '{"text": "My name is Tom. I am 25 years old. I live in London.", "question": "Where does Tom live?", "options": ["Paris", "New York", "London", "Tokyo"]}'::jsonb, 'London', 90, true, CURRENT_TIMESTAMP),
+('A1', 'LISTENING', 'LISTENING', '{"audio_url": "https://example.com/audio/a1_1.mp3", "question": "What is the boy''s name?", "options": ["John", "Mike", "Tom", "David"]}'::jsonb, 'John', 60, true, CURRENT_TIMESTAMP),
+('A1', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "I eat an ___ every morning.", "options": ["apple", "water", "bread", "milk"]}'::jsonb, 'apple', 30, true, CURRENT_TIMESTAMP),
+('A1', 'GRAMMAR', 'FILL_BLANK', '{"question": "___ you like pizza?"}'::jsonb, 'Do', 30, true, CURRENT_TIMESTAMP),
+('A1', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "book", "ipa": "/bʊk/"}'::jsonb, 'book', 10, true, CURRENT_TIMESTAMP),
+('A1', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "cat", "ipa": "/kæt/"}'::jsonb, 'cat', 10, true, CURRENT_TIMESTAMP),
+
+-- A2 (8 questions)
+('A2', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "I went to the ___ to buy some medicine.", "options": ["supermarket", "pharmacy", "library", "bank"]}'::jsonb, 'pharmacy', 30, true, CURRENT_TIMESTAMP),
+('A2', 'GRAMMAR', 'MULTIPLE_CHOICE', '{"question": "I ___ to the cinema yesterday.", "options": ["go", "goes", "went", "going"]}'::jsonb, 'went', 30, true, CURRENT_TIMESTAMP),
+('A2', 'READING', 'READING_COMPREHENSION', '{"text": "Yesterday, Sarah went shopping. She bought a new dress and a pair of shoes. The dress was red and the shoes were black.", "question": "What color was the dress?", "options": ["Black", "Red", "Blue", "Green"]}'::jsonb, 'Red', 90, true, CURRENT_TIMESTAMP),
+('A2', 'LISTENING', 'LISTENING', '{"audio_url": "https://example.com/audio/a2_1.mp3", "question": "What time does the train leave?", "options": ["9:00", "9:30", "10:00", "10:30"]}'::jsonb, '9:30', 60, true, CURRENT_TIMESTAMP),
+('A2', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "My father''s brother is my ___.", "options": ["uncle", "aunt", "cousin", "grandfather"]}'::jsonb, 'uncle', 30, true, CURRENT_TIMESTAMP),
+('A2', 'GRAMMAR', 'FILL_BLANK', '{"question": "She is ___ than her sister."}'::jsonb, 'taller', 30, true, CURRENT_TIMESTAMP),
+('A2', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "thought", "ipa": "/θɔːt/"}'::jsonb, 'thought', 10, true, CURRENT_TIMESTAMP),
+('A2', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "world", "ipa": "/wɜːrld/"}'::jsonb, 'world', 10, true, CURRENT_TIMESTAMP),
+
+-- B1 (8 questions)
+('B1', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "Could you ___ me a favor?", "options": ["make", "do", "take", "give"]}'::jsonb, 'do', 30, true, CURRENT_TIMESTAMP),
+('B1', 'GRAMMAR', 'MULTIPLE_CHOICE', '{"question": "If it rains tomorrow, we ___ at home.", "options": ["stay", "will stay", "would stay", "stayed"]}'::jsonb, 'will stay', 30, true, CURRENT_TIMESTAMP),
+('B1', 'READING', 'READING_COMPREHENSION', '{"text": "The Eiffel Tower is a wrought-iron lattice tower on the Champ de Mars in Paris, France. It is named after the engineer Gustave Eiffel, whose company designed and built the tower.", "question": "Who is the tower named after?", "options": ["A French king", "The city of Paris", "An engineer", "A scientist"]}'::jsonb, 'An engineer', 90, true, CURRENT_TIMESTAMP),
+('B1', 'LISTENING', 'LISTENING', '{"audio_url": "https://example.com/audio/b1_1.mp3", "question": "Why is the woman calling?", "options": ["To book a flight", "To cancel a reservation", "To complain about service", "To ask for information"]}'::jsonb, 'To cancel a reservation', 60, true, CURRENT_TIMESTAMP),
+('B1', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "He was very ___ when he failed his driving test.", "options": ["disappointed", "excited", "thrilled", "amused"]}'::jsonb, 'disappointed', 30, true, CURRENT_TIMESTAMP),
+('B1', 'GRAMMAR', 'FILL_BLANK', '{"question": "I have ___ living here for 5 years."}'::jsonb, 'been', 30, true, CURRENT_TIMESTAMP),
+('B1', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "schedule", "ipa": "/ˈʃedʒuːl/"}'::jsonb, 'schedule', 10, true, CURRENT_TIMESTAMP),
+('B1', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "museum", "ipa": "/mjuˈziːəm/"}'::jsonb, 'museum', 10, true, CURRENT_TIMESTAMP),
+
+-- B2 (8 questions)
+('B2', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "The company decided to ___ its operations in Asia.", "options": ["expand", "shrink", "decrease", "reduce"]}'::jsonb, 'expand', 30, true, CURRENT_TIMESTAMP),
+('B2', 'GRAMMAR', 'MULTIPLE_CHOICE', '{"question": "By this time next year, I ___ my university degree.", "options": ["will finish", "will have finished", "have finished", "finish"]}'::jsonb, 'will have finished', 30, true, CURRENT_TIMESTAMP),
+('B2', 'READING', 'READING_COMPREHENSION', '{"text": "Climate change refers to long-term shifts in temperatures and weather patterns. These shifts may be natural, such as through variations in the solar cycle. But since the 1800s, human activities have been the main driver of climate change.", "question": "According to the text, what is the main cause of climate change since the 1800s?", "options": ["Solar cycle variations", "Human activities", "Natural shifts", "Volcanic eruptions"]}'::jsonb, 'Human activities', 90, true, CURRENT_TIMESTAMP),
+('B2', 'LISTENING', 'LISTENING', '{"audio_url": "https://example.com/audio/b2_1.mp3", "question": "What is the main topic of the lecture?", "options": ["The history of art", "The impact of technology on society", "The basics of quantum physics", "The life cycle of stars"]}'::jsonb, 'The impact of technology on society', 60, true, CURRENT_TIMESTAMP),
+('B2', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "She has a very ___ schedule this week.", "options": ["tight", "loose", "empty", "free"]}'::jsonb, 'tight', 30, true, CURRENT_TIMESTAMP),
+('B2', 'GRAMMAR', 'FILL_BLANK', '{"question": "Hardly ___ I arrived when the phone rang."}'::jsonb, 'had', 30, true, CURRENT_TIMESTAMP),
+('B2', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "entrepreneur", "ipa": "/ˌɑːntrəprəˈnɜːr/"}'::jsonb, 'entrepreneur', 10, true, CURRENT_TIMESTAMP),
+('B2', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "choir", "ipa": "/ˈkwaɪər/"}'::jsonb, 'choir', 10, true, CURRENT_TIMESTAMP),
+
+-- C1 (8 questions)
+('C1', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "His argument was so ___ that everyone agreed with him.", "options": ["persuasive", "flawed", "ambiguous", "vague"]}'::jsonb, 'persuasive', 30, true, CURRENT_TIMESTAMP),
+('C1', 'GRAMMAR', 'MULTIPLE_CHOICE', '{"question": "___ you to change your mind, please let me know.", "options": ["Were", "If", "Should", "Had"]}'::jsonb, 'Were', 30, true, CURRENT_TIMESTAMP),
+('C1', 'READING', 'READING_COMPREHENSION', '{"text": "The advent of artificial intelligence has sparked a plethora of debates regarding its ethical implications. While some hail it as the panacea for all modern woes, others caution against the unforeseen ramifications of unchecked technological advancement.", "question": "What does the word ''panacea'' mean in this context?", "options": ["A complicated problem", "A cure-all solution", "A controversial topic", "An inevitable disaster"]}'::jsonb, 'A cure-all solution', 90, true, CURRENT_TIMESTAMP),
+('C1', 'LISTENING', 'LISTENING', '{"audio_url": "https://example.com/audio/c1_1.mp3", "question": "What is the speaker''s attitude towards the new policy?", "options": ["Highly supportive", "Cautiously optimistic", "Strongly opposed", "Indifferent"]}'::jsonb, 'Cautiously optimistic', 60, true, CURRENT_TIMESTAMP),
+('C1', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "The politician tried to ___ the blame onto his opponent.", "options": ["shift", "take", "make", "do"]}'::jsonb, 'shift', 30, true, CURRENT_TIMESTAMP),
+('C1', 'GRAMMAR', 'FILL_BLANK', '{"question": "Not only ___ he late, but he also forgot his notes."}'::jsonb, 'was', 30, true, CURRENT_TIMESTAMP),
+('C1', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "anemone", "ipa": "/əˈneməni/"}'::jsonb, 'anemone', 10, true, CURRENT_TIMESTAMP),
+('C1', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "synecdoche", "ipa": "/sɪˈnekdəki/"}'::jsonb, 'synecdoche', 10, true, CURRENT_TIMESTAMP);
+
+
+-- ===============================================
+-- Migration: V3__add_subscription_tables.sql
+-- ===============================================
+CREATE TABLE IF NOT EXISTS subscription_plans (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL UNIQUE,
+    price DECIMAL(10,2) NOT NULL,
+    duration_days INT NOT NULL,
+    ai_prompt_limit INT,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS user_subscriptions (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    plan_id BIGINT NOT NULL,
+    start_date TIMESTAMP NOT NULL,
+    end_date TIMESTAMP NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_user_subscriptions_user FOREIGN KEY (user_id) REFERENCES users (id),
+    CONSTRAINT fk_user_subscriptions_plan FOREIGN KEY (plan_id) REFERENCES subscription_plans (id)
+);
+
+-- Seed default plans
+INSERT INTO subscription_plans (name, price, duration_days, ai_prompt_limit, description)
+VALUES 
+('BASIC', 0.00, 3650, 5, 'Gói mặc định, giới hạn 5 lượt dùng AI mỗi ngày.'),
+('PREMIUM', 99000.00, 30, NULL, 'Gói cao cấp, không giới hạn dùng AI trong 1 tháng.')
+ON CONFLICT (name) DO NOTHING;
+
+
+-- ===============================================
+-- Migration: V4__add_topic_roadmap_columns.sql
+-- ===============================================
+ALTER TABLE public.topics ADD COLUMN IF NOT EXISTS cefr_level VARCHAR(10);
+ALTER TABLE public.topics ADD COLUMN IF NOT EXISTS category  VARCHAR(50);
+
+ALTER TABLE public.topics ADD CONSTRAINT topics_cefr_level_check
+    CHECK (cefr_level IS NULL OR cefr_level IN ('A1','A2','B1','B2','C1'));
+
+ALTER TABLE public.topics ADD CONSTRAINT topics_category_check
+    CHECK (category IS NULL OR category IN (
+        'WORK','TRAVEL','EXAM_IELTS','DAILY_CONVERSATION','STUDY_ABROAD'
+    ));
+
+CREATE INDEX IF NOT EXISTS idx_topics_cefr_category
+    ON public.topics (cefr_level, category)
+    WHERE is_active = true;
+
+
+-- ===============================================
+-- Migration: V5__seed_topic_categories.sql
+-- ===============================================
+UPDATE public.topics SET cefr_level = 'A1', category = 'DAILY_CONVERSATION'
+    WHERE name_en ILIKE '%greeting%' OR name_en ILIKE '%family%' OR name_en ILIKE '%daily%';
+
+UPDATE public.topics SET cefr_level = 'A2', category = 'TRAVEL'
+    WHERE name_en ILIKE '%travel%' OR name_en ILIKE '%hotel%' OR name_en ILIKE '%airport%';
+
+UPDATE public.topics SET cefr_level = 'B1', category = 'WORK'
+    WHERE name_en ILIKE '%business%' OR name_en ILIKE '%office%' OR name_en ILIKE '%work%';
+
+UPDATE public.topics SET cefr_level = 'B2', category = 'EXAM_IELTS'
+    WHERE name_en ILIKE '%ielts%' OR name_en ILIKE '%exam%';
+
+UPDATE public.topics SET cefr_level = 'C1', category = 'STUDY_ABROAD'
+    WHERE name_en ILIKE '%abroad%' OR name_en ILIKE '%academic%';
+
+-- Fallback for any other topics
+UPDATE public.topics SET cefr_level = 'A1', category = 'DAILY_CONVERSATION'
+    WHERE cefr_level IS NULL OR category IS NULL;
+
+
+-- ===============================================
+-- Migration: V6__add_payment_transaction.sql
+-- ===============================================
+CREATE TABLE IF NOT EXISTS payment_transactions (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    subscription_id BIGINT NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    order_info VARCHAR(500),
+    vnp_txn_ref VARCHAR(50) UNIQUE,
+    vnp_transaction_no VARCHAR(50),
+    status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_payment_transactions_user FOREIGN KEY (user_id) REFERENCES users (id),
+    CONSTRAINT fk_payment_transactions_sub FOREIGN KEY (subscription_id) REFERENCES user_subscriptions (id)
+);
+
+
+-- ===============================================
+-- Migration: V7__add_sm2_fields.sql
+-- ===============================================
+ALTER TABLE student_vocabulary_progress
+ADD COLUMN easiness_factor FLOAT DEFAULT 2.5,
+ADD COLUMN interval_days INT DEFAULT 0,
+ADD COLUMN repetitions INT DEFAULT 0;
+
+
+-- ===============================================
+-- Migration: V8__drop_redundant_password_column.sql
+-- ===============================================
+ALTER TABLE public.users DROP COLUMN IF EXISTS password;
+
+
+-- ===============================================
+-- Migration: V8__seed_ipa_data.sql
+-- ===============================================
+-- V8__seed_ipa_data.sql
+-- Seed IPA Phonemes (5 âm cơ bản — dữ liệu đầy đủ 44 âm được bổ sung trong V12)
+INSERT INTO ipa_phonemes (symbol, phoneme_type, name_vi, audio_male_url, audio_female_url, cefr_intro_level, is_common_vn_error)
+VALUES
+  ('iː', 'VOWEL_MONO', 'Âm i dài', 'https://cdn.example.com/phonemes/ii_male.mp3', 'https://cdn.example.com/phonemes/ii_female.mp3', 'A1', false),
+  ('ɪ',  'VOWEL_MONO', 'Âm i ngắn', 'https://cdn.example.com/phonemes/i_male.mp3', 'https://cdn.example.com/phonemes/i_female.mp3', 'A1', true),
+  ('p',  'CONSONANT', 'Âm p', 'https://cdn.example.com/phonemes/p_male.mp3', 'https://cdn.example.com/phonemes/p_female.mp3', 'A1', false),
+  ('b',  'CONSONANT', 'Âm b', 'https://cdn.example.com/phonemes/b_male.mp3', 'https://cdn.example.com/phonemes/b_female.mp3', 'A1', false),
+  ('ʃ',  'CONSONANT', 'Âm sh', 'https://cdn.example.com/phonemes/sh_male.mp3', 'https://cdn.example.com/phonemes/sh_female.mp3', 'A2', true);
+
+-- Seed IPA Example Words
+INSERT INTO ipa_example_words (phoneme_id, word, ipa_transcription, audio_url)
+VALUES
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'iː'), 'sheep', '/ʃiːp/', 'https://cdn.example.com/words/sheep.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'iː'), 'see', '/siː/', 'https://cdn.example.com/words/see.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'ɪ'), 'ship', '/ʃɪp/', 'https://cdn.example.com/words/ship.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'ɪ'), 'sit', '/sɪt/', 'https://cdn.example.com/words/sit.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'p'), 'pen', '/pen/', 'https://cdn.example.com/words/pen.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'p'), 'copy', '/ˈkɒpi/', 'https://cdn.example.com/words/copy.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'b'), 'book', '/bʊk/', 'https://cdn.example.com/words/book.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'b'), 'back', '/bæk/', 'https://cdn.example.com/words/back.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'ʃ'), 'shoe', '/ʃuː/', 'https://cdn.example.com/words/shoe.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'ʃ'), 'fish', '/fɪʃ/', 'https://cdn.example.com/words/fish.mp3');
+
+-- GIN Index cho query thống kê JSONB sau này
+CREATE INDEX IF NOT EXISTS idx_practice_log_phoneme 
+    ON pronunciation_practice_logs USING GIN (phoneme_detail_json);
+
+
+-- ===============================================
+-- Migration: V9__add_failed_jobs_table.sql
+-- ===============================================
+-- V9__add_failed_jobs_table.sql
+-- Bảng Dead Letter Queue (DLQ) cho cơ chế Fault Tolerance 2 lớp
+-- Lưu các event cộng XP thất bại sau 3 lần retry để Cron Job xử lý lại
+
+CREATE TABLE IF NOT EXISTS failed_jobs (
+    id              BIGSERIAL PRIMARY KEY,
+    job_type        VARCHAR(100)    NOT NULL DEFAULT 'PRONUNCIATION_XP',
+    student_id      BIGINT          NOT NULL,
+    payload_json    JSONB           NOT NULL,           -- Toàn bộ event object lưu dạng JSON
+    error_message   TEXT,                               -- Lỗi cuối cùng trước khi ghi DLQ
+    retry_count     SMALLINT        NOT NULL DEFAULT 0, -- Số lần đã retry
+    status          VARCHAR(20)     NOT NULL DEFAULT 'PENDING', -- PENDING | PROCESSED | DEAD
+    created_at      TIMESTAMP       NOT NULL DEFAULT NOW(),
+    processed_at    TIMESTAMP                           -- Thời điểm Cron Job xử lý thành công
+);
+
+CREATE INDEX idx_failed_jobs_status_created ON failed_jobs (status, created_at);
+
+
+-- ===============================================
+-- Migration: V9__add_notification_tokens.sql
+-- ===============================================
+CREATE TABLE IF NOT EXISTS user_device_tokens (
+    id SERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    token VARCHAR(1000) NOT NULL,
+    device_type VARCHAR(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_user_device_token_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+    CONSTRAINT uk_user_token UNIQUE (user_id, token)
+);
+
+CREATE INDEX idx_user_device_tokens_user_id ON user_device_tokens(user_id);
+
+-- ===============================================
+-- Migration: V10__alter_user_device_token_id_to_bigint.sql
+-- ===============================================
+ALTER TABLE user_device_tokens ALTER COLUMN id TYPE BIGINT;
+
+
+-- ===============================================
+-- Migration: V10__update_module4_schema.sql
+-- ===============================================
+-- Update classes table
+ALTER TABLE classes 
+ADD COLUMN start_date DATE,
+ADD COLUMN end_date DATE,
+ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+-- Update class_students table
+-- 1. Drop existing composite primary key
+ALTER TABLE class_students DROP CONSTRAINT IF EXISTS class_students_pkey;
+-- 2. Add surrogate primary key
+ALTER TABLE class_students ADD COLUMN id BIGSERIAL PRIMARY KEY;
+-- 3. Add unique constraint on class_id and student_id
+ALTER TABLE class_students ADD CONSTRAINT uk_class_students_class_id_student_id UNIQUE (class_id, student_id);
+-- 4. Add updated_at
+ALTER TABLE class_students ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+-- Update teaching_materials table
+ALTER TABLE teaching_materials ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+-- Update assignments table
+ALTER TABLE assignments 
+ADD COLUMN description TEXT,
+ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+-- Update assignment_submissions table
+ALTER TABLE assignment_submissions 
+ADD COLUMN score DECIMAL(5,2),
+ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'SUBMITTED',
+ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+-- Update syllabus_items table
+ALTER TABLE syllabus_items ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+
+-- ===============================================
+-- Migration: V11__seed_users.sql
+-- ===============================================
+INSERT INTO users (email, password_hash, full_name, role, provider, locale, is_active, created_at, updated_at) VALUES
+('admin@gmail.com',    '$2a$10$z69c5Cq0SS5EpjO8EryAFuAznOPpMI5gzgl6M/OzAdEyQWRV2t05i', 'System Admin',  'ADMIN',   'LOCAL', 'vi', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('teacher@gmail.com','$2a$10$z69c5Cq0SS5EpjO8EryAFuAznOPpMI5gzgl6M/OzAdEyQWRV2t05i', 'Demo Teacher',  'TEACHER', 'LOCAL', 'vi', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('student@gmail.com','$2a$10$z69c5Cq0SS5EpjO8EryAFuAznOPpMI5gzgl6M/OzAdEyQWRV2t05i', 'Demo Student',  'STUDENT', 'LOCAL', 'vi', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+
+-- ===============================================
+-- Migration: V11__update_notification_type_check.sql
+-- ===============================================
+ALTER TABLE notifications DROP CONSTRAINT notifications_type_check;
+ALTER TABLE notifications ADD CONSTRAINT notifications_type_check CHECK (type IN ('STREAK_REMINDER', 'ASSIGNMENT_DUE', 'NEW_MATERIAL', 'TEACHER_COMMENT', 'SYSTEM', 'ASSIGNMENT', 'GRADE'));
+
+
+-- ===============================================
+-- Migration: V12__add_syllabus_item_topics.sql
+-- ===============================================
+CREATE TABLE syllabus_item_topics (
+    syllabus_item_id BIGINT NOT NULL,
+    topic_id SMALLINT NOT NULL,
+    PRIMARY KEY (syllabus_item_id, topic_id),
+    CONSTRAINT fk_syllabus_item FOREIGN KEY (syllabus_item_id) REFERENCES syllabus_items(id) ON DELETE CASCADE,
+    CONSTRAINT fk_topic FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
+);
+
+
+-- ===============================================
+-- Migration: V12__update_listening_audio.sql
+-- ===============================================
+UPDATE questions
+SET content_json = jsonb_set(content_json, '{transcript}', '"Hello, my name is John."')
+WHERE cefr_level = 'A1' AND skill = 'LISTENING';
+
+UPDATE questions
+SET content_json = jsonb_set(content_json, '{transcript}', '"Attention passengers, the train to London will depart at nine thirty."')
+WHERE cefr_level = 'A2' AND skill = 'LISTENING';
+
+UPDATE questions
+SET content_json = jsonb_set(content_json, '{transcript}', '"Hello, I would like to cancel my flight reservation."')
+WHERE cefr_level = 'B1' AND skill = 'LISTENING';
+
+UPDATE questions
+SET content_json = jsonb_set(content_json, '{transcript}', '"Today, we will discuss the impact of technology on society."')
+WHERE cefr_level = 'B2' AND skill = 'LISTENING';
+
+UPDATE questions
+SET content_json = jsonb_set(content_json, '{transcript}', '"While some are opposed to the new policy, I am cautiously optimistic about its potential."')
+WHERE cefr_level = 'C1' AND skill = 'LISTENING';
+
+
+-- ===============================================
+-- Migration: V13__update_ipa_and_admin.sql
+-- ===============================================
+-- V13__update_ipa_and_admin.sql
+-- 1. Cập nhật tài khoản admin: đổi email thành admin@gmail.com và cập nhật password
+-- 2. Bổ sung đầy đủ 44 âm IPA (hiện tại V8 chỉ seed 5 âm)
+
+-- ======================================================
+-- PHẦN 1: Cập nhật tài khoản Admin
+-- ======================================================
+
+-- Đảm bảo có tài khoản admin@gmail.com với role ADMIN và password đúng
+INSERT INTO users (email, password_hash, full_name, role, provider, locale, is_active, created_at, updated_at)
+VALUES ('admin1@gmail.com', '$2a$10$z69c5Cq0SS5EpjO8EryAFuAznOPpMI5gzgl6M/OzAdEyQWRV2t05i', 'System Admin', 'ADMIN', 'LOCAL', 'vi', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT (email) DO UPDATE 
+SET password_hash = EXCLUDED.password_hash,
+    role = EXCLUDED.role,
+    updated_at = CURRENT_TIMESTAMP;
+
+-- ======================================================
+-- PHẦN 2: Bổ sung 39 âm IPA còn thiếu (V8 đã có 5 âm: iː, ɪ, p, b, ʃ)
+-- ======================================================
+
+INSERT INTO ipa_phonemes (symbol, phoneme_type, name_vi, audio_male_url, audio_female_url, cefr_intro_level, is_common_vn_error)
+VALUES
+  -- VOWEL_MONO (còn thiếu 10, đã có iː và ɪ)
+  ('e',   'VOWEL_MONO', 'Âm e ngắn (bed, red)',         'https://cdn.example.com/phonemes/e_male.mp3',    'https://cdn.example.com/phonemes/e_female.mp3',    'A1', true),
+  ('æ',   'VOWEL_MONO', 'Âm a mở (cat, bag)',           'https://cdn.example.com/phonemes/ae_male.mp3',   'https://cdn.example.com/phonemes/ae_female.mp3',   'A2', true),
+  ('ɑː',  'VOWEL_MONO', 'Âm a dài (car, heart)',        'https://cdn.example.com/phonemes/aa_male.mp3',   'https://cdn.example.com/phonemes/aa_female.mp3',   'A1', false),
+  ('ɒ',   'VOWEL_MONO', 'Âm o ngắn (hot, dog)',         'https://cdn.example.com/phonemes/o_male.mp3',    'https://cdn.example.com/phonemes/o_female.mp3',    'A1', false),
+  ('ɔː',  'VOWEL_MONO', 'Âm o dài (call, ball)',        'https://cdn.example.com/phonemes/oo_male.mp3',   'https://cdn.example.com/phonemes/oo_female.mp3',   'A2', true),
+  ('ʊ',   'VOWEL_MONO', 'Âm u ngắn (book, look)',       'https://cdn.example.com/phonemes/u_male.mp3',    'https://cdn.example.com/phonemes/u_female.mp3',    'A2', true),
+  ('uː',  'VOWEL_MONO', 'Âm u dài (moon, food)',        'https://cdn.example.com/phonemes/uu_male.mp3',   'https://cdn.example.com/phonemes/uu_female.mp3',   'A1', false),
+  ('ʌ',   'VOWEL_MONO', 'Âm â ngắn (cup, luck)',        'https://cdn.example.com/phonemes/a_male.mp3',    'https://cdn.example.com/phonemes/a_female.mp3',    'A2', true),
+  ('ɜː',  'VOWEL_MONO', 'Âm ơ dài (bird, world)',       'https://cdn.example.com/phonemes/er_male.mp3',   'https://cdn.example.com/phonemes/er_female.mp3',   'B1', true),
+  ('ə',   'VOWEL_MONO', 'Âm schwa (about, sofa)',       'https://cdn.example.com/phonemes/schwa_male.mp3','https://cdn.example.com/phonemes/schwa_female.mp3', 'B1', true),
+
+  -- VOWEL_DIPH (8 âm đôi — tất cả đều mới)
+  ('eɪ',  'VOWEL_DIPH', 'Âm đôi ei (day, say)',         'https://cdn.example.com/phonemes/ei_male.mp3',   'https://cdn.example.com/phonemes/ei_female.mp3',   'A2', false),
+  ('aɪ',  'VOWEL_DIPH', 'Âm đôi ai (fly, my)',          'https://cdn.example.com/phonemes/ai_male.mp3',   'https://cdn.example.com/phonemes/ai_female.mp3',   'A1', false),
+  ('ɔɪ',  'VOWEL_DIPH', 'Âm đôi oi (boy, coin)',        'https://cdn.example.com/phonemes/oi_male.mp3',   'https://cdn.example.com/phonemes/oi_female.mp3',   'A2', false),
+  ('aʊ',  'VOWEL_DIPH', 'Âm đôi ao (now, house)',       'https://cdn.example.com/phonemes/au_male.mp3',   'https://cdn.example.com/phonemes/au_female.mp3',   'A2', false),
+  ('əʊ',  'VOWEL_DIPH', 'Âm đôi ou (go, home)',         'https://cdn.example.com/phonemes/ou_male.mp3',   'https://cdn.example.com/phonemes/ou_female.mp3',   'A2', true),
+  ('ɪə',  'VOWEL_DIPH', 'Âm đôi ia (ear, here)',        'https://cdn.example.com/phonemes/ia_male.mp3',   'https://cdn.example.com/phonemes/ia_female.mp3',   'B1', true),
+  ('eə',  'VOWEL_DIPH', 'Âm đôi ea (air, where)',       'https://cdn.example.com/phonemes/ea_male.mp3',   'https://cdn.example.com/phonemes/ea_female.mp3',   'B1', true),
+  ('ʊə',  'VOWEL_DIPH', 'Âm đôi ua (tour, pure)',       'https://cdn.example.com/phonemes/ua_male.mp3',   'https://cdn.example.com/phonemes/ua_female.mp3',   'B2', true),
+
+  -- CONSONANT (còn thiếu 21, đã có p, b, ʃ)
+  ('t',   'CONSONANT', 'Âm t (top, sit)',                'https://cdn.example.com/phonemes/t_male.mp3',    'https://cdn.example.com/phonemes/t_female.mp3',    'A1', false),
+  ('d',   'CONSONANT', 'Âm d (dog, red)',                'https://cdn.example.com/phonemes/d_male.mp3',    'https://cdn.example.com/phonemes/d_female.mp3',    'A1', false),
+  ('k',   'CONSONANT', 'Âm k (cat, back)',               'https://cdn.example.com/phonemes/k_male.mp3',    'https://cdn.example.com/phonemes/k_female.mp3',    'A1', false),
+  ('g',   'CONSONANT', 'Âm g (get, big)',                'https://cdn.example.com/phonemes/g_male.mp3',    'https://cdn.example.com/phonemes/g_female.mp3',    'A1', false),
+  ('tʃ',  'CONSONANT', 'Âm ch (chair, match)',           'https://cdn.example.com/phonemes/ch_male.mp3',   'https://cdn.example.com/phonemes/ch_female.mp3',   'A2', false),
+  ('dʒ',  'CONSONANT', 'Âm dj (judge, age)',             'https://cdn.example.com/phonemes/dj_male.mp3',   'https://cdn.example.com/phonemes/dj_female.mp3',   'A2', false),
+  ('f',   'CONSONANT', 'Âm f (five, leaf)',              'https://cdn.example.com/phonemes/f_male.mp3',    'https://cdn.example.com/phonemes/f_female.mp3',    'A1', false),
+  ('v',   'CONSONANT', 'Âm v (van, live)',               'https://cdn.example.com/phonemes/v_male.mp3',    'https://cdn.example.com/phonemes/v_female.mp3',    'A1', true),
+  ('θ',   'CONSONANT', 'Âm th không rung (think, bath)', 'https://cdn.example.com/phonemes/th_male.mp3',   'https://cdn.example.com/phonemes/th_female.mp3',   'A2', true),
+  ('ð',   'CONSONANT', 'Âm th có rung (this, mother)',  'https://cdn.example.com/phonemes/dh_male.mp3',   'https://cdn.example.com/phonemes/dh_female.mp3',   'A2', true),
+  ('s',   'CONSONANT', 'Âm s (sun, bus)',                'https://cdn.example.com/phonemes/s_male.mp3',    'https://cdn.example.com/phonemes/s_female.mp3',    'A1', false),
+  ('z',   'CONSONANT', 'Âm z (zoo, days)',               'https://cdn.example.com/phonemes/z_male.mp3',    'https://cdn.example.com/phonemes/z_female.mp3',    'A2', true),
+  ('ʒ',   'CONSONANT', 'Âm zh (measure, vision)',        'https://cdn.example.com/phonemes/zh_male.mp3',   'https://cdn.example.com/phonemes/zh_female.mp3',   'B1', true),
+  ('h',   'CONSONANT', 'Âm h (hat, ahead)',              'https://cdn.example.com/phonemes/h_male.mp3',    'https://cdn.example.com/phonemes/h_female.mp3',    'A1', false),
+  ('m',   'CONSONANT', 'Âm m (man, home)',               'https://cdn.example.com/phonemes/m_male.mp3',    'https://cdn.example.com/phonemes/m_female.mp3',    'A1', false),
+  ('n',   'CONSONANT', 'Âm n (name, sun)',               'https://cdn.example.com/phonemes/n_male.mp3',    'https://cdn.example.com/phonemes/n_female.mp3',    'A1', false),
+  ('ŋ',   'CONSONANT', 'Âm ng (sing, long)',             'https://cdn.example.com/phonemes/ng_male.mp3',   'https://cdn.example.com/phonemes/ng_female.mp3',   'A2', true),
+  ('l',   'CONSONANT', 'Âm l (leg, all)',                'https://cdn.example.com/phonemes/l_male.mp3',    'https://cdn.example.com/phonemes/l_female.mp3',    'A1', false),
+  ('r',   'CONSONANT', 'Âm r (red, very)',               'https://cdn.example.com/phonemes/r_male.mp3',    'https://cdn.example.com/phonemes/r_female.mp3',    'A2', true),
+  ('w',   'CONSONANT', 'Âm w (we, away)',                'https://cdn.example.com/phonemes/w_male.mp3',    'https://cdn.example.com/phonemes/w_female.mp3',    'A1', false),
+  ('j',   'CONSONANT', 'Âm y (yes, you)',                'https://cdn.example.com/phonemes/j_male.mp3',    'https://cdn.example.com/phonemes/j_female.mp3',    'A1', false);
+
+-- ======================================================
+-- Từ ví dụ cho 39 âm mới thêm (mỗi âm 2 từ)
+-- ======================================================
+INSERT INTO ipa_example_words (phoneme_id, word, ipa_transcription, audio_url) VALUES
+  -- VOWEL_MONO mới
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'e'),  'bed',     '/bed/',       'https://cdn.example.com/words/bed.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'e'),  'red',     '/red/',       'https://cdn.example.com/words/red.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'æ'),  'cat',     '/kæt/',       'https://cdn.example.com/words/cat.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'æ'),  'bag',     '/bæɡ/',       'https://cdn.example.com/words/bag.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'ɑː'), 'car',     '/kɑːr/',      'https://cdn.example.com/words/car.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'ɑː'), 'heart',   '/hɑːrt/',     'https://cdn.example.com/words/heart.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'ɒ'),  'hot',     '/hɒt/',       'https://cdn.example.com/words/hot.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'ɒ'),  'dog',     '/dɒɡ/',       'https://cdn.example.com/words/dog.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'ɔː'), 'call',    '/kɔːl/',      'https://cdn.example.com/words/call.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'ɔː'), 'ball',    '/bɔːl/',      'https://cdn.example.com/words/ball.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'ʊ'),  'book',    '/bʊk/',       'https://cdn.example.com/words/book.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'ʊ'),  'look',    '/lʊk/',       'https://cdn.example.com/words/look.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'uː'), 'moon',    '/muːn/',      'https://cdn.example.com/words/moon.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'uː'), 'food',    '/fuːd/',      'https://cdn.example.com/words/food.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'ʌ'),  'cup',     '/kʌp/',       'https://cdn.example.com/words/cup.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'ʌ'),  'luck',    '/lʌk/',       'https://cdn.example.com/words/luck.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'ɜː'), 'bird',    '/bɜːrd/',     'https://cdn.example.com/words/bird.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'ɜː'), 'world',   '/wɜːrld/',    'https://cdn.example.com/words/world.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'ə'),  'about',   '/əˈbaʊt/',    'https://cdn.example.com/words/about.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'ə'),  'sofa',    '/ˈsoʊfə/',    'https://cdn.example.com/words/sofa.mp3'),
+  -- VOWEL_DIPH mới
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'eɪ'), 'day',     '/deɪ/',       'https://cdn.example.com/words/day.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'eɪ'), 'say',     '/seɪ/',       'https://cdn.example.com/words/say.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'aɪ'), 'fly',     '/flaɪ/',      'https://cdn.example.com/words/fly.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'aɪ'), 'night',   '/naɪt/',      'https://cdn.example.com/words/night.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'ɔɪ'), 'boy',     '/bɔɪ/',       'https://cdn.example.com/words/boy.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'ɔɪ'), 'coin',    '/kɔɪn/',      'https://cdn.example.com/words/coin.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'aʊ'), 'now',     '/naʊ/',       'https://cdn.example.com/words/now.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'aʊ'), 'house',   '/haʊs/',      'https://cdn.example.com/words/house.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'əʊ'), 'go',      '/ɡəʊ/',       'https://cdn.example.com/words/go.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'əʊ'), 'home',    '/həʊm/',      'https://cdn.example.com/words/home.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'ɪə'), 'ear',     '/ɪər/',       'https://cdn.example.com/words/ear.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'ɪə'), 'here',    '/hɪər/',      'https://cdn.example.com/words/here.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'eə'), 'air',     '/eər/',       'https://cdn.example.com/words/air.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'eə'), 'where',   '/weər/',      'https://cdn.example.com/words/where.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'ʊə'), 'tour',    '/tʊər/',      'https://cdn.example.com/words/tour.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'ʊə'), 'pure',    '/pjʊər/',     'https://cdn.example.com/words/pure.mp3'),
+  -- CONSONANT mới
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 't'),  'top',     '/tɒp/',       'https://cdn.example.com/words/top.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 't'),  'sit',     '/sɪt/',       'https://cdn.example.com/words/sit2.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'd'),  'dog',     '/dɒɡ/',       'https://cdn.example.com/words/dog2.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'd'),  'red',     '/red/',       'https://cdn.example.com/words/red2.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'k'),  'cat',     '/kæt/',       'https://cdn.example.com/words/cat2.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'k'),  'back',    '/bæk/',       'https://cdn.example.com/words/back.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'g'),  'get',     '/ɡet/',       'https://cdn.example.com/words/get.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'g'),  'big',     '/bɪɡ/',       'https://cdn.example.com/words/big.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'tʃ'), 'chair',   '/tʃeər/',     'https://cdn.example.com/words/chair.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'tʃ'), 'match',   '/mætʃ/',      'https://cdn.example.com/words/match.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'dʒ'), 'judge',   '/dʒʌdʒ/',     'https://cdn.example.com/words/judge.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'dʒ'), 'age',     '/eɪdʒ/',      'https://cdn.example.com/words/age.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'f'),  'five',    '/faɪv/',      'https://cdn.example.com/words/five.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'f'),  'leaf',    '/liːf/',      'https://cdn.example.com/words/leaf.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'v'),  'van',     '/væn/',       'https://cdn.example.com/words/van.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'v'),  'live',    '/lɪv/',       'https://cdn.example.com/words/live.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'θ'),  'think',   '/θɪŋk/',      'https://cdn.example.com/words/think.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'θ'),  'bath',    '/bɑːθ/',      'https://cdn.example.com/words/bath.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'ð'),  'this',    '/ðɪs/',       'https://cdn.example.com/words/this.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'ð'),  'mother',  '/ˈmʌðər/',    'https://cdn.example.com/words/mother.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 's'),  'sun',     '/sʌn/',       'https://cdn.example.com/words/sun.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 's'),  'bus',     '/bʌs/',       'https://cdn.example.com/words/bus.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'z'),  'zoo',     '/zuː/',       'https://cdn.example.com/words/zoo.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'z'),  'days',    '/deɪz/',      'https://cdn.example.com/words/days.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'ʒ'),  'measure', '/ˈmeʒər/',    'https://cdn.example.com/words/measure.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'ʒ'),  'vision',  '/ˈvɪʒən/',    'https://cdn.example.com/words/vision.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'h'),  'hat',     '/hæt/',       'https://cdn.example.com/words/hat.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'h'),  'ahead',   '/əˈhed/',     'https://cdn.example.com/words/ahead.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'm'),  'man',     '/mæn/',       'https://cdn.example.com/words/man.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'm'),  'home',    '/həʊm/',      'https://cdn.example.com/words/home2.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'n'),  'name',    '/neɪm/',      'https://cdn.example.com/words/name.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'n'),  'sun',     '/sʌn/',       'https://cdn.example.com/words/sun2.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'ŋ'),  'sing',    '/sɪŋ/',       'https://cdn.example.com/words/sing.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'ŋ'),  'long',    '/lɒŋ/',       'https://cdn.example.com/words/long.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'l'),  'leg',     '/leɡ/',       'https://cdn.example.com/words/leg.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'l'),  'all',     '/ɔːl/',       'https://cdn.example.com/words/all.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'r'),  'red',     '/red/',       'https://cdn.example.com/words/red3.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'r'),  'very',    '/ˈveri/',     'https://cdn.example.com/words/very.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'w'),  'we',      '/wiː/',       'https://cdn.example.com/words/we.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'w'),  'away',    '/əˈweɪ/',     'https://cdn.example.com/words/away.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'j'),  'yes',     '/jes/',       'https://cdn.example.com/words/yes.mp3'),
+  ((SELECT id FROM ipa_phonemes WHERE symbol = 'j'),  'you',     '/juː/',       'https://cdn.example.com/words/you.mp3');
+
+
+-- ===============================================
+-- Migration: V14__add_more_placement_questions.sql
+-- ===============================================
+INSERT INTO questions (cefr_level, skill, question_type, content_json, correct_answer, timeout_seconds, is_active, created_at) VALUES
+-- A1 (20 questions)
+('A1', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "I need to buy some ___ at the bakery.", "options": ["meat", "bread", "milk", "vegetables"]}'::jsonb, 'bread', 30, true, CURRENT_TIMESTAMP),
+('A1', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "I drink a glass of ___ every morning.", "options": ["bread", "water", "apple", "cheese"]}'::jsonb, 'water', 30, true, CURRENT_TIMESTAMP),
+('A1', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "My father''s sister is my ___.", "options": ["aunt", "uncle", "cousin", "grandmother"]}'::jsonb, 'aunt', 30, true, CURRENT_TIMESTAMP),
+('A1', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "We use a ___ to cut food.", "options": ["spoon", "fork", "knife", "plate"]}'::jsonb, 'knife', 30, true, CURRENT_TIMESTAMP),
+('A1', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "I have two ___ on my face.", "options": ["noses", "ears", "eyes", "mouths"]}'::jsonb, 'eyes', 30, true, CURRENT_TIMESTAMP),
+('A1', 'GRAMMAR', 'MULTIPLE_CHOICE', '{"question": "She ___ to school every day.", "options": ["go", "goes", "going", "to go"]}'::jsonb, 'goes', 30, true, CURRENT_TIMESTAMP),
+('A1', 'GRAMMAR', 'MULTIPLE_CHOICE', '{"question": "___ you like apples?", "options": ["Do", "Does", "Are", "Is"]}'::jsonb, 'Do', 30, true, CURRENT_TIMESTAMP),
+('A1', 'GRAMMAR', 'MULTIPLE_CHOICE', '{"question": "He ___ a new car.", "options": ["have", "has", "having", "is"]}'::jsonb, 'has', 30, true, CURRENT_TIMESTAMP),
+('A1', 'GRAMMAR', 'FILL_BLANK', '{"question": "___ is your name?"}'::jsonb, 'What', 30, true, CURRENT_TIMESTAMP),
+('A1', 'GRAMMAR', 'FILL_BLANK', '{"question": "I ___ a student."}'::jsonb, 'am', 30, true, CURRENT_TIMESTAMP),
+('A1', 'READING', 'READING_COMPREHENSION', '{"text": "My dog is small and brown. He likes to play with a ball.", "question": "What color is the dog?", "options": ["Black", "White", "Brown", "Yellow"]}'::jsonb, 'Brown', 90, true, CURRENT_TIMESTAMP),
+('A1', 'READING', 'READING_COMPREHENSION', '{"text": "Mary has a red pen and a blue notebook. She likes to write.", "question": "What color is her notebook?", "options": ["Red", "Blue", "Green", "Yellow"]}'::jsonb, 'Blue', 90, true, CURRENT_TIMESTAMP),
+('A1', 'READING', 'READING_COMPREHENSION', '{"text": "I wake up at 7 AM. Then I eat breakfast.", "question": "What time do I wake up?", "options": ["6 AM", "7 AM", "8 AM", "9 AM"]}'::jsonb, '7 AM', 90, true, CURRENT_TIMESTAMP),
+('A1', 'READING', 'READING_COMPREHENSION', '{"text": "My favorite sport is soccer. I play it with my friends.", "question": "What is my favorite sport?", "options": ["Tennis", "Basketball", "Soccer", "Golf"]}'::jsonb, 'Soccer', 90, true, CURRENT_TIMESTAMP),
+('A1', 'READING', 'READING_COMPREHENSION', '{"text": "Today is Monday. Tomorrow is Tuesday.", "question": "What day is tomorrow?", "options": ["Sunday", "Monday", "Tuesday", "Wednesday"]}'::jsonb, 'Tuesday', 90, true, CURRENT_TIMESTAMP),
+('A1', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "hello", "ipa": "/həˈloʊ/"}'::jsonb, 'hello', 10, true, CURRENT_TIMESTAMP),
+('A1', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "good", "ipa": "/ɡʊd/"}'::jsonb, 'good', 10, true, CURRENT_TIMESTAMP),
+('A1', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "house", "ipa": "/haʊs/"}'::jsonb, 'house', 10, true, CURRENT_TIMESTAMP),
+('A1', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "name", "ipa": "/neɪm/"}'::jsonb, 'name', 10, true, CURRENT_TIMESTAMP),
+('A1', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "friend", "ipa": "/frend/"}'::jsonb, 'friend', 10, true, CURRENT_TIMESTAMP),
+
+-- A2 (20 questions)
+('A2', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "Please ___ the door when you leave.", "options": ["open", "close", "break", "paint"]}'::jsonb, 'close', 30, true, CURRENT_TIMESTAMP),
+('A2', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "I need to buy some ___ to send a letter.", "options": ["stamps", "coins", "cards", "paper"]}'::jsonb, 'stamps', 30, true, CURRENT_TIMESTAMP),
+('A2', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "We went to the ___ to watch a movie.", "options": ["hospital", "cinema", "park", "museum"]}'::jsonb, 'cinema', 30, true, CURRENT_TIMESTAMP),
+('A2', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "I always wear a ___ when it is cold.", "options": ["t-shirt", "coat", "skirt", "shorts"]}'::jsonb, 'coat', 30, true, CURRENT_TIMESTAMP),
+('A2', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "Can I have the ___, please? I want to pay.", "options": ["menu", "bill", "plate", "food"]}'::jsonb, 'bill', 30, true, CURRENT_TIMESTAMP),
+('A2', 'GRAMMAR', 'MULTIPLE_CHOICE', '{"question": "They have been living here ___ 2015.", "options": ["for", "in", "since", "at"]}'::jsonb, 'since', 30, true, CURRENT_TIMESTAMP),
+('A2', 'GRAMMAR', 'MULTIPLE_CHOICE', '{"question": "I ___ a good book yesterday.", "options": ["read", "readed", "reading", "reads"]}'::jsonb, 'read', 30, true, CURRENT_TIMESTAMP),
+('A2', 'GRAMMAR', 'MULTIPLE_CHOICE', '{"question": "This car is ___ than that one.", "options": ["fast", "faster", "fastest", "more fast"]}'::jsonb, 'faster', 30, true, CURRENT_TIMESTAMP),
+('A2', 'GRAMMAR', 'FILL_BLANK', '{"question": "I am looking ___ my keys. Have you seen them?"}'::jsonb, 'for', 30, true, CURRENT_TIMESTAMP),
+('A2', 'GRAMMAR', 'FILL_BLANK', '{"question": "She is interested ___ learning English."}'::jsonb, 'in', 30, true, CURRENT_TIMESTAMP),
+('A2', 'READING', 'READING_COMPREHENSION', '{"text": "Tomorrow, we will visit the museum. It opens at 10 AM. We should arrive early.", "question": "When does the museum open?", "options": ["8 AM", "9 AM", "10 AM", "11 AM"]}'::jsonb, '10 AM', 90, true, CURRENT_TIMESTAMP),
+('A2', 'READING', 'READING_COMPREHENSION', '{"text": "I went to Paris last summer. I saw the Eiffel Tower and ate a lot of croissants.", "question": "Where did I go last summer?", "options": ["London", "Rome", "Paris", "Berlin"]}'::jsonb, 'Paris', 90, true, CURRENT_TIMESTAMP),
+('A2', 'READING', 'READING_COMPREHENSION', '{"text": "John is a doctor. He works at the city hospital from 9 AM to 5 PM.", "question": "What is John''s job?", "options": ["Teacher", "Doctor", "Engineer", "Driver"]}'::jsonb, 'Doctor', 90, true, CURRENT_TIMESTAMP),
+('A2', 'READING', 'READING_COMPREHENSION', '{"text": "Cats are independent animals. Dogs usually need more attention from their owners.", "question": "Which animal needs more attention?", "options": ["Cats", "Dogs", "Birds", "Fish"]}'::jsonb, 'Dogs', 90, true, CURRENT_TIMESTAMP),
+('A2', 'READING', 'READING_COMPREHENSION', '{"text": "The weather today is rainy. We cannot go to the park.", "question": "Why can''t they go to the park?", "options": ["It is sunny", "It is snowy", "It is rainy", "It is windy"]}'::jsonb, 'It is rainy', 90, true, CURRENT_TIMESTAMP),
+('A2', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "island", "ipa": "/ˈaɪlənd/"}'::jsonb, 'island', 10, true, CURRENT_TIMESTAMP),
+('A2', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "castle", "ipa": "/ˈkæsl/"}'::jsonb, 'castle', 10, true, CURRENT_TIMESTAMP),
+('A2', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "listen", "ipa": "/ˈlɪsn/"}'::jsonb, 'listen', 10, true, CURRENT_TIMESTAMP),
+('A2', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "water", "ipa": "/ˈwɔːtər/"}'::jsonb, 'water', 10, true, CURRENT_TIMESTAMP),
+('A2', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "often", "ipa": "/ˈɔːfn/"}'::jsonb, 'often', 10, true, CURRENT_TIMESTAMP),
+
+-- B1 (20 questions)
+('B1', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "Can you ___ the volume? It''s too loud.", "options": ["turn up", "turn on", "turn off", "turn down"]}'::jsonb, 'turn down', 30, true, CURRENT_TIMESTAMP),
+('B1', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "He decided to ___ his job because he was unhappy.", "options": ["quit", "fire", "hire", "apply"]}'::jsonb, 'quit', 30, true, CURRENT_TIMESTAMP),
+('B1', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "You should always ___ your seatbelt when driving.", "options": ["fasten", "tie", "lock", "hold"]}'::jsonb, 'fasten', 30, true, CURRENT_TIMESTAMP),
+('B1', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "The ___ was delayed due to bad weather.", "options": ["flight", "flying", "fly", "flown"]}'::jsonb, 'flight', 30, true, CURRENT_TIMESTAMP),
+('B1', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "We need to ___ a solution to this problem.", "options": ["make", "do", "find", "take"]}'::jsonb, 'find', 30, true, CURRENT_TIMESTAMP),
+('B1', 'GRAMMAR', 'MULTIPLE_CHOICE', '{"question": "I wish I ___ more time to finish the project.", "options": ["have", "has", "had", "will have"]}'::jsonb, 'had', 30, true, CURRENT_TIMESTAMP),
+('B1', 'GRAMMAR', 'MULTIPLE_CHOICE', '{"question": "She ___ TV when the phone rang.", "options": ["watches", "was watching", "is watching", "watched"]}'::jsonb, 'was watching', 30, true, CURRENT_TIMESTAMP),
+('B1', 'GRAMMAR', 'MULTIPLE_CHOICE', '{"question": "If it rains, we ___ at home.", "options": ["stay", "will stay", "stayed", "would stay"]}'::jsonb, 'will stay', 30, true, CURRENT_TIMESTAMP),
+('B1', 'GRAMMAR', 'FILL_BLANK', '{"question": "She is responsible ___ organizing the event."}'::jsonb, 'for', 30, true, CURRENT_TIMESTAMP),
+('B1', 'GRAMMAR', 'FILL_BLANK', '{"question": "He has been working here ___ three years."}'::jsonb, 'for', 30, true, CURRENT_TIMESTAMP),
+('B1', 'READING', 'READING_COMPREHENSION', '{"text": "Despite the heavy rain, the football match continued. The players were exhausted but determined.", "question": "Why did the match continue?", "options": ["Because the weather was fine", "Despite the weather", "It was a final match", "The players were tired"]}'::jsonb, 'Despite the weather', 90, true, CURRENT_TIMESTAMP),
+('B1', 'READING', 'READING_COMPREHENSION', '{"text": "The new restaurant in town serves amazing Italian food. However, it is quite expensive.", "question": "What is the downside of the restaurant?", "options": ["The food is bad", "It is expensive", "It is far away", "It is small"]}'::jsonb, 'It is expensive', 90, true, CURRENT_TIMESTAMP),
+('B1', 'READING', 'READING_COMPREHENSION', '{"text": "I used to play the piano when I was younger, but I haven''t played in years.", "question": "Does the person play the piano now?", "options": ["Yes, every day", "No, not anymore", "Yes, sometimes", "Only on weekends"]}'::jsonb, 'No, not anymore', 90, true, CURRENT_TIMESTAMP),
+('B1', 'READING', 'READING_COMPREHENSION', '{"text": "Traffic was terrible this morning because of an accident on the highway.", "question": "Why was traffic terrible?", "options": ["Rain", "Snow", "An accident", "Road construction"]}'::jsonb, 'An accident', 90, true, CURRENT_TIMESTAMP),
+('B1', 'READING', 'READING_COMPREHENSION', '{"text": "Please reply to this email by Friday if you want to attend the meeting.", "question": "When is the deadline to reply?", "options": ["Monday", "Wednesday", "Friday", "Sunday"]}'::jsonb, 'Friday', 90, true, CURRENT_TIMESTAMP),
+('B1', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "comfortable", "ipa": "/ˈkʌmftərbəl/"}'::jsonb, 'comfortable', 10, true, CURRENT_TIMESTAMP),
+('B1', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "vegetable", "ipa": "/ˈvedʒtəbəl/"}'::jsonb, 'vegetable', 10, true, CURRENT_TIMESTAMP),
+('B1', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "recipe", "ipa": "/ˈresəpi/"}'::jsonb, 'recipe', 10, true, CURRENT_TIMESTAMP),
+('B1', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "knowledge", "ipa": "/ˈnɑːlɪdʒ/"}'::jsonb, 'knowledge', 10, true, CURRENT_TIMESTAMP),
+('B1', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "doubt", "ipa": "/daʊt/"}'::jsonb, 'doubt', 10, true, CURRENT_TIMESTAMP),
+
+-- B2 (20 questions)
+('B2', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "The new evidence completely ___ his theory.", "options": ["supports", "contradicts", "proves", "explains"]}'::jsonb, 'contradicts', 30, true, CURRENT_TIMESTAMP),
+('B2', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "She has a very ___ schedule this week with back-to-back meetings.", "options": ["loose", "hectic", "calm", "slow"]}'::jsonb, 'hectic', 30, true, CURRENT_TIMESTAMP),
+('B2', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "The government is trying to ___ the crisis.", "options": ["mitigate", "increase", "ignore", "start"]}'::jsonb, 'mitigate', 30, true, CURRENT_TIMESTAMP),
+('B2', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "It is ___ to wear a helmet when riding a motorcycle.", "options": ["optional", "mandatory", "suggested", "rare"]}'::jsonb, 'mandatory', 30, true, CURRENT_TIMESTAMP),
+('B2', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "He was ___ for his outstanding contribution to science.", "options": ["punished", "ignored", "acclaimed", "forgotten"]}'::jsonb, 'acclaimed', 30, true, CURRENT_TIMESTAMP),
+('B2', 'GRAMMAR', 'MULTIPLE_CHOICE', '{"question": "If I had known you were coming, I ___ a cake.", "options": ["will bake", "would bake", "would have baked", "baked"]}'::jsonb, 'would have baked', 30, true, CURRENT_TIMESTAMP),
+('B2', 'GRAMMAR', 'MULTIPLE_CHOICE', '{"question": "By next year, I ___ from university.", "options": ["will graduate", "graduate", "will have graduated", "graduated"]}'::jsonb, 'will have graduated', 30, true, CURRENT_TIMESTAMP),
+('B2', 'GRAMMAR', 'MULTIPLE_CHOICE', '{"question": "Not only ___ late, but he also forgot his passport.", "options": ["was he", "he was", "is he", "he is"]}'::jsonb, 'was he', 30, true, CURRENT_TIMESTAMP),
+('B2', 'GRAMMAR', 'FILL_BLANK', '{"question": "He is accustomed ___ waking up early."}'::jsonb, 'to', 30, true, CURRENT_TIMESTAMP),
+('B2', 'GRAMMAR', 'FILL_BLANK', '{"question": "Despite ___ tired, she finished the marathon."}'::jsonb, 'being', 30, true, CURRENT_TIMESTAMP),
+('B2', 'READING', 'READING_COMPREHENSION', '{"text": "The novel explores themes of isolation and redemption in a dystopian society where emotions are suppressed.", "question": "What is one theme of the novel?", "options": ["Technology", "Redemption", "Romance", "Adventure"]}'::jsonb, 'Redemption', 90, true, CURRENT_TIMESTAMP),
+('B2', 'READING', 'READING_COMPREHENSION', '{"text": "Solar energy is becoming increasingly viable as technological advancements drive down costs.", "question": "Why is solar energy becoming more viable?", "options": ["It is fashionable", "Costs are going down", "It is getting hotter", "People like the sun"]}'::jsonb, 'Costs are going down', 90, true, CURRENT_TIMESTAMP),
+('B2', 'READING', 'READING_COMPREHENSION', '{"text": "The company faced severe backlash after the CEO''s controversial remarks on social media.", "question": "What caused the backlash?", "options": ["A bad product", "The CEO''s remarks", "High prices", "Poor customer service"]}'::jsonb, 'The CEO''s remarks', 90, true, CURRENT_TIMESTAMP),
+('B2', 'READING', 'READING_COMPREHENSION', '{"text": "While many praise the new policy, critics argue it will stifle innovation in the long run.", "question": "What do critics think of the policy?", "options": ["It is perfect", "It will stifle innovation", "It is too expensive", "It will help everyone"]}'::jsonb, 'It will stifle innovation', 90, true, CURRENT_TIMESTAMP),
+('B2', 'READING', 'READING_COMPREHENSION', '{"text": "Regular exercise is paramount for maintaining both physical and mental well-being.", "question": "What does ''paramount'' mean here?", "options": ["Optional", "Extremely important", "Dangerous", "Useless"]}'::jsonb, 'Extremely important', 90, true, CURRENT_TIMESTAMP),
+('B2', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "hierarchy", "ipa": "/ˈhaɪərɑːrki/"}'::jsonb, 'hierarchy', 10, true, CURRENT_TIMESTAMP),
+('B2', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "subtle", "ipa": "/ˈsʌtl/"}'::jsonb, 'subtle', 10, true, CURRENT_TIMESTAMP),
+('B2', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "entrepreneur", "ipa": "/ˌɑːntrəprəˈnɜːr/"}'::jsonb, 'entrepreneur', 10, true, CURRENT_TIMESTAMP),
+('B2', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "chaos", "ipa": "/ˈkeɪɑːs/"}'::jsonb, 'chaos', 10, true, CURRENT_TIMESTAMP),
+('B2', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "colleague", "ipa": "/ˈkɑːliːɡ/"}'::jsonb, 'colleague', 10, true, CURRENT_TIMESTAMP),
+
+-- C1 (20 questions)
+('C1', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "His speech was full of ___ promises that he had no intention of keeping.", "options": ["vacuous", "sincere", "profound", "genuine"]}'::jsonb, 'vacuous', 30, true, CURRENT_TIMESTAMP),
+('C1', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "The evidence presented was completely ___, leaving no room for doubt.", "options": ["ambiguous", "irrefutable", "questionable", "vague"]}'::jsonb, 'irrefutable', 30, true, CURRENT_TIMESTAMP),
+('C1', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "The artist''s work is characterized by a ___ blend of classical and modern styles.", "options": ["discordant", "seamless", "clumsy", "jarring"]}'::jsonb, 'seamless', 30, true, CURRENT_TIMESTAMP),
+('C1', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "She has a ___ for remembering names and faces.", "options": ["knack", "struggle", "deficit", "void"]}'::jsonb, 'knack', 30, true, CURRENT_TIMESTAMP),
+('C1', 'VOCABULARY', 'MULTIPLE_CHOICE', '{"question": "The negotiations reached an ___ due to uncompromising stances from both sides.", "options": ["agreement", "impasse", "outcome", "alliance"]}'::jsonb, 'impasse', 30, true, CURRENT_TIMESTAMP),
+('C1', 'GRAMMAR', 'MULTIPLE_CHOICE', '{"question": "It is imperative that she ___ present at the meeting.", "options": ["is", "was", "be", "has been"]}'::jsonb, 'be', 30, true, CURRENT_TIMESTAMP),
+('C1', 'GRAMMAR', 'MULTIPLE_CHOICE', '{"question": "___ you to change your mind, please inform us immediately.", "options": ["If", "Should", "Were", "Had"]}'::jsonb, 'Were', 30, true, CURRENT_TIMESTAMP),
+('C1', 'GRAMMAR', 'MULTIPLE_CHOICE', '{"question": "Scarcely ___ the house when it started pouring.", "options": ["did I leave", "I left", "had I left", "have I left"]}'::jsonb, 'had I left', 30, true, CURRENT_TIMESTAMP),
+('C1', 'GRAMMAR', 'FILL_BLANK', '{"question": "___ had we started eating when the fire alarm rang."}'::jsonb, 'Hardly', 30, true, CURRENT_TIMESTAMP),
+('C1', 'GRAMMAR', 'FILL_BLANK', '{"question": "No sooner had she spoken ___ she realized her mistake."}'::jsonb, 'than', 30, true, CURRENT_TIMESTAMP),
+('C1', 'READING', 'READING_COMPREHENSION', '{"text": "The proliferation of digital media has inexorably altered the landscape of modern journalism, rendering traditional print media increasingly obsolete.", "question": "What is happening to traditional print media?", "options": ["It is becoming more popular", "It is becoming obsolete", "It is merging with digital media", "It is unaffected"]}'::jsonb, 'It is becoming obsolete', 90, true, CURRENT_TIMESTAMP),
+('C1', 'READING', 'READING_COMPREHENSION', '{"text": "The ubiquitous nature of smartphones has engendered a paradigm shift in interpersonal communication, often at the expense of face-to-face interaction.", "question": "What is negatively affected by smartphones according to the text?", "options": ["Global economies", "Face-to-face interaction", "Internet speeds", "Digital marketing"]}'::jsonb, 'Face-to-face interaction', 90, true, CURRENT_TIMESTAMP),
+('C1', 'READING', 'READING_COMPREHENSION', '{"text": "Despite his ostensible reluctance to lead the project, his meticulous planning belied a deep-seated ambition.", "question": "What was true about his real feelings towards the project?", "options": ["He hated it", "He was ambitious about it", "He was completely indifferent", "He wanted someone else to do it"]}'::jsonb, 'He was ambitious about it', 90, true, CURRENT_TIMESTAMP),
+('C1', 'READING', 'READING_COMPREHENSION', '{"text": "The esoteric terminology used in the paper alienated a significant portion of its intended audience.", "question": "Why did the audience feel alienated?", "options": ["The paper was too long", "The language was highly specialized", "The topic was boring", "The author was rude"]}'::jsonb, 'The language was highly specialized', 90, true, CURRENT_TIMESTAMP),
+('C1', 'READING', 'READING_COMPREHENSION', '{"text": "Mitigating the deleterious effects of climate change requires an unprecedented level of international cooperation.", "question": "What does ''deleterious'' mean?", "options": ["Harmful", "Beneficial", "Minor", "Invisible"]}'::jsonb, 'Harmful', 90, true, CURRENT_TIMESTAMP),
+('C1', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "epitome", "ipa": "/ɪˈpɪtəmi/"}'::jsonb, 'epitome', 10, true, CURRENT_TIMESTAMP),
+('C1', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "anemone", "ipa": "/əˈneməni/"}'::jsonb, 'anemone', 10, true, CURRENT_TIMESTAMP),
+('C1', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "synecdoche", "ipa": "/sɪˈnekdəki/"}'::jsonb, 'synecdoche', 10, true, CURRENT_TIMESTAMP),
+('C1', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "cacophony", "ipa": "/kəˈkɑːfəni/"}'::jsonb, 'cacophony', 10, true, CURRENT_TIMESTAMP),
+('C1', 'PRONUNCIATION', 'PRONUNCIATION', '{"word": "ubiquitous", "ipa": "/juːˈbɪkwɪtəs/"}'::jsonb, 'ubiquitous', 10, true, CURRENT_TIMESTAMP);
+
+
+-- ===============================================
+-- Migration: V15__add_wrong_streak_to_session.sql
+-- ===============================================
+-- =============================================================================
+-- V15: Thêm cột current_wrong_streak vào placement_test_sessions
+--
+-- Mục đích: Lưu trực tiếp số lần trả lời sai liên tiếp vào session thay vì
+-- phải load toàn bộ bảng placement_test_answers để đếm lại mỗi lần
+-- submitAnswer() được gọi (N+1 query).
+--
+-- Giá trị mặc định = 0 để tương thích với các session đang tồn tại.
+-- =============================================================================
+
+ALTER TABLE placement_test_sessions
+    ADD COLUMN IF NOT EXISTS current_wrong_streak INTEGER NOT NULL DEFAULT 0;
+
+COMMENT ON COLUMN placement_test_sessions.current_wrong_streak
+    IS 'Số lần trả lời sai liên tiếp. Reset = 0 khi đúng, tăng +1 khi sai. Tránh N+1 query khi tính confidence score.';
+
+
+-- ===============================================
+-- Migration: V16__fix_practice_type_constraint.sql
+-- ===============================================
+-- V16: Mở rộng CHECK constraint trên cột practice_type để cho phép thêm giá trị IPA_PHONEME
+-- Lý do: Enum PracticeType trong Java có IPA_PHONEME nhưng constraint DB cũ chưa bao gồm giá trị này.
+
+ALTER TABLE pronunciation_practice_logs
+    DROP CONSTRAINT IF EXISTS pronunciation_practice_logs_practice_type_check;
+
+ALTER TABLE pronunciation_practice_logs
+    ADD CONSTRAINT pronunciation_practice_logs_practice_type_check
+        CHECK (practice_type IN ('PHONEME', 'IPA_PHONEME', 'WORD', 'SENTENCE'));
+
+
+-- ===============================================
+-- Migration: V17__add_ipa_minimal_pairs_and_tips.sql
+-- ===============================================
+-- ============================================================
+-- V17: Bổ sung lời khuyên khẩu hình cho người Việt & bảng Cặp âm tối thiểu (Minimal Pairs)
+-- ============================================================
+
+-- 1. Thêm cột pronunciation_tip_vi vào bảng ipa_phonemes
+ALTER TABLE ipa_phonemes ADD COLUMN IF NOT EXISTS pronunciation_tip_vi TEXT;
+
+-- 2. Cập nhật dữ liệu gợi ý khẩu hình cho các âm người Việt hay phát âm sai
+UPDATE ipa_phonemes 
+SET pronunciation_tip_vi = 'Đặt nhẹ đầu lưỡi vào giữa hai hàm răng, thổi nhẹ luồng hơi qua kẽ răng. Tuyệt đối không phát âm thành âm "th" trong tiếng Việt (không chạm môi).'
+WHERE symbol = 'θ';
+
+UPDATE ipa_phonemes 
+SET pronunciation_tip_vi = 'Tương tự âm /θ/, đặt đầu lưỡi giữa hai hàm răng nhưng cần rung dây thanh quản (có tiếng rung trong cổ họng) khi đẩy hơi ra ngoài.'
+WHERE symbol = 'ð';
+
+UPDATE ipa_phonemes 
+SET pronunciation_tip_vi = 'Kéo khóe miệng sang hai bên như đang cười nhẹ, đầu lưỡi nâng cao chạm vòm họng trên, phát âm kéo dài hơn âm "i" tiếng Việt.'
+WHERE symbol = 'iː';
+
+UPDATE ipa_phonemes 
+SET pronunciation_tip_vi = 'Miệng mở tự nhiên, phát âm ngắn, dứt khoát và thả lỏng cơ miệng. Nằm giữa âm "i" và "ê" trong tiếng Việt.'
+WHERE symbol = 'ɪ';
+
+UPDATE ipa_phonemes 
+SET pronunciation_tip_vi = 'Chu môi tròn về phía trước, hai hàm răng khép hờ, đẩy luồng hơi mạnh ra ngoài (như động tác ra hiệu "suỵt" giữ im lặng).'
+WHERE symbol = 'ʃ';
+
+UPDATE ipa_phonemes 
+SET pronunciation_tip_vi = 'Bắt đầu với vị trí của âm /t/ (chặn hơi), sau đó bật mạnh luồng hơi qua âm /ʃ/. Tương tự âm "ch" tiếng Việt nhưng bật hơi dứt khoát hơn.'
+WHERE symbol = 'tʃ';
+
+UPDATE ipa_phonemes 
+SET pronunciation_tip_vi = 'Khẩu hình tương tự âm /tʃ/ nhưng cần rung dây thanh quản trong cổ họng khi bật hơi.'
+WHERE symbol = 'dʒ';
+
+UPDATE ipa_phonemes 
+SET pronunciation_tip_vi = 'Hạ cằm sâu xuống, mở rộng khẩu hình miệng theo chiều dọc lẫn chiều ngang, phát âm lai giữa âm "a" và "e".'
+WHERE symbol = 'æ';
+
+-- 3. Tạo bảng ipa_minimal_pairs (Cặp âm dễ nhầm lẫn)
+CREATE TABLE IF NOT EXISTS ipa_minimal_pairs (
+    id              BIGSERIAL PRIMARY KEY,
+    phoneme1_id     SMALLINT NOT NULL REFERENCES ipa_phonemes(id) ON DELETE CASCADE,
+    phoneme2_id     SMALLINT NOT NULL REFERENCES ipa_phonemes(id) ON DELETE CASCADE,
+    title           VARCHAR(100) NOT NULL,
+    description     TEXT,
+    word1           VARCHAR(100) NOT NULL,
+    ipa1            VARCHAR(100) NOT NULL,
+    audio1_url      VARCHAR(500),
+    word2           VARCHAR(100) NOT NULL,
+    ipa2            VARCHAR(100) NOT NULL,
+    audio2_url      VARCHAR(500),
+    is_active       BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at      TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_minimal_pairs_phonemes ON ipa_minimal_pairs(phoneme1_id, phoneme2_id);
+
+-- 4. Seed dữ liệu mẫu cho các cặp âm kinh điển
+INSERT INTO ipa_minimal_pairs (phoneme1_id, phoneme2_id, title, description, word1, ipa1, audio1_url, word2, ipa2, audio2_url)
+SELECT 
+    p1.id, p2.id,
+    'Phân biệt /iː/ (dài) và /ɪ/ (ngắn)',
+    'Âm /iː/ kéo dài khóe miệng như cười, trong khi /ɪ/ phát âm dứt khoát và thả lỏng cơ miệng.',
+    'sheep', '/ʃiːp/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/sheep--_gb_1.mp3',
+    'ship', '/ʃɪp/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/ship--_gb_1.mp3'
+FROM ipa_phonemes p1, ipa_phonemes p2
+WHERE p1.symbol = 'iː' AND p2.symbol = 'ɪ'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO ipa_minimal_pairs (phoneme1_id, phoneme2_id, title, description, word1, ipa1, audio1_url, word2, ipa2, audio2_url)
+SELECT 
+    p1.id, p2.id,
+    'Phân biệt /s/ (nhẹ) và /ʃ/ (nặng)',
+    'Âm /s/ xì hơi qua kẽ răng không chu môi, còn /ʃ/ cần chu tròn môi về phía trước.',
+    'see', '/siː/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/see--_gb_1.mp3',
+    'she', '/ʃiː/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/she--_gb_1.mp3'
+FROM ipa_phonemes p1, ipa_phonemes p2
+WHERE p1.symbol = 's' AND p2.symbol = 'ʃ'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO ipa_minimal_pairs (phoneme1_id, phoneme2_id, title, description, word1, ipa1, audio1_url, word2, ipa2, audio2_url)
+SELECT 
+    p1.id, p2.id,
+    'Phân biệt /b/ (rung) và /p/ (bật hơi)',
+    'Âm /p/ không rung cổ họng mà bật luồng hơi mạnh từ hai môi, âm /b/ rung dây thanh quản.',
+    'bin', '/bɪn/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/bin--_gb_1.mp3',
+    'pin', '/pɪn/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/pin--_gb_1.mp3'
+FROM ipa_phonemes p1, ipa_phonemes p2
+WHERE p1.symbol = 'b' AND p2.symbol = 'p'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO ipa_minimal_pairs (phoneme1_id, phoneme2_id, title, description, word1, ipa1, audio1_url, word2, ipa2, audio2_url)
+SELECT 
+    p1.id, p2.id,
+    'Phân biệt /e/ và /æ/ (a bẹt)',
+    'Âm /æ/ cần hạ cằm sâu và mở rộng miệng hơn rất nhiều so với âm /e/.',
+    'bet', '/bet/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/bet--_gb_1.mp3',
+    'bat', '/bæt/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/bat--_gb_1.mp3'
+FROM ipa_phonemes p1, ipa_phonemes p2
+WHERE p1.symbol = 'e' AND p2.symbol = 'æ'
+ON CONFLICT DO NOTHING;
+
+
+-- ===============================================
+-- Migration: V18__create_ipa_pronunciation_rules.sql
+-- ===============================================
+-- ============================================================
+-- V18: Bảng Quy tắc Trọng âm & Ghép âm / Nối âm (Pronunciation & Stress Rules)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS ipa_pronunciation_rules (
+    id                  BIGSERIAL PRIMARY KEY,
+    category            VARCHAR(50) NOT NULL, -- WORD_STRESS, LINKING_SOUNDS, ENDING_SOUNDS, INTONATION
+    title_vi            VARCHAR(200) NOT NULL,
+    summary_vi          VARCHAR(500) NOT NULL,
+    content_markdown    TEXT NOT NULL,
+    examples_json       JSONB NOT NULL DEFAULT '[]',
+    order_index         INT NOT NULL DEFAULT 0,
+    is_active           BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at          TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_pronunciation_rules_category ON ipa_pronunciation_rules(category, order_index);
+
+-- Seed dữ liệu các quy tắc ngữ âm kinh điển
+INSERT INTO ipa_pronunciation_rules (category, title_vi, summary_vi, content_markdown, examples_json, order_index) VALUES
+(
+    'WORD_STRESS',
+    'Quy tắc trọng âm từ 2 âm tiết (Danh từ, Tính từ & Động từ)',
+    'Hầu hết Danh từ và Tính từ 2 âm tiết nhấn trọng âm ở âm tiết thứ 1. Đa số Động từ 2 âm tiết nhấn trọng âm ở âm tiết thứ 2.',
+    '### 1. Danh từ và Tính từ 2 âm tiết
+- Trọng âm thường rơi vào **âm tiết thứ 1**.
+- Ví dụ: `PREsent` (món quà), `DOCtor` (bác sĩ), `HAPpy` (hạnh phúc), `CLEVer` (thông minh).
+
+### 2. Động từ 2 âm tiết
+- Trọng âm thường rơi vào **âm tiết thứ 2**.
+- Ví dụ: `preSENT` (thuyết trình, trao tặng), `deCIDE` (quyết định), `enJOY` (thưởng thức).
+
+### 💡 Lưu ý đặc biệt:
+Một số từ có cùng cách viết nhưng khác loại từ thì vị trí trọng âm sẽ thay đổi:
+- **Record**: Danh từ `REcord` (bản ghi) vs Động từ `reCORD` (ghi âm).
+- **Present**: Danh từ `PREsent` (món quà) vs Động từ `preSENT` (trình bày).',
+    '[
+        {"word": "Doctor", "ipa": "/ˈdɒktə/", "meaning": "Bác sĩ (Danh từ -> nhấn âm 1)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/doctor--_gb_1.mp3"},
+        {"word": "Happy", "ipa": "/ˈhæpi/", "meaning": "Hạnh phúc (Tính từ -> nhấn âm 1)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/happy--_gb_1.mp3"},
+        {"word": "Decide", "ipa": "/dɪˈsaɪd/", "meaning": "Quyết định (Động từ -> nhấn âm 2)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/decide--_gb_1.mp3"},
+        {"word": "Enjoy", "ipa": "/ɪnˈdʒɔɪ/", "meaning": "Thưởng thức (Động từ -> nhấn âm 2)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/enjoy--_gb_1.mp3"}
+    ]',
+    1
+),
+(
+    'WORD_STRESS',
+    'Quy tắc trọng âm theo Hậu tố (Suffixes: -tion, -ic, -ee, -ese)',
+    'Các đuôi -tion, -sion, -ic nhấn vào âm tiết đứng ngay trước nó. Các đuôi -ee, -ese, -ique nhấn vào chính nó.',
+    '### 1. Nhấn vào âm tiết NGAY TRƯỚC hậu tố:
+- Đuôi **-tion / -sion**: `in-for-MA-tion`, `de-CI-sion`.
+- Đuôi **-ic / -ical**: `e-LEC-tric`, `eco-NO-mic`.
+- Đuôi **-ity / -phy / -gy**: `a-BI-li-ty`, `pho-TO-gra-phy`, `bi-O-lo-gy`.
+
+### 2. Nhấn vào CHÍNH hậu tố:
+- Đuôi **-ee**: `em-ploy-EE` (nhân viên), `trai-nEE`.
+- Đuôi **-ese**: `Viet-na-MESE`, `Chi-NESE`.
+- Đuôi **-ique**: `u-NIQUE`, `tech-NIQUE`.',
+    '[
+        {"word": "Information", "ipa": "/ˌɪnfəˈmeɪʃn/", "meaning": "Thông tin (Nhấn trước -tion)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/information--_gb_1.mp3"},
+        {"word": "Electric", "ipa": "/ɪˈlektrɪk/", "meaning": "Thuộc về điện (Nhấn trước -ic)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/electric--_gb_1.mp3"},
+        {"word": "Vietnamese", "ipa": "/ˌvjetnəˈmiːz/", "meaning": "Tiếng Việt / Người Việt (Nhấn chính -ese)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/vietnamese--_gb_1.mp3"}
+    ]',
+    2
+),
+(
+    'ENDING_SOUNDS',
+    'Quy tắc phát âm đuôi -S / -ES (/s/, /z/, /ɪz/)',
+    'Phát âm /s/ sau âm vô thanh (p, k, t, f, th). Phát âm /ɪz/ sau âm gió (s, sh, ch, z, ge). Phát âm /z/ cho các trường hợp còn lại.',
+    '### 1. Phát âm là /s/ (Âm vô thanh):
+- Tận cùng bằng các âm: **/p/, /k/, /t/, /f/, /θ/** (Mẹo nhớ: *Thời phong kiến phương tây*).
+- Ví dụ: `cats` /kæts/, `books` /bʊks/, `stops` /stɒps/.
+
+### 2. Phát âm là /ɪz/ (Âm xuýt, âm gió):
+- Tận cùng bằng các âm: **/s/, /z/, /ʃ/, /tʃ/, /ʒ/, /dʒ/** (Chữ cái kết thúc: *s, x, z, ch, sh, ce, ge*).
+- Ví dụ: `buses` /ˈbʌsɪz/, `watches` /ˈwɒtʃɪz/, `changes` /ˈtʃeɪndʒɪz/.
+
+### 3. Phát âm là /z/ (Âm hữu thanh & nguyên âm):
+- Tận cùng bằng các nguyên âm và phụ âm hữu thanh còn lại.
+- Ví dụ: `dogs` /dɒɡz/, `plays` /pleɪz/, `rooms` /ruːmz/.',
+    '[
+        {"word": "Cats", "ipa": "/kæts/", "meaning": "Đuôi /s/ sau âm /t/", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/cats--_gb_1.mp3"},
+        {"word": "Watches", "ipa": "/ˈwɒtʃɪz/", "meaning": "Đuôi /ɪz/ sau âm /tʃ/", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/watches--_gb_1.mp3"},
+        {"word": "Dogs", "ipa": "/dɒɡz/", "meaning": "Đuôi /z/ sau âm hữu thanh /ɡ/", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/dogs--_gb_1.mp3"}
+    ]',
+    3
+),
+(
+    'ENDING_SOUNDS',
+    'Quy tắc phát âm đuôi -ED (/t/, /d/, /ɪd/)',
+    'Phát âm /ɪd/ sau âm /t/ và /d/. Phát âm /t/ sau các phụ âm vô thanh. Phát âm /d/ cho các trường hợp còn lại.',
+    '### 1. Phát âm là /ɪd/:
+- Động từ kết thúc bằng âm **/t/** hoặc **/d/**.
+- Ví dụ: `wanted` /ˈwɒntɪd/, `needed` /ˈniːdɪd/.
+
+### 2. Phát âm là /t/ (Âm vô thanh):
+- Động từ kết thúc bằng các âm vô thanh: **/p/, /k/, /f/, /s/, /ʃ/, /tʃ/, /θ/**.
+- Ví dụ: `looked` /lʊkt/, `watched` /wɒtʃt/, `stopped` /stɒpt/, `laughed` /lɑːft/.
+
+### 3. Phát âm là /d/ (Âm hữu thanh):
+- Động từ kết thúc bằng các âm còn lại và nguyên âm.
+- Ví dụ: `played` /pleɪd/, `cleaned` /kliːnd/, `loved` /lʌvd/.',
+    '[
+        {"word": "Wanted", "ipa": "/ˈwɒntɪd/", "meaning": "Đuôi /ɪd/ sau âm /t/", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/wanted--_gb_1.mp3"},
+        {"word": "Looked", "ipa": "/lʊkt/", "meaning": "Đuôi /t/ sau âm vô thanh /k/", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/looked--_gb_1.mp3"},
+        {"word": "Played", "ipa": "/pleɪd/", "meaning": "Đuôi /d/ sau nguyên âm /eɪ/", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/played--_gb_1.mp3"}
+    ]',
+    4
+),
+(
+    'LINKING_SOUNDS',
+    'Quy tắc Nối âm Phụ âm với Nguyên âm (Consonant to Vowel)',
+    'Khi một từ kết thúc bằng phụ âm và từ tiếp theo bắt đầu bằng nguyên âm, phụ âm cuối sẽ nối liền sang nguyên âm đầu của từ sau.',
+    '### Nguyên tắc hoạt động:
+Từ thứ nhất kết thúc bằng **Phụ âm (Consonant)** + Từ thứ hai bắt đầu bằng **Nguyên âm (Vowel)** $\rightarrow$ Đọc nối liền như một từ.
+
+### Ví dụ điển hình:
+- `Hold on` $\rightarrow$ Đọc là `/həʊl-dɒn/`
+- `An apple` $\rightarrow$ Đọc là `/ə-næpl/`
+- `Deep end` $\rightarrow$ Đọc là `/diː-pend/`
+- `Turn off` $\rightarrow$ Đọc là `/tɜː-nɒf/`',
+    '[
+        {"word": "Hold on", "ipa": "/həʊl dɒn/ -> /həʊldɒn/", "meaning": "Nối phụ âm /d/ sang nguyên âm /ɒ/", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/hold_on--_gb_1.mp3"},
+        {"word": "Turn off", "ipa": "/tɜːn ɒf/ -> /tɜːnɒf/", "meaning": "Nối phụ âm /n/ sang nguyên âm /ɒ/", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/turn_off--_gb_1.mp3"}
+    ]',
+    5
+),
+(
+    'LINKING_SOUNDS',
+    'Quy tắc Nối âm Nguyên âm với Nguyên âm (Chèn âm /w/ và /j/)',
+    'Khi hai nguyên âm đứng liền nhau, người bản xứ tự động chèn thêm âm lướt /w/ hoặc /j/ để phát âm mượt mà hơn.',
+    '### 1. Chèn âm /w/ (Khi từ trước kết thúc bằng nguyên âm tròn môi: /uː/, /ʊ/, /oʊ/, /aʊ/):
+- `Go out` $\rightarrow$ Đọc là `/ɡəʊ - w - aʊt/`
+- `Do it` $\rightarrow$ Đọc là `/duː - w - ɪt/`
+- `You are` $\rightarrow$ Đọc là `/juː - w - ɑː/`
+
+### 2. Chèn âm /j/ (Khi từ trước kết thúc bằng nguyên âm dẹt môi: /iː/, /ɪ/, /eɪ/, /aɪ/, /ɔɪ/):
+- `I am` $\rightarrow$ Đọc là `/aɪ - j - æm/`
+- `See it` $\rightarrow$ Đọc là `/siː - j - ɪt/`
+- `Say it` $\rightarrow$ Đọc là `/seɪ - j - ɪt/`',
+    '[
+        {"word": "Do it", "ipa": "/duː w ɪt/", "meaning": "Chèn âm /w/ giữa hai nguyên âm tròn môi", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/do_it--_gb_1.mp3"},
+        {"word": "I am", "ipa": "/aɪ j æm/", "meaning": "Chèn âm /j/ giữa hai nguyên âm dẹt môi", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/i_am--_gb_1.mp3"}
+    ]',
+    6
+);
+
+
+-- ===============================================
+-- Migration: V19__enrich_module0_and_1_data.sql
+-- ===============================================
+-- =========================================================================
+-- V19: Bổ sung toàn diện dữ liệu chuyên sâu cho Module 0 và Module 1
+-- 1. Cập nhật mẹo khẩu hình tiếng Việt (pronunciation_tip_vi) cho toàn bộ 44 âm IPA
+-- 2. Bổ sung từ ví dụ phong phú (4-5 từ/âm) cho toàn bộ 44 âm IPA
+-- 3. Bổ sung trọn bộ 17 Cặp âm dễ gây nhầm lẫn nhất cho người Việt (Minimal Pairs)
+-- 4. Bổ sung trọn bộ 10 Quy tắc Trọng âm, Nối âm, Nuốt âm & Ngữ điệu (Rules)
+-- 5. Bổ sung thêm câu hỏi kiểm tra đầu vào (Placement Test Questions)
+-- =========================================================================
+
+-- =========================================================================
+-- PHẦN 1: CẬP NHẬT MẸO KHẨU HÌNH CHO TOÀN BỘ CÁC ÂM IPA CÒN LẠI
+-- =========================================================================
+
+-- Nguyên âm đơn (Monophthongs)
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Kéo dài khóe miệng sang hai bên như đang cười nhẹ, đầu lưỡi nâng cao chạm vòm trên. Phát âm ngân dài hơn âm "i" tiếng Việt.' WHERE symbol = 'iː';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Mở miệng tự nhiên, phát âm ngắn và dứt khoát, thả lỏng cơ miệng. Âm nằm giữa "i" và "ê" trong tiếng Việt.' WHERE symbol = 'ɪ';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Mở miệng rộng vừa phải (rộng hơn âm /ɪ/), phát âm ngắn dứt khoát giống âm "e" tiếng Việt nhưng dứt khoát hơn.' WHERE symbol = 'e';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Hạ cằm sâu xuống, mở rộng khẩu hình theo cả chiều dọc lẫn chiều ngang. Phát âm lai giữa âm "a" và "e".' WHERE symbol = 'æ';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Hạ cằm xuống sâu, lưỡi đặt thấp trong khoang miệng, phát âm ngân dài và sâu trong cổ họng giống chữ "a" kéo dài.' WHERE symbol = 'ɑː';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Mở miệng tròn vừa phải, hạ thấp hàm dưới, phát âm ngắn dứt khoát tương tự âm "o" ngắn trong tiếng Việt.' WHERE symbol = 'ɒ';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Tròn môi hướng về phía trước, nâng phần cuống lưỡi lên, phát âm ngân dài và sâu giống âm "o" kéo dài.' WHERE symbol = 'ɔː';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Môi hơi tròn hướng về trước, thả lỏng cơ miệng, phát âm ngắn và dứt khoát. Nằm giữa âm "u" và "ư" tiếng Việt.' WHERE symbol = 'ʊ';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Chu tròn môi về phía trước như đang huýt sáo, nâng cao cuống lưỡi, phát âm ngân dài hơn âm "u" tiếng Việt.' WHERE symbol = 'uː';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Mở miệng rộng bằng 1/2 so với âm /ɑː/, phát âm ngắn dứt khoát lai giữa âm "ă" và "ơ" tiếng Việt.' WHERE symbol = 'ʌ';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Môi mở hờ tự nhiên, nâng nhẹ thân lưỡi, phát âm ngân dài từ cổ họng giống âm "ơ" kéo dài. (Có thể cong nhẹ đầu lưỡi theo chuẩn US).' WHERE symbol = 'ɜː';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Âm lướt phổ biến nhất trong tiếng Anh (Schwa). Mở miệng cực kỳ thả lỏng, phát âm rất ngắn và nhẹ như âm "ơ" thoảng qua.' WHERE symbol = 'ə';
+
+-- Nguyên âm đôi (Diphthongs)
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Bắt đầu từ âm /e/ rồi lướt nhẹ và nhanh dần sang âm /ɪ/. Khóe miệng mở rộng dần sang hai bên.' WHERE symbol = 'eɪ';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Bắt đầu từ âm /a/ mở rộng miệng, sau đó trượt nhanh về âm /ɪ/. Phát âm tương tự "ai" tiếng Việt nhưng mượt mà hơn.' WHERE symbol = 'aɪ';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Bắt đầu từ âm /ɔː/ tròn môi rồi lướt sang âm /ɪ/ dẹt môi. Tương tự vần "oi" trong tiếng Việt.' WHERE symbol = 'ɔɪ';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Bắt đầu từ âm /a/ mở rộng cằm rồi thu tròn môi dần về âm /ʊ/. Tương tự vần "ao" trong tiếng Việt.' WHERE symbol = 'aʊ';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Bắt đầu từ âm /ə/ thả lỏng rồi tròn môi dần về âm /ʊ/. Tương tự vần "âu" trong tiếng Việt nhưng kéo dài hơn.' WHERE symbol = 'əʊ';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Bắt đầu từ âm /ɪ/ dẹt môi rồi trượt về âm /ə/ thả lỏng miệng. Tương tự vần "ia" trong tiếng Việt.' WHERE symbol = 'ɪə';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Bắt đầu từ âm /e/ mở vừa rồi lướt nhẹ về âm /ə/ thả lỏng. Tương tự vần "e-ơ" nối liền.' WHERE symbol = 'eə';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Bắt đầu từ âm /ʊ/ tròn môi rồi lướt nhẹ về âm /ə/. Tương tự vần "ua" trong tiếng Việt.' WHERE symbol = 'ʊə';
+
+-- Phụ âm (Consonants)
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Khép chặt hai môi lại để chặn luồng hơi, sau đó mở nhanh hai môi và bật mạnh luồng hơi ra ngoài. Dây thanh quản KHÔNG rung.' WHERE symbol = 'p';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Khẩu hình tương tự âm /p/ nhưng cần rung dây thanh quản trong cổ họng ngay khi bật luồng hơi ra ngoài.' WHERE symbol = 'b';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Đặt đầu lưỡi chạm vào chân răng hàm trên để chặn hơi, sau đó hạ nhanh lưỡi và bật luồng hơi mạnh ra ngoài. Không rung thanh quản.' WHERE symbol = 't';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Khẩu hình tương tự âm /t/ nhưng cần rung dây thanh quản trong cổ họng khi bật hơi. Không đọc thành chữ "đ" tiếng Việt.' WHERE symbol = 'd';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Nâng phần cuống lưỡi chạm vòm mềm trên để chặn hơi, sau đó hạ cuống lưỡi và bật luồng hơi mạnh ra từ cổ họng. Không rung thanh quản.' WHERE symbol = 'k';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Khẩu hình tương tự âm /k/ nhưng rung dây thanh quản khi bật hơi. Giống chữ "g" tiếng Việt nhưng bật dứt khoát.' WHERE symbol = 'g';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Khép nhẹ môi hình tròn chu về phía trước, đặt đầu lưỡi chặn hơi rồi bật mạnh luồng hơi qua kẽ răng. Không rung thanh quản.' WHERE symbol = 'tʃ';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Khẩu hình tương tự âm /tʃ/ nhưng cần rung dây thanh quản mạnh trong cổ họng khi bật hơi.' WHERE symbol = 'dʒ';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Đặt nhẹ hàng răng trên lên môi dưới, đẩy luồng hơi êm qua khe giữa răng và môi. Không rung thanh quản.' WHERE symbol = 'f';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Khẩu hình tương tự âm /f/ nhưng cần rung dây thanh quản trong cổ họng khi đẩy luồng hơi qua răng và môi.' WHERE symbol = 'v';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Đặt nhẹ đầu lưỡi vào giữa hai hàm răng, thổi nhẹ luồng hơi qua kẽ răng. Tuyệt đối không chạm môi hoặc đọc thành âm "th" tiếng Việt.' WHERE symbol = 'θ';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Tương tự âm /θ/, đặt đầu lưỡi giữa hai hàm răng nhưng cần rung dây thanh quản trong cổ họng khi đẩy luồng hơi ra ngoài.' WHERE symbol = 'ð';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Hai hàm răng khép hờ, đưa đầu lưỡi lại gần chân răng trên, đẩy luồng hơi xì qua kẽ răng. Không rung thanh quản.' WHERE symbol = 's';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Khẩu hình tương tự âm /s/ nhưng rung mạnh dây thanh quản trong cổ họng tạo âm xì rung như tiếng ong kêu.' WHERE symbol = 'z';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Chu tròn môi về phía trước, hai hàm răng khép hờ, đẩy luồng hơi mạnh ra ngoài (như động tác ra hiệu "suỵt" giữ im lặng).' WHERE symbol = 'ʃ';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Khẩu hình tương tự âm /ʃ/ chu môi nhưng rung mạnh dây thanh quản trong cổ họng.' WHERE symbol = 'ʒ';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Mở miệng tự nhiên, đẩy luồng hơi nhẹ nhàng từ trong vòm họng ra ngoài như tiếng thở phào nhẹ nhõm.' WHERE symbol = 'h';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Ngậm chặt hai môi lại, đẩy toàn bộ luồng hơi thoát ra qua đường mũi, rung dây thanh quản.' WHERE symbol = 'm';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Đặt đầu lưỡi chạm vào nướu răng hàm trên, đẩy luồng hơi thoát ra qua đường mũi, rung dây thanh quản.' WHERE symbol = 'n';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Nâng phần cuống lưỡi chạm vòm mềm chặn hơi, đẩy luồng hơi thoát ra hoàn toàn qua đường mũi, rung thanh quản.' WHERE symbol = 'ŋ';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Đặt đầu lưỡi chạm vào chân răng hàm trên, luồng hơi thoát ra ở hai bên cạnh lưỡi. (Khi đứng cuối từ, cong nhẹ đầu lưỡi).' WHERE symbol = 'l';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Hơi chu môi về phía trước, uốn cong đầu lưỡi về phía sau nhưng không chạm vào vòm miệng, rung thanh quản.' WHERE symbol = 'r';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Chu tròn môi về phía trước như hình chữ O nhỏ, sau đó mở rộng môi ra hai bên đồng thời rung thanh quản.' WHERE symbol = 'w';
+UPDATE ipa_phonemes SET pronunciation_tip_vi = 'Nâng thân lưỡi lên cao gần vòm miệng, kéo khóe miệng sang hai bên và rung thanh quản (giống âm "d" mềm miền Nam).' WHERE symbol = 'j';
+
+
+-- =========================================================================
+-- PHẦN 2: BỔ SUNG TỪ VÍ DỤ PHONG PHÚ CHO TẤT CẢ 44 ÂM IPA
+-- =========================================================================
+
+-- Bổ sung thêm từ ví dụ cho các âm để mỗi âm có từ 4 đến 5 từ phong phú
+INSERT INTO ipa_example_words (phoneme_id, word, ipa_transcription, audio_url) VALUES
+-- /iː/
+((SELECT id FROM ipa_phonemes WHERE symbol = 'iː'), 'feel',   '/fiːl/',   'https://ssl.gstatic.com/dictionary/static/sounds/20200429/feel--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'iː'), 'reach',  '/riːtʃ/',  'https://ssl.gstatic.com/dictionary/static/sounds/20200429/reach--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'iː'), 'beat',   '/biːt/',   'https://ssl.gstatic.com/dictionary/static/sounds/20200429/beat--_gb_1.mp3'),
+
+-- /ɪ/
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ɪ'), 'fill',   '/fɪl/',    'https://ssl.gstatic.com/dictionary/static/sounds/20200429/fill--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ɪ'), 'rich',   '/rɪtʃ/',   'https://ssl.gstatic.com/dictionary/static/sounds/20200429/rich--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ɪ'), 'bit',    '/bɪt/',    'https://ssl.gstatic.com/dictionary/static/sounds/20200429/bit--_gb_1.mp3'),
+
+-- /e/
+((SELECT id FROM ipa_phonemes WHERE symbol = 'e'), 'pen',    '/pen/',    'https://ssl.gstatic.com/dictionary/static/sounds/20200429/pen--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'e'), 'men',    '/men/',    'https://ssl.gstatic.com/dictionary/static/sounds/20200429/men--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'e'), 'check',  '/tʃek/',   'https://ssl.gstatic.com/dictionary/static/sounds/20200429/check--_gb_1.mp3'),
+
+-- /æ/
+((SELECT id FROM ipa_phonemes WHERE symbol = 'æ'), 'pan',    '/pæn/',    'https://ssl.gstatic.com/dictionary/static/sounds/20200429/pan--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'æ'), 'man',    '/mæn/',    'https://ssl.gstatic.com/dictionary/static/sounds/20200429/man--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'æ'), 'apple',  '/ˈæpl/',   'https://ssl.gstatic.com/dictionary/static/sounds/20200429/apple--_gb_1.mp3'),
+
+-- /ɑː/
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ɑː'), 'father', '/ˈfɑːðər/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/father--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ɑː'), 'start',  '/stɑːrt/',  'https://ssl.gstatic.com/dictionary/static/sounds/20200429/start--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ɑː'), 'park',   '/pɑːrk/',   'https://ssl.gstatic.com/dictionary/static/sounds/20200429/park--_gb_1.mp3'),
+
+-- /ɒ/
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ɒ'), 'stop',   '/stɒp/',   'https://ssl.gstatic.com/dictionary/static/sounds/20200429/stop--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ɒ'), 'box',    '/bɒks/',   'https://ssl.gstatic.com/dictionary/static/sounds/20200429/box--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ɒ'), 'clock',  '/klɒk/',   'https://ssl.gstatic.com/dictionary/static/sounds/20200429/clock--_gb_1.mp3'),
+
+-- /ɔː/
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ɔː'), 'door',   '/dɔːr/',   'https://ssl.gstatic.com/dictionary/static/sounds/20200429/door--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ɔː'), 'sport',  '/spɔːrt/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/sport--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ɔː'), 'talk',   '/tɔːk/',   'https://ssl.gstatic.com/dictionary/static/sounds/20200429/talk--_gb_1.mp3'),
+
+-- /ʊ/
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ʊ'), 'foot',   '/fʊt/',    'https://ssl.gstatic.com/dictionary/static/sounds/20200429/foot--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ʊ'), 'full',   '/fʊl/',    'https://ssl.gstatic.com/dictionary/static/sounds/20200429/full--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ʊ'), 'push',   '/pʊʃ/',    'https://ssl.gstatic.com/dictionary/static/sounds/20200429/push--_gb_1.mp3'),
+
+-- /uː/
+((SELECT id FROM ipa_phonemes WHERE symbol = 'uː'), 'blue',   '/bluː/',   'https://ssl.gstatic.com/dictionary/static/sounds/20200429/blue--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'uː'), 'shoe',   '/ʃuː/',    'https://ssl.gstatic.com/dictionary/static/sounds/20200429/shoe--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'uː'), 'group',  '/ɡruːp/',  'https://ssl.gstatic.com/dictionary/static/sounds/20200429/group--_gb_1.mp3'),
+
+-- /ʌ/
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ʌ'), 'sun',    '/sʌn/',    'https://ssl.gstatic.com/dictionary/static/sounds/20200429/sun--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ʌ'), 'bus',    '/bʌs/',    'https://ssl.gstatic.com/dictionary/static/sounds/20200429/bus--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ʌ'), 'love',   '/lʌv/',    'https://ssl.gstatic.com/dictionary/static/sounds/20200429/love--_gb_1.mp3'),
+
+-- /ɜː/
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ɜː'), 'learn',  '/lɜːrn/',  'https://ssl.gstatic.com/dictionary/static/sounds/20200429/learn--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ɜː'), 'nurse',  '/nɜːrs/',  'https://ssl.gstatic.com/dictionary/static/sounds/20200429/nurse--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ɜː'), 'early',  '/ˈɜːrli/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/early--_gb_1.mp3'),
+
+-- /ə/
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ə'), 'banana', '/bəˈnænə/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/banana--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ə'), 'police', '/pəˈliːs/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/police--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ə'), 'famous', '/ˈfeɪməs/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/famous--_gb_1.mp3'),
+
+-- /eɪ/
+((SELECT id FROM ipa_phonemes WHERE symbol = 'eɪ'), 'make',   '/meɪk/',   'https://ssl.gstatic.com/dictionary/static/sounds/20200429/make--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'eɪ'), 'rain',   '/reɪn/',   'https://ssl.gstatic.com/dictionary/static/sounds/20200429/rain--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'eɪ'), 'cake',   '/keɪk/',   'https://ssl.gstatic.com/dictionary/static/sounds/20200429/cake--_gb_1.mp3'),
+
+-- /aɪ/
+((SELECT id FROM ipa_phonemes WHERE symbol = 'aɪ'), 'time',   '/taɪm/',   'https://ssl.gstatic.com/dictionary/static/sounds/20200429/time--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'aɪ'), 'drive',  '/draɪv/',  'https://ssl.gstatic.com/dictionary/static/sounds/20200429/drive--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'aɪ'), 'like',   '/laɪk/',   'https://ssl.gstatic.com/dictionary/static/sounds/20200429/like--_gb_1.mp3'),
+
+-- /ɔɪ/
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ɔɪ'), 'voice',  '/vɔɪs/',   'https://ssl.gstatic.com/dictionary/static/sounds/20200429/voice--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ɔɪ'), 'join',   '/dʒɔɪn/',  'https://ssl.gstatic.com/dictionary/static/sounds/20200429/join--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ɔɪ'), 'enjoy',  '/ɪnˈdʒɔɪ/','https://ssl.gstatic.com/dictionary/static/sounds/20200429/enjoy--_gb_1.mp3'),
+
+-- /θ/
+((SELECT id FROM ipa_phonemes WHERE symbol = 'θ'), 'think',  '/θɪŋk/',   'https://ssl.gstatic.com/dictionary/static/sounds/20200429/think--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'θ'), 'thank',  '/θæŋk/',   'https://ssl.gstatic.com/dictionary/static/sounds/20200429/thank--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'θ'), 'mouth',  '/maʊθ/',   'https://ssl.gstatic.com/dictionary/static/sounds/20200429/mouth--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'θ'), 'teeth',  '/tiːθ/',   'https://ssl.gstatic.com/dictionary/static/sounds/20200429/teeth--_gb_1.mp3'),
+
+-- /ð/
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ð'), 'this',   '/ðɪs/',    'https://ssl.gstatic.com/dictionary/static/sounds/20200429/this--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ð'), 'that',   '/ðæt/',    'https://ssl.gstatic.com/dictionary/static/sounds/20200429/that--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ð'), 'mother', '/ˈmʌðər/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/mother--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ð'), 'breathe','/briːð/',  'https://ssl.gstatic.com/dictionary/static/sounds/20200429/breathe--_gb_1.mp3'),
+
+-- /ʃ/
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ʃ'), 'shop',   '/ʃɒp/',    'https://ssl.gstatic.com/dictionary/static/sounds/20200429/shop--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ʃ'), 'wash',   '/wɒʃ/',    'https://ssl.gstatic.com/dictionary/static/sounds/20200429/wash--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ʃ'), 'special','/ˈspeʃl/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/special--_gb_1.mp3'),
+
+-- /tʃ/
+((SELECT id FROM ipa_phonemes WHERE symbol = 'tʃ'), 'chair', '/tʃeər/',  'https://ssl.gstatic.com/dictionary/static/sounds/20200429/chair--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'tʃ'), 'teach', '/tiːtʃ/',  'https://ssl.gstatic.com/dictionary/static/sounds/20200429/teach--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'tʃ'), 'nature','/ˈneɪtʃər/','https://ssl.gstatic.com/dictionary/static/sounds/20200429/nature--_gb_1.mp3'),
+
+-- /dʒ/
+((SELECT id FROM ipa_phonemes WHERE symbol = 'dʒ'), 'job',   '/dʒɒb/',   'https://ssl.gstatic.com/dictionary/static/sounds/20200429/job--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'dʒ'), 'page',  '/peɪdʒ/',  'https://ssl.gstatic.com/dictionary/static/sounds/20200429/page--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'dʒ'), 'bridge','/brɪdʒ/',  'https://ssl.gstatic.com/dictionary/static/sounds/20200429/bridge--_gb_1.mp3'),
+
+-- /z/
+((SELECT id FROM ipa_phonemes WHERE symbol = 'z'), 'zero',   '/ˈzɪərəʊ/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/zero--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'z'), 'music',  '/ˈmjuːzɪk/','https://ssl.gstatic.com/dictionary/static/sounds/20200429/music--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'z'), 'always', '/ˈɔːlweɪz/','https://ssl.gstatic.com/dictionary/static/sounds/20200429/always--_gb_1.mp3'),
+
+-- /ʒ/
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ʒ'), 'vision',  '/ˈvɪʒn/',   'https://ssl.gstatic.com/dictionary/static/sounds/20200429/vision--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ʒ'), 'measure', '/ˈmeʒər/',  'https://ssl.gstatic.com/dictionary/static/sounds/20200429/measure--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ʒ'), 'casual',  '/ˈkæʒuəl/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/casual--_gb_1.mp3'),
+
+-- /ŋ/
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ŋ'), 'song',    '/sɒŋ/',     'https://ssl.gstatic.com/dictionary/static/sounds/20200429/song--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ŋ'), 'ring',    '/rɪŋ/',     'https://ssl.gstatic.com/dictionary/static/sounds/20200429/ring--_gb_1.mp3'),
+((SELECT id FROM ipa_phonemes WHERE symbol = 'ŋ'), 'english', '/ˈɪŋɡlɪʃ/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/english--_gb_1.mp3')
+ON CONFLICT DO NOTHING;
+
+
+-- =========================================================================
+-- PHẦN 3: BỔ SUNG ĐẦY ĐỦ CÁC CẶP ÂM DỄ NHẦM LẪN NHẤT (MINIMAL PAIRS)
+-- =========================================================================
+
+INSERT INTO ipa_minimal_pairs (phoneme1_id, phoneme2_id, title, description, word1, ipa1, audio1_url, word2, ipa2, audio2_url)
+SELECT p1.id, p2.id, 'Phân biệt /uː/ (dài) và /ʊ/ (ngắn)', 'Âm /uː/ chu môi tròn nhỏ và phát âm kéo dài, trong khi /ʊ/ thả lỏng cơ môi và đọc dứt khoát.', 'fool', '/fuːl/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/fool--_gb_1.mp3', 'full', '/fʊl/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/full--_gb_1.mp3'
+FROM ipa_phonemes p1, ipa_phonemes p2 WHERE p1.symbol = 'uː' AND p2.symbol = 'ʊ' ON CONFLICT DO NOTHING;
+
+INSERT INTO ipa_minimal_pairs (phoneme1_id, phoneme2_id, title, description, word1, ipa1, audio1_url, word2, ipa2, audio2_url)
+SELECT p1.id, p2.id, 'Phân biệt /ɔː/ (dài) và /ɒ/ (ngắn)', 'Âm /ɔː/ nâng cao cuống lưỡi và kéo dài hơn, âm /ɒ/ mở rộng cằm và phát âm ngắn dứt khoát.', 'sport', '/spɔːt/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/sport--_gb_1.mp3', 'spot', '/spɒt/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/spot--_gb_1.mp3'
+FROM ipa_phonemes p1, ipa_phonemes p2 WHERE p1.symbol = 'ɔː' AND p2.symbol = 'ɒ' ON CONFLICT DO NOTHING;
+
+INSERT INTO ipa_minimal_pairs (phoneme1_id, phoneme2_id, title, description, word1, ipa1, audio1_url, word2, ipa2, audio2_url)
+SELECT p1.id, p2.id, 'Phân biệt /ʌ/ (â ngắn) và /ɑː/ (a dài)', 'Âm /ʌ/ mở miệng vừa và đọc nhanh, còn âm /ɑː/ hạ cằm sâu và phát âm ngân dài trong vòm họng.', 'cup', '/kʌp/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/cup--_gb_1.mp3', 'carp', '/kɑːp/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/carp--_gb_1.mp3'
+FROM ipa_phonemes p1, ipa_phonemes p2 WHERE p1.symbol = 'ʌ' AND p2.symbol = 'ɑː' ON CONFLICT DO NOTHING;
+
+INSERT INTO ipa_minimal_pairs (phoneme1_id, phoneme2_id, title, description, word1, ipa1, audio1_url, word2, ipa2, audio2_url)
+SELECT p1.id, p2.id, 'Phân biệt /tʃ/ (ch) và /dʒ/ (dj)', 'Âm /tʃ/ không rung thanh quản khi bật hơi, trong khi âm /dʒ/ cần rung mạnh thanh quản trong cổ họng.', 'cheap', '/tʃiːp/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/cheap--_gb_1.mp3', 'jeep', '/dʒiːp/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/jeep--_gb_1.mp3'
+FROM ipa_phonemes p1, ipa_phonemes p2 WHERE p1.symbol = 'tʃ' AND p2.symbol = 'dʒ' ON CONFLICT DO NOTHING;
+
+INSERT INTO ipa_minimal_pairs (phoneme1_id, phoneme2_id, title, description, word1, ipa1, audio1_url, word2, ipa2, audio2_url)
+SELECT p1.id, p2.id, 'Phân biệt /θ/ (th không rung) và /s/ (xì)', 'Âm /θ/ đặt đầu lưỡi giữa hai hàm răng thổi hơi, âm /s/ khép hai hàm răng lại và xì hơi qua kẽ răng.', 'think', '/θɪŋk/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/think--_gb_1.mp3', 'sink', '/sɪŋk/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/sink--_gb_1.mp3'
+FROM ipa_phonemes p1, ipa_phonemes p2 WHERE p1.symbol = 'θ' AND p2.symbol = 's' ON CONFLICT DO NOTHING;
+
+INSERT INTO ipa_minimal_pairs (phoneme1_id, phoneme2_id, title, description, word1, ipa1, audio1_url, word2, ipa2, audio2_url)
+SELECT p1.id, p2.id, 'Phân biệt /ð/ (th rung) và /d/ (d)', 'Âm /ð/ đặt đầu lưỡi giữa hai hàm răng và rung, âm /d/ chạm đầu lưỡi vào chân răng trên rồi bật hơi.', 'they', '/ðeɪ/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/they--_gb_1.mp3', 'day', '/deɪ/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/day--_gb_1.mp3'
+FROM ipa_phonemes p1, ipa_phonemes p2 WHERE p1.symbol = 'ð' AND p2.symbol = 'd' ON CONFLICT DO NOTHING;
+
+INSERT INTO ipa_minimal_pairs (phoneme1_id, phoneme2_id, title, description, word1, ipa1, audio1_url, word2, ipa2, audio2_url)
+SELECT p1.id, p2.id, 'Phân biệt /f/ và /v/', 'Cả 2 đều đặt răng trên chạm môi dưới, nhưng /f/ không rung cổ họng còn /v/ rung thanh quản.', 'fan', '/fæn/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/fan--_gb_1.mp3', 'van', '/væn/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/van--_gb_1.mp3'
+FROM ipa_phonemes p1, ipa_phonemes p2 WHERE p1.symbol = 'f' AND p2.symbol = 'v' ON CONFLICT DO NOTHING;
+
+INSERT INTO ipa_minimal_pairs (phoneme1_id, phoneme2_id, title, description, word1, ipa1, audio1_url, word2, ipa2, audio2_url)
+SELECT p1.id, p2.id, 'Phân biệt /l/ và /r/', 'Âm /l/ đầu lưỡi chạm chân răng trên, âm /r/ uốn cong đầu lưỡi về phía sau và không chạm vòm họng.', 'light', '/laɪt/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/light--_gb_1.mp3', 'right', '/raɪt/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/right--_gb_1.mp3'
+FROM ipa_phonemes p1, ipa_phonemes p2 WHERE p1.symbol = 'l' AND p2.symbol = 'r' ON CONFLICT DO NOTHING;
+
+INSERT INTO ipa_minimal_pairs (phoneme1_id, phoneme2_id, title, description, word1, ipa1, audio1_url, word2, ipa2, audio2_url)
+SELECT p1.id, p2.id, 'Phân biệt /w/ và /v/', 'Âm /w/ chu tròn hai môi (không chạm răng), âm /v/ bắt buộc đặt răng trên chạm vào môi dưới.', 'wet', '/wet/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/wet--_gb_1.mp3', 'vet', '/vet/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/vet--_gb_1.mp3'
+FROM ipa_phonemes p1, ipa_phonemes p2 WHERE p1.symbol = 'w' AND p2.symbol = 'v' ON CONFLICT DO NOTHING;
+
+INSERT INTO ipa_minimal_pairs (phoneme1_id, phoneme2_id, title, description, word1, ipa1, audio1_url, word2, ipa2, audio2_url)
+SELECT p1.id, p2.id, 'Phân biệt /n/ và /ŋ/ (ng)', 'Âm /n/ đầu lưỡi chạm chân răng trên, âm /ŋ/ cuống lưỡi nâng lên chạm vòm mềm chặn hơi qua mũi.', 'thin', '/θɪn/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/thin--_gb_1.mp3', 'thing', '/θɪŋ/', 'https://ssl.gstatic.com/dictionary/static/sounds/20200429/thing--_gb_1.mp3'
+FROM ipa_phonemes p1, ipa_phonemes p2 WHERE p1.symbol = 'n' AND p2.symbol = 'ŋ' ON CONFLICT DO NOTHING;
+
+
+-- =========================================================================
+-- PHẦN 4: BỔ SUNG CÁC QUY TẮC TRỌNG ÂM & NGỮ ĐIỆU CHUYÊN SÂU (RULES)
+-- =========================================================================
+
+INSERT INTO ipa_pronunciation_rules (category, title_vi, summary_vi, content_markdown, examples_json, order_index) VALUES
+(
+    'WORD_STRESS',
+    'Quy tắc trọng âm Từ ghép (Compound Words)',
+    'Danh từ ghép nhấn ở từ thứ nhất. Tính từ ghép và Động từ ghép thường nhấn ở từ thứ hai.',
+    '### 1. Danh từ ghép (Compound Nouns)
+- Trọng âm thường nhấn vào **từ thứ nhất**.
+- Cấu trúc: Noun + Noun, Gerund + Noun, Adjective + Noun.
+- Ví dụ: `AIR-port`, `BED-room`, `RAIN-coat`, `WASH-ing machine`.
+
+### 2. Tính từ ghép (Compound Adjectives)
+- Trọng âm thường nhấn vào **từ thứ hai**.
+- Ví dụ: `old-FASH-ioned`, `well-KNOWN`, `bad-TEM-pered`, `short-SIGHT-ed`.
+
+### 3. Động từ ghép (Compound Verbs)
+- Trọng âm thường nhấn vào **từ thứ hai**.
+- Ví dụ: `over-COOK`, `under-STAND`, `over-FLOW`.',
+    '[
+        {"word": "Airport", "ipa": "/ˈeəpɔːt/", "meaning": "Sân bay (Danh từ ghép -> Nhấn từ đầu)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/airport--_gb_1.mp3"},
+        {"word": "Well-known", "ipa": "/ˌwel ˈnəʊn/", "meaning": "Nổi tiếng (Tính từ ghép -> Nhấn từ hai)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/well_known--_gb_1.mp3"},
+        {"word": "Understand", "ipa": "/ˌʌndəˈstænd/", "meaning": "Hiểu (Động từ ghép -> Nhấn từ hai)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/understand--_gb_1.mp3"}
+    ]',
+    7
+),
+(
+    'WORD_STRESS',
+    'Quy tắc trọng âm Từ có 3 âm tiết trở lên',
+    'Hầu hết các từ 3 âm tiết kết thúc bằng đuôi -y, -ce, -ate, -ise nhấn vào âm tiết thứ 3 tính từ cuối lên (âm đầu tiên).',
+    '### 1. Nhấn vào âm tiết thứ 3 từ dưới đếm lên (Antepenultimate Syllable):
+- Các từ tận cùng là **-y, -ce, -ate, -ise / -ize, -phy, -gy**:
+- Ví dụ: 
+  - `ECO-nomy` /ɪˈkɒnəmi/ (nhấn âm 2)
+  - `PHO-tograph` /ˈfəʊtəɡrɑːf/ (nhấn âm 1)
+  - `CON-centrate` /ˈkɒnsntreɪt/ (nhấn âm 1)
+  - `CRIT-icise` /ˈkrɪtɪsaɪz/ (nhấn âm 1)
+
+### 2. Tiền tố không nhận trọng âm:
+- Hầu hết tiền tố như **un-, in-, dis-, re-, pre-, mis-** không làm thay đổi trọng âm gốc của từ:
+- `happy` $\rightarrow$ `unHAPpy`, `cover` $\rightarrow$ `disCOVer`.',
+    '[
+        {"word": "Photograph", "ipa": "/ˈfəʊtəɡrɑːf/", "meaning": "Bức ảnh (Nhấn âm 1)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/photograph--_gb_1.mp3"},
+        {"word": "Concentrate", "ipa": "/ˈkɒnsntreɪt/", "meaning": "Tập trung (Nhấn âm 1)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/concentrate--_gb_1.mp3"},
+        {"word": "Unhappy", "ipa": "/ʌnˈhæpi/", "meaning": "Không vui (Tiền tố un- không nhận trọng âm)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/unhappy--_gb_1.mp3"}
+    ]',
+    8
+),
+(
+    'LINKING_SOUNDS',
+    'Hiện tượng Nuốt âm (Elision) & Biến âm (Assimilation)',
+    'Trong văn nói nhanh tự nhiên, một số âm yếu (như /t/, /d/, schwa) thường bị nuốt đi hoặc hòa quyện với âm kế tiếp.',
+    '### 1. Nuốt âm /t/ và /d/ (Elision):
+- Khi /t/ hoặc /d/ đứng giữa hai phụ âm khác, người bản xứ thường bỏ qua không phát âm:
+  - `Next door` $\rightarrow$ Đọc là `/neks dɔːr/` (bỏ /t/)
+  - `Last night` $\rightarrow$ Đọc là `/lɑːs naɪt/`
+  - `Hold on tight` $\rightarrow$ Đọc là `/həʊld ɒn taɪt/`
+
+### 2. Biến âm khi gặp âm /j/ (Assimilation):
+- **/t/ + /j/ $\rightarrow$ /tʃ/**: `Nice to meet you` $\rightarrow$ `/miːtʃuː/`
+- **/d/ + /j/ $\rightarrow$ /dʒ/**: `Did you do it?` $\rightarrow$ `/dɪdʒuː duː ɪt/`',
+    '[
+        {"word": "Next door", "ipa": "/neks dɔːr/", "meaning": "Nuốt âm /t/ khi đứng giữa /ks/ và /d/", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/next_door--_gb_1.mp3"},
+        {"word": "Meet you", "ipa": "/miːtʃuː/", "meaning": "Biến âm /t/ + /j/ thành /tʃ/", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/meet_you--_gb_1.mp3"}
+    ]',
+    9
+),
+(
+    'INTONATION',
+    'Quy tắc Ngữ điệu câu (Lên giọng & Xuống giọng)',
+    'Xuống giọng ở cuối câu trần thuật và câu hỏi Wh-. Lên giọng ở cuối câu hỏi Yes/No và câu hỏi đuôi khi muốn xác nhận.',
+    '### 1. Xuống giọng (Falling Intonation ↘):
+- Dùng cho **Câu trần thuật**: `I live in Viet Nam. ↘`
+- Dùng cho **Câu hỏi Wh-**: `Where do you live? ↘`, `What is your name? ↘`
+- Dùng cho **Câu mệnh lệnh**: `Close the door! ↘`
+
+### 2. Lên giọng (Rising Intonation ↗):
+- Dùng cho **Câu hỏi Yes/No**: `Do you like coffee? ↗`, `Are you ready? ↗`
+- Dùng cho **Liệt kê (trừ mục cuối cùng)**: `I bought apples ↗, bananas ↗, and oranges ↘.`',
+    '[
+        {"word": "Where do you live?", "ipa": "/weər duː juː lɪv/ ↘", "meaning": "Xuống giọng ở cuối câu hỏi Wh-", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/where_do_you_live--_gb_1.mp3"},
+        {"word": "Do you like tea?", "ipa": "/duː juː laɪk tiː/ ↗", "meaning": "Lên giọng ở cuối câu hỏi Yes/No", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/do_you_like_tea--_gb_1.mp3"}
+    ]',
+    10
+);
+
+
+-- ===============================================
+-- Migration: V20__add_consonant_clusters_rules.sql
+-- ===============================================
+-- =========================================================================
+-- V20: Trọn bộ Quy tắc Phụ âm tiết (Syllabic Consonants), Biến âm (Flap T, Glottal Stop) & Ghép âm
+-- 1. Syllabic N (/n̩/ - "ừn / ờn"): button, sudden, listen, season, seven, action
+-- 2. Syllabic L (/l̩/ - "ồ / ờl"): table, apple, bottle, middle, uncle, castle
+-- 3. Syllabic M (/m̩/ - "ừm"): rhythm, prism, realism, bottom
+-- 4. Biến âm Flap T (/t/ -> /d/ nhẹ chuẩn US): water, better, city, get out
+-- 5. Âm chặn họng Glottal Stop (/ʔ/): cat, football, fitness, button
+-- 6. Kỹ thuật ghép Cụm phụ âm đầu (Consonant Blends): blue, play, speak, street
+-- =========================================================================
+
+DELETE FROM ipa_pronunciation_rules WHERE category = 'CONSONANT_CLUSTERS';
+
+INSERT INTO ipa_pronunciation_rules (category, title_vi, summary_vi, content_markdown, examples_json, order_index) VALUES
+(
+    'CONSONANT_CLUSTERS',
+    'Quy tắc Âm tiết phụ Syllabic N (/n̩/ - Đuôi "ừn / ờn" trong button, sudden, listen, season)',
+    'Hiện tượng phụ âm /n/ tự đóng vai trò như một nguyên âm tạo thành âm tiết không nhấn /n̩/ (nghe như "ừn" hoặc "ờn" nhẹ).',
+    '### 1. Bản chất của Syllabic N (/n̩/):
+Trong tiếng Anh, khi các đuôi **-en, -on, -an, -in, -tain** đứng sau một phụ âm và không nhận trọng âm, nguyên âm đứng trước bị triệt tiêu hoàn toàn. Lúc này, phụ âm **/n/** sẽ gánh vác vai trò tạo âm tiết, tạo ra âm **"ừn / ờn"** rất ngắn và nhẹ.
+
+### 2. Các nhóm âm Syllabic N kinh điển:
+- **Nhóm /t/ + /n/ $\rightarrow$ /tn̩/ (hoặc /ʔn̩/):** 
+  - `Button` /ˈbʌtn/ $\rightarrow$ đọc như *"bắt-ừn"* (chặn họng âm /t/ rồi bật /n/)
+  - `Kitten` /ˈkɪtn/ $\rightarrow$ đọc như *"kít-ừn"*
+  - `Written` /ˈrɪtn/ $\rightarrow$ đọc như *"rít-ừn"*
+  - `Mountain` /ˈmaʊntn/ $\rightarrow$ đọc như *"mao-ừn"* (chuẩn US)
+- **Nhóm /d/ + /n/ $\rightarrow$ /dn̩/:**
+  - `Sudden` /ˈsʌdn/ $\rightarrow$ đọc như *"sát-đừn"*
+  - `Hidden` /ˈhɪdn/ $\rightarrow$ đọc như *"hít-đừn"*
+  - `Garden` /ˈɡɑːrdn/ $\rightarrow$ đọc như *"ga-đừn"*
+- **Nhóm /s, z/ + /n/ $\rightarrow$ /sn̩/, /zn̩/:**
+  - `Listen` /ˈlɪsn/ $\rightarrow$ đọc như *"lít-sừn"* (chữ t câm)
+  - `Lesson` /ˈlesn/ $\rightarrow$ đọc như *"lét-sừn"*
+  - `Season` /ˈsiːzn/ $\rightarrow$ đọc như *"xi-zừn"*
+  - `Cousin` /ˈkʌzn/ $\rightarrow$ đọc như *"cớ-zừn"*
+  - `Prison` /ˈprɪzn/ $\rightarrow$ đọc như *"prí-zừn"*
+- **Nhóm /v, f/ + /n/ $\rightarrow$ /vn̩/, /fn̩/:**
+  - `Seven` /ˈsevn/ $\rightarrow$ đọc như *"xét-vừn"*
+  - `Eleven` /ɪˈlevn/ $\rightarrow$ đọc như *"i-lét-vừn"*
+  - `Oven` /ˈʌvn/ $\rightarrow$ đọc như *"ớ-vừn"*
+  - `Often` /ˈɔːfn/ $\rightarrow$ đọc như *"óp-phừn"* (chữ t câm)
+- **Nhóm đuôi -tion / -sion $\rightarrow$ /ʃn̩/, /ʒn̩/:**
+  - `Action` /ˈækʃn/ $\rightarrow$ đọc như *"ác-sừn"*
+  - `Vision` /ˈvɪʒn/ $\rightarrow$ đọc như *"ví-zhừn"*
+
+### 💡 Mẹo phát âm:
+Giữ nguyên đầu lưỡi áp sát chân răng trên khi phát âm phụ âm trước, sau đó chỉ cần mở đường thở qua mũi để bật luồng hơi ra thành âm /n/ (không cần mở hé môi ra để phát âm nguyên âm).',
+    '[
+        {"word": "Button", "ipa": "/ˈbʌtn/", "meaning": "Cái nút áo (Phát âm /tn/ nghe như bắt-ừn)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/button--_gb_1.mp3"},
+        {"word": "Sudden", "ipa": "/ˈsʌdn/", "meaning": "Đột ngột (Phát âm /dn/ nghe như sát-đừn)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/sudden--_gb_1.mp3"},
+        {"word": "Listen", "ipa": "/ˈlɪsn/", "meaning": "Lắng nghe (Phát âm /sn/ nghe như lít-sừn)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/listen--_gb_1.mp3"},
+        {"word": "Seven", "ipa": "/ˈsevn/", "meaning": "Số 7 (Phát âm /vn/ nghe như xét-vừn)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/seven--_gb_1.mp3"},
+        {"word": "Action", "ipa": "/ˈækʃn/", "meaning": "Hành động (Phát âm /ʃn/ nghe như ác-sừn)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/action--_gb_1.mp3"}
+    ]',
+    11
+),
+(
+    'CONSONANT_CLUSTERS',
+    'Quy tắc Âm tiết phụ Syllabic L (/l̩/ - Đuôi "ồ / ờl" trong table, apple, bottle, middle)',
+    'Khi kết thúc bằng đuôi -ble, -ple, -tle, -dle, -cle, âm /l/ đóng vai trò như nguyên âm tạo thành âm tiết nhẹ /l̩/ (nghe gần giống "bồ", "pồ", "tồ", "đồ").',
+    '### 1. Hiện tượng Âm tiết hóa phụ âm L (Dark L):
+Khi một từ kết thúc bằng một phụ âm + `le` hoặc `al`, `el`, `il` (như `-ble`, `-ple`, `-tle`, `-dle`, `-gle`, `-cal`, `-cil`), âm **/l/** đứng sau trở thành **Syllabic L**, tự nó tạo thành một âm tiết mà không cần nguyên âm rõ ràng.
+
+### 2. Các dạng đuôi phổ biến:
+- **-ble $\rightarrow$ /bl̩/** (nghe như *"bồ"* nhẹ): `table` /ˈteɪbl/, `bubble` /ˈbʌbl/, `able` /ˈeɪbl/.
+- **-ple $\rightarrow$ /pl̩/** (nghe như *"pồ"* nhẹ): `apple` /ˈæpl/, `simple` /ˈsɪmpl/, `people` /ˈpiːpl/.
+- **-tle $\rightarrow$ /tl̩/** (nghe như *"tồ"* nhẹ): `bottle` /ˈbɒtl/, `little` /ˈlɪtl/, `title` /ˈtaɪtl/.
+- **-dle $\rightarrow$ /dl̩/** (nghe như *"đồ"* nhẹ): `middle` /ˈmɪdl/, `candle` /ˈkændl/, `noodle` /ˈnuːdl/.
+- **-cle / -kle $\rightarrow$ /kl̩/** (nghe như *"cồ"* nhẹ): `uncle` /ˈʌŋkl/, `circle` /ˈsɜːkl/.
+- **-gle $\rightarrow$ /ɡl̩/** (nghe như *"gồ"* nhẹ): `eagle` /ˈiːɡl/, `single` /ˈsɪŋɡl/.
+- **-cal / -cil $\rightarrow$ /kl̩/, /sl̩/**: `musical` /ˈmjuːzɪkl/, `pencil` /ˈpensl/.
+
+### 💡 Cách phát âm chuẩn:
+Bật nhẹ phụ âm đứng trước (/b/, /p/, /t/, /d/) rồi nâng ngay đầu lưỡi chạm vào nướu răng hàm trên và giữ yên (Dark L). Không đọc tách bạch thành 2 từ riêng lẻ.',
+    '[
+        {"word": "Table", "ipa": "/ˈteɪbl/", "meaning": "Cái bàn (Đuôi -ble phát âm /bl/ nghe như bồ nhẹ)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/table--_gb_1.mp3"},
+        {"word": "Apple", "ipa": "/ˈæpl/", "meaning": "Quả táo (Đuôi -ple phát âm /pl/ nghe như pồ nhẹ)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/apple--_gb_1.mp3"},
+        {"word": "Bottle", "ipa": "/ˈbɒtl/", "meaning": "Chai nước (Đuôi -tle phát âm /tl/ nghe như tồ nhẹ)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/bottle--_gb_1.mp3"},
+        {"word": "Middle", "ipa": "/ˈmɪdl/", "meaning": "Ở giữa (Đuôi -dle phát âm /dl/ nghe như đồ nhẹ)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/middle--_gb_1.mp3"},
+        {"word": "Pencil", "ipa": "/ˈpensl/", "meaning": "Bút chì (Đuôi -cil phát âm /sl/ nghe như xồ nhẹ)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/pencil--_gb_1.mp3"}
+    ]',
+    12
+),
+(
+    'CONSONANT_CLUSTERS',
+    'Quy tắc Âm tiết phụ Syllabic M (/m̩/ - Đuôi "ừm" trong rhythm, prism, realism)',
+    'Khi kết thúc bằng đuôi -thm, -sm, phụ âm /m/ tự đóng vai trò âm tiết tạo thành đuôi "ừm" trầm sâu.',
+    '### 1. Bản chất Syllabic M (/m̩/):
+Khi âm /m/ đi sau các phụ âm xát như **/ð/** hoặc **/z/** ở đuôi từ (như `-thm`, `-sm`, `-ism`), âm /m/ tự ngân rung trong vòm mũi tạo thành âm **"ừm"** (hoặc "đ-ừm", "z-ừm").
+
+### 2. Ví dụ tiêu biểu:
+- **Rhythm** /ˈrɪðəm/ $\rightarrow$ đọc như *"rít-đừm"* (âm /ð/ kẹp lưỡi rồi khép môi ngân /m/).
+- **Prism** /ˈprɪzəm/ $\rightarrow$ đọc như *"prí-zừm"*.
+- **Realism** /ˈrɪəlɪzəm/ $\rightarrow$ đọc như *"ri-ơ-li-zừm"*.
+- **Criticism** /ˈkrɪtɪsɪzəm/ $\rightarrow$ đọc như *"crí-ti-si-zừm"*.
+- **Bottom** /ˈbɒtəm/ $\rightarrow$ đọc như *"bót-từm"*.',
+    '[
+        {"word": "Rhythm", "ipa": "/ˈrɪðəm/", "meaning": "Giai điệu (Đuôi -thm phát âm nghe như đừm)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/rhythm--_gb_1.mp3"},
+        {"word": "Prism", "ipa": "/ˈprɪzəm/", "meaning": "Lăng kính (Đuôi -sm phát âm nghe như zừm)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/prism--_gb_1.mp3"},
+        {"word": "Bottom", "ipa": "/ˈbɒtəm/", "meaning": "Phần đáy (Đuôi -tom phát âm nghe như từm)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/bottom--_gb_1.mp3"}
+    ]',
+    13
+),
+(
+    'CONSONANT_CLUSTERS',
+    'Quy tắc Biến âm Flap T (/t/ biến thành /d/ nhẹ chuẩn Anh - Mỹ)',
+    'Khi âm /t/ hoặc /d/ đứng giữa 2 nguyên âm và không mang trọng âm, người Mỹ biến nó thành âm vỗ Flap T (nghe như chữ "đ" nhẹ).',
+    '### 1. Điều kiện xảy ra Flap T (Tap T):
+1. Âm **/t/** đứng **ở giữa hai nguyên âm** (hoặc nguyên âm + /l/, /r/).
+2. Âm /t/ **KHÔNG** nằm trong âm tiết nhận trọng âm chính.
+
+### 2. Sự thay đổi âm thanh:
+Người bản ngữ không bật luồng hơi mạnh thành "thơ/tơ", mà chỉ dùng đầu lưỡi vỗ nhẹ vào vòm họng trên tạo thành âm **/ɾ/** (nghe gần giống âm "đ" lướt nhẹ trong tiếng Việt):
+- `Water` /ˈwɔːtər/ $\rightarrow$ Đọc là **"wo-đơ"**
+- `Better` /ˈbetər/ $\rightarrow$ Đọc là **"be-đơ"**
+- `City` /ˈsɪti/ $\rightarrow$ Đọc là **"si-đi"**
+- `Writer` /ˈraɪtər/ $\rightarrow$ Đọc là **"rai-đơ"**
+- `Computer` /kəmˈpjuːtər/ $\rightarrow$ Đọc là **"cơm-piu-đơ"**
+
+### 3. Áp dụng khi Nối âm giữa 2 từ (Connected Speech):
+- `Get out` $\rightarrow$ Đọc là **"ge-đaut"**
+- `Shut up` $\rightarrow$ Đọc là **"shắ-đắp"**
+- `A lot of` $\rightarrow$ Đọc là **"ơ-lo-đơv"**',
+    '[
+        {"word": "Water", "ipa": "/ˈwɔːtər/ -> [ˈwɔːdər]", "meaning": "Nước (Flap T đọc thành wo-đơ)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/water--_gb_1.mp3"},
+        {"word": "Better", "ipa": "/ˈbetər/ -> [ˈbedər]", "meaning": "Tốt hơn (Flap T đọc thành be-đơ)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/better--_gb_1.mp3"},
+        {"word": "City", "ipa": "/ˈsɪti/ -> [ˈsɪdi]", "meaning": "Thành phố (Flap T đọc thành si-đi)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/city--_gb_1.mp3"},
+        {"word": "Get out", "ipa": "/ɡet aʊt/ -> [ɡe daʊt]", "meaning": "Ra ngoài (Nối Flap T đọc thành ge-đaut)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/get_out--_gb_1.mp3"}
+    ]',
+    14
+),
+(
+    'CONSONANT_CLUSTERS',
+    'Quy tắc Âm chặn họng Glottal Stop (/ʔ/ - Nuốt âm /t/ trong button, fitness, football)',
+    'Khi âm /t/ đứng trước một phụ âm khác hoặc trước âm Syllabic N, người bản xứ thường ngắt hơi đột ngột trong cổ họng (Glottal Stop) thay vì bật hơi.',
+    '### 1. Hiện tượng Glottal Stop (/ʔ/) là gì?
+Là kỹ thuật khép chặt hai dây thanh âm lại trong tích tắc để **chặn hoàn toàn luồng hơi** trong cổ họng, sau đó thả lỏng ngay. (Tương tự cảm giác khi nói âm "ơ... ơ" ngắt quãng).
+
+### 2. Các trường hợp xuất hiện Glottal Stop phổ biến:
+- **Đứng trước phụ âm N (/tn/):**
+  - `Button` /ˈbʌʔn̩/ $\rightarrow$ "bắt (ngắt hơi) ừn"
+  - `Important` /ɪmˈpɔːrʔnt/ $\rightarrow$ "im-po-(ngắt hơi)-ừn"
+  - `Curtain` /ˈkɜːrʔn/ $\rightarrow$ "cơ-(ngắt hơi)-ừn"
+- **Đứng trước các phụ âm khác:**
+  - `Football` /ˈfʊʔbɔːl/ $\rightarrow$ "fút-(chặn hơi)-bon" (không bật chữ t)
+  - `Fitness` /ˈfɪʔnəs/ $\rightarrow$ "fít-(chặn hơi)-nợt"
+  - `Batman` /ˈbæʔmæn/ $\rightarrow$ "bát-(chặn hơi)-man"
+- **Đứng ở cuối câu (văn nói thông dụng):**
+  - `Right now` $\rightarrow$ "Raiʔ now"
+  - `I can''t do it` $\rightarrow$ "I canʔ do it"',
+    '[
+        {"word": "Button", "ipa": "/ˈbʌʔn/", "meaning": "Cái cúc áo (Chặn họng âm /t/)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/button--_gb_1.mp3"},
+        {"word": "Football", "ipa": "/ˈfʊtbɔːl/ -> [ˈfʊʔbɔːl]", "meaning": "Bóng đá (Chặn hơi âm /t/ trước /b/)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/football--_gb_1.mp3"},
+        {"word": "Fitness", "ipa": "/ˈfɪtnəs/ -> [ˈfɪʔnəs]", "meaning": "Thể hình (Chặn hơi âm /t/ trước /n/)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/fitness--_gb_1.mp3"}
+    ]',
+    15
+),
+(
+    'CONSONANT_CLUSTERS',
+    'Quy tắc ghép Cụm phụ âm đầu (Consonant Blends: /bl/, /pl/, /cl/, /br/, /str/...)',
+    'Khắc phục lỗi chèn âm "ơ/ô" phổ biến của người Việt (như đọc blue thành "bồ-lu", play thành "pờ-lây", stop thành "xì-tốp").',
+    '### 1. Lỗi chèn âm (Epenthesis) của người Việt:
+Do tiếng Việt là ngôn ngữ đơn âm tiết và không có cụm phụ âm đi liền nhau, người Việt thường vô thức chèn thêm âm "ơ" hoặc "ô" vào giữa hai phụ âm:
+- ❌ `Blue` đọc thành "bồ-lu"
+- ❌ `Black` đọc thành "bồ-lắc"
+- ❌ `Play` đọc thành "pờ-lây"
+- ❌ `Stop` đọc thành "xì-tốp"
+
+### 2. Kỹ thuật ghép âm (Blending Technique) chuẩn bản ngữ:
+- **Chuẩn bị khẩu hình đồng thời**: Đặt khẩu hình của phụ âm thứ nhất (/b/) đồng thời đầu lưỡi đã sẵn sàng ở vị trí của phụ âm thứ hai (/l/).
+- **Bật và trượt liền mạch**: Khi vừa bật âm /b/, thả ngay luồng hơi vào vị trí âm /l/ mà **KHÔNG** để dây thanh rung tạo thành một âm tiết riêng biệt.
+- **Thời lượng**: Cụm /bl/, /pl/, /br/ chỉ diễn ra trong tích tắc (< 0.1 giây) như một âm duy nhất.
+
+### 3. Các nhóm cụm phụ âm phổ biến:
+- **L-Blends**: `/bl/` (blue, black), `/cl/` (clean, clock), `/fl/` (fly, flower), `/pl/` (play, plane).
+- **R-Blends**: `/br/` (bread, brother), `/cr/` (crazy, cream), `/dr/` (drive, dream), `/tr/` (tree, train).
+- **S-Blends**: `/st/` (stop, star), `/sp/` (speak, space), `/sk/` (sky, school), `/str/` (street, strong).',
+    '[
+        {"word": "Blue", "ipa": "/bluː/", "meaning": "Màu xanh (Ghép /bl/ liền mạch, không đọc là bồ-lu)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/blue--_gb_1.mp3"},
+        {"word": "Black", "ipa": "/blæk/", "meaning": "Màu đen (Ghép /bl/ liền mạch)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/black--_gb_1.mp3"},
+        {"word": "Play", "ipa": "/pleɪ/", "meaning": "Chơi (Ghép /pl/ liền mạch, không đọc pờ-lây)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/play--_gb_1.mp3"},
+        {"word": "Street", "ipa": "/striːt/", "meaning": "Đường phố (Ghép 3 phụ âm /str/ mượt mà)", "audioUrl": "https://ssl.gstatic.com/dictionary/static/sounds/20200429/street--_gb_1.mp3"}
+    ]',
+    16
+);
+
+
+-- ===============================================
+-- Migration: V21__add_questions_updated_at.sql
+-- ===============================================
+-- V21: Thêm cột updated_at vào bảng questions để Admin biết câu hỏi được sửa lần cuối khi nào.
+-- Dùng IF NOT EXISTS để idempotent – chạy lại không lỗi.
+
+ALTER TABLE questions
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP;
+
+-- Khởi tạo giá trị cho các row cũ = created_at (thời điểm tạo)
+UPDATE questions
+SET updated_at = created_at
+WHERE updated_at IS NULL;
+
+
+-- ===============================================
+-- Migration: V22__placement_test_constraints_and_indexes.sql
+-- ===============================================
+-- ============================================================
+-- V22: Placement Test - DB-level Constraints & Performance Indexes
+--
+-- Muc tieu:
+--   1. Enforce "1 active session per user" tai DB de chan race condition
+--   2. Enforce answer idempotency: (session_id, question_id) UNIQUE
+--   3. Them covering index cho cac hot query path
+-- ============================================================
+
+-- 1. Partial unique index: moi user chi duoc co 1 session dang lam
+CREATE UNIQUE INDEX IF NOT EXISTS uidx_placement_sessions_one_active_per_student
+    ON placement_test_sessions (student_id)
+    WHERE is_completed = false;
+
+-- 2. Composite index: lookup session cua user (findTop...Desc)
+CREATE INDEX IF NOT EXISTS idx_placement_sessions_student_started
+    ON placement_test_sessions (student_id, started_at DESC);
+
+-- 3. Index tren is_completed de filter session status nhanh
+CREATE INDEX IF NOT EXISTS idx_placement_sessions_completed
+    ON placement_test_sessions (is_completed, student_id)
+    WHERE is_completed = false;
+
+-- 4. UNIQUE constraint: (session_id, question_id) - answer idempotency
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'uk_placement_answers_session_question'
+    ) THEN
+        ALTER TABLE placement_test_answers
+            ADD CONSTRAINT uk_placement_answers_session_question
+            UNIQUE (session_id, question_id);
+    END IF;
+END $$;
+
+-- 5. Covering index: session_id + answered_at cho query lay danh sach
+CREATE INDEX IF NOT EXISTS idx_placement_answers_session_answered
+    ON placement_test_answers (session_id, answered_at ASC);
+
+-- 6. Index cho question picking: cefr_level + is_active (partial)
+CREATE INDEX IF NOT EXISTS idx_questions_active_by_level
+    ON questions (cefr_level, id)
+    WHERE is_active = true;
+
 
