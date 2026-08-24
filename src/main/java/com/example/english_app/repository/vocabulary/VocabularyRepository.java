@@ -13,6 +13,8 @@ import org.springframework.data.domain.Pageable;
 
 public interface VocabularyRepository extends JpaRepository<Vocabulary, Long> {
     boolean existsByWord(String word);
+    
+    long countByTopicId(Short topicId);
 
     @EntityGraph(attributePaths = {"topic", "createdBy"})
     @Query("SELECT v FROM Vocabulary v WHERE " +

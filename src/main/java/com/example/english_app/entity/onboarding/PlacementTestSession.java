@@ -17,6 +17,9 @@ import java.time.LocalDateTime;
 @Builder
 public class PlacementTestSession {
 
+    /** Session timeout: 30 phút không hoạt động sẽ bị hết hạn */
+    public static final int SESSION_TIMEOUT_MINUTES = 30;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -45,4 +48,27 @@ public class PlacementTestSession {
 
     @Column(name = "confidence_score", precision = 5, scale = 2)
     private BigDecimal confidenceScore;
+
+    /**
+     * Số lần trả lời sai liên tiếp tính đến câu hỏi hiện tại.
+     * Reset về 0 khi trả lời đúng, tăng 1 khi trả lời sai.
+     * Được lưu trực tiếp để tránh N+1 query (không cần load toàn bộ answers để đếm).
+     */
+    @Column(name = "current_wrong_streak", nullable = false)
+    @Builder.Default
+    private Integer currentWrongStreak = 0;
+
+    /**
+     * Kiểm tra session có hết hạn chưa (quá SESSION_TIMEOUT_MINUTES không hoạt động).
+     * Đây là single source of truth cho timeout logic — dùng ở cả OnboardingService
+     * và PronunciationService thay vì hardcode magic number ở từng chỗ.
+     *
+     * @return true nếu session đã timeout và không còn dùng được.
+     */
+    public boolean isExpired() {
+        LocalDateTime reference = lastActivityAt != null ? lastActivityAt : startedAt;
+        if (reference == null) return false;
+        return reference.plusMinutes(SESSION_TIMEOUT_MINUTES).isBefore(LocalDateTime.now());
+    }
 }
+

@@ -8,6 +8,15 @@ public class AppException extends RuntimeException {
         this.errorCode = errorCode;
     }
 
+    /**
+     * Constructor với message tuỳ chỉnh.
+     * Dùng khi cần trả thông báo lỗi chi tiết hơn mặc định của ErrorCode.
+     */
+    public AppException(ErrorCode errorCode, String customMessage) {
+        super(customMessage);
+        this.errorCode = errorCode;
+    }
+
     public ErrorCode getErrorCode() {
         return errorCode;
     }

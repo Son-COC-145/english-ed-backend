@@ -22,6 +22,10 @@ spring:
     baseline-on-migrate: true
     locations: classpath:db/migration
 
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 10MB
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -70,7 +74,9 @@ cloudinary:
 
 jwt:
   issuer: ${JWT_ISSUER}
+  # Đơn vị: GIÂY (seconds). VD: 3600 = 1 giờ, 86400 = 1 ngày
   access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:3600}
+  # Đơn vị: GIÂY (seconds). VD: 604800 = 7 ngày
   refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:604800}
 
 server:
@@ -79,7 +85,7 @@ server:
 
 onboarding:
   placement:
-    max-questions: 35
+    max-questions: 30
     confidence-threshold: 85.0
     max-wrong-streak: 3
 
@@ -92,6 +98,10 @@ vnpay:
 
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:3000}
+  cors:
+    # Danh sách origin được phép gọi API. Thêm domain production vào đây.
+    # VD: https://yourdomain.com,http://localhost:3000
+    allowed-origins: ${FRONTEND_URL:http://localhost:3000}
 
 gemini:
   api-key: ${GEMINI_API_KEY}
@@ -102,6 +112,14 @@ elevenlabs:
   api-url: ${ELEVENLABS_API_URL:https://api.elevenlabs.io/v1/text-to-speech}
   default-voice-id: ${ELEVENLABS_DEFAULT_VOICE_ID:pNInz6obpgDQGcFmaJgB}
 
+azure:
+  speech:
+    subscription-key: ${AZURE_SPEECH_KEY:}
+    region: ${AZURE_SPEECH_REGION:japaneast}
+    timeout-seconds: 10
+  storage:
+    connection-string: ${AZURE_STORAGE_CONNECTION_STRING:}
+    container-name: ${AZURE_STORAGE_CONTAINER_NAME:english-app-media}
 firebase:
   config:
     path: firebase-adminsdk.json

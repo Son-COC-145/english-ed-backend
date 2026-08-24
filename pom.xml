@@ -113,6 +113,11 @@
             <version>1.38.0</version>
         </dependency>
 
+        <!-- Azure Blob Storage for production audio/media storage -->
+        <dependency>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-storage-blob</artifactId>
+            <version>12.29.0</version>
 		<!-- Firebase Admin SDK for Push Notifications -->
         <dependency>
             <groupId>com.google.firebase</groupId>
@@ -153,6 +158,12 @@
 			<groupId>org.springframework.security</groupId>
 			<artifactId>spring-security-test</artifactId>
 			<scope>test</scope>
+		</dependency>
+
+		<!-- Spring Retry — dùng cho @Retryable trong RetryableGamificationService -->
+		<dependency>
+			<groupId>org.springframework.retry</groupId>
+			<artifactId>spring-retry</artifactId>
 		</dependency>
 	</dependencies>
 	<dependencyManagement>

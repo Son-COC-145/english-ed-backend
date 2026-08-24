@@ -30,5 +30,8 @@ public class PlacementResultResponse {
     private String cefrDescription;
     private List<String> strengths;
     private List<String> weaknesses;
+    
+    private boolean roadmapGenerated;
     private List<String> suggestedModules;
+    private List<String> diagnosticTips;
 }

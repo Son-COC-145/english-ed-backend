@@ -42,6 +42,14 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         CustomOAuth2User oAuth2User = (CustomOAuth2User) authentication.getPrincipal();
         User user = oAuth2User.getUser();
 
+        if (!user.getIsActive()) {
+            String errorUrl = UriComponentsBuilder.fromUriString(redirectUri)
+                    .queryParam("error", "account_locked")
+                    .build().toUriString();
+            getRedirectStrategy().sendRedirect(request, response, errorUrl);
+            return;
+        }
+
         String accessToken = tokenService.generateAccessToken(user);
         String refreshToken = tokenService.generateRefreshToken(user);
 

@@ -178,6 +178,10 @@ public class AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
 
+        if (!user.getIsActive()) {
+            throw ErrorCode.ACCOUNT_LOCKED.toException();
+        }
+
         String newAccessToken = tokenService
                 .generateAccessToken(user);
 
