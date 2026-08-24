@@ -33,11 +33,10 @@ import org.springframework.web.multipart.MultipartFile;
 public class OnboardingController {
 
     private final OnboardingLifecycleService lifecycleService;
-    private final PlacementTestService       placementTestService;
-    private final PronunciationService       pronunciationService;
+    private final PlacementTestService placementTestService;
+    private final PronunciationService pronunciationService;
 
-    // ─── Onboarding Status ────────────────────────────────────────────────────
-
+    // Onboarding Status
     @Operation(summary = "Lấy trạng thái onboarding hiện tại")
     @GetMapping("/status")
     public ResponseEntity<ApiResponse<OnboardingStatusResponse>> getStatus(Authentication auth) {
@@ -45,8 +44,7 @@ public class OnboardingController {
                 lifecycleService.getStatus(userId(auth))));
     }
 
-    // ─── Goal Survey ──────────────────────────────────────────────────────────
-
+    // Goal Survey
     @Operation(summary = "Nộp khảo sát mục tiêu học tập")
     @PostMapping("/goal-survey")
     public ResponseEntity<ApiResponse<Void>> submitGoalSurvey(
@@ -56,8 +54,7 @@ public class OnboardingController {
         return ResponseEntity.ok(ApiResponse.success("Lưu khảo sát thành công"));
     }
 
-    // ─── Placement Test ───────────────────────────────────────────────────────
-
+    // Placement Test
     @Operation(summary = "Bắt đầu bài kiểm tra phân loại trình độ")
     @PostMapping("/placement-test/start")
     public ResponseEntity<ApiResponse<PlacementQuestionResponse>> startTest(Authentication auth) {
@@ -65,7 +62,17 @@ public class OnboardingController {
                 placementTestService.startTest(userId(auth))));
     }
 
-    @Operation(summary = "Lấy câu hỏi tiếp theo")
+    @Deprecated(since = "1.1", forRemoval = false)
+    @Operation(summary = "[DEPRECATED] Lấy câu hỏi tiếp theo", description = """
+            **Không dùng trong tích hợp mới.**
+
+            Endpoint này sẽ tạo thêm 1 round-trip HTTP không cần thiết.
+            - Dùng `POST /placement-test/start` → đã trả luôn `firstQuestion`
+            - Dùng `POST /placement-test/submit-answer` → đã trả luôn `nextQuestion` trong cùng response
+
+            Thiết kế đúng: 1 bài 20 câu chỉ cần **22 requests** (1 start + 20 submit + 1 result),
+            không phải 40+ requests.
+            """, deprecated = true)
     @GetMapping("/placement-test/next-question")
     public ResponseEntity<ApiResponse<PlacementQuestionResponse>> getNextQuestion(
             Authentication auth,
@@ -84,15 +91,14 @@ public class OnboardingController {
     }
 
     @Operation(summary = "Nộp câu trả lời phát âm (audio)")
-    @PostMapping(value = "/placement-test/pronunciation/submit-answer",
-                 consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/placement-test/pronunciation/submit-answer", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<PronunciationScoreResult>> submitPronunciationAnswer(
             Authentication auth,
-            @RequestParam("sessionId")  Long sessionId,
+            @RequestParam("sessionId") Long sessionId,
             @RequestParam("questionId") Long questionId,
-            @RequestPart("audioFile")   MultipartFile audioFile,
-            @RequestParam("word")       String word,
-            @RequestParam("wordIndex")  int wordIndex) {
+            @RequestPart("audioFile") MultipartFile audioFile,
+            @RequestParam("word") String word,
+            @RequestParam("wordIndex") int wordIndex) {
 
         PronunciationScoreResult result = pronunciationService.submitPronunciation(
                 userId(auth), sessionId, questionId, audioFile, word, wordIndex);
@@ -122,8 +128,7 @@ public class OnboardingController {
                 placementTestService.getResult(userId(auth))));
     }
 
-    // ─── Roadmap ──────────────────────────────────────────────────────────────
-
+    // Roadmap
     @Operation(summary = "Lấy lộ trình học tập")
     @GetMapping("/roadmap")
     public ResponseEntity<ApiResponse<RoadmapResponse>> getRoadmap(Authentication auth) {
@@ -138,8 +143,7 @@ public class OnboardingController {
                 lifecycleService.getRoadmapProgress(userId(auth))));
     }
 
-    // ─── Settings ─────────────────────────────────────────────────────────────
-
+    // Settings
     @Operation(summary = "Lưu cài đặt cá nhân hóa")
     @PostMapping("/settings")
     public ResponseEntity<ApiResponse<Void>> saveSettings(
@@ -165,12 +169,10 @@ public class OnboardingController {
         return ResponseEntity.ok(ApiResponse.success("Reset onboarding cho userId=" + targetUserId + " thành công."));
     }
 
-    // ─── Helper ───────────────────────────────────────────────────────────────
-
+    // Helper
     private Long userId(Authentication auth) {
         Jwt jwt = (Jwt) auth.getPrincipal();
         Number id = jwt.getClaim("userId");
         return id != null ? id.longValue() : null;
     }
 }
-

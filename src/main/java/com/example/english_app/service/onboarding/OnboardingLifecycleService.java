@@ -72,15 +72,20 @@ public class OnboardingLifecycleService {
 
     /**
      * Tính toán và trả về trạng thái onboarding hiện tại của user.
-     * Read-only — không có side effect.
+     *
+     * <p><b>PERF:</b> Dùng {@code findByStudentIdWithUser} (JOIN FETCH) để load
+     * {@code StudentOnboarding} và {@code User} trong 1 query thay vì 2 query riêng.
+     * Endpoint này được gọi khi app khởi động/login nên cần cực kỳ nhẹ.
      */
     @Transactional(readOnly = true)
     public OnboardingStatusResponse getStatus(Long userId) {
-        User user = findUser(userId);
+        // Happy path (phổ biến): user đã bắt đầu onboarding → 1 query lấy cả 2
+        Optional<StudentOnboarding> opt = onboardingRepository.findByStudentIdWithUser(userId);
 
-        Optional<StudentOnboarding> opt = onboardingRepository.findByStudentId(userId);
         if (opt.isEmpty()) {
-            // Chưa bắt đầu onboarding — bước đầu tiên là Goal Survey
+            // Lần đầu dùng app – chưa có StudentOnboarding record
+            // Cần query User riêng để lấy fullName
+            User user = findUser(userId);
             return OnboardingStatusResponse.builder()
                     .goalSurveyCompleted(false)
                     .placementTestCompleted(false)
@@ -95,6 +100,8 @@ public class OnboardingLifecycleService {
         }
 
         StudentOnboarding ob = opt.get();
+        // ob.getStudent() đã được JOIN FETCH → không tốn thêm query
+        String userName     = ob.getStudent().getFullName();
         boolean goalDone      = ob.getGoalSurveyJson() != null;
         boolean placementDone = ob.getPlacementCefrLevel() != null;
         boolean roadmapDone   = ob.getRoadmapJson() != null;
@@ -124,7 +131,7 @@ public class OnboardingLifecycleService {
                 .nextStep(nextStep)
                 .stepNumber(stepNumber)
                 .totalSteps(TOTAL_STEPS)
-                .userName(user.getFullName())
+                .userName(userName)
                 .placementCefrLevel(placementDone ? ob.getPlacementCefrLevel().name() : null)
                 .dailyGoalXp(ob.getDailyGoalXp())
                 .roadmapGenerated(roadmapDone)

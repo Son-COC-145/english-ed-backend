@@ -65,7 +65,7 @@ class PlacementTestServiceIntegrationTest {
     @Test
     void completeTest_ShouldNotRollback_WhenRoadmapFails() {
         // Arrange
-        when(sessionRepository.findById(100L)).thenReturn(Optional.of(mockSession));
+        when(sessionRepository.findByIdWithStudent(100L)).thenReturn(Optional.of(mockSession));
         when(answerRepository.findBySessionIdOrderByAnsweredAtAsc(100L)).thenReturn(Collections.emptyList());
         when(onboardingRepository.findByStudentId(1L)).thenReturn(Optional.of(mockOnboarding));
         when(resultFactory.calculateAllSkills(any())).thenReturn(
