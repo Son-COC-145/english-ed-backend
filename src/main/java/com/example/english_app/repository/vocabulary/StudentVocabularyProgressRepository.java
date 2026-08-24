@@ -26,6 +26,7 @@ public interface StudentVocabularyProgressRepository extends JpaRepository<Stude
     @Query(value = "SELECT v FROM StudentVocabularyProgress p " +
            "JOIN p.vocabulary v " +
            "LEFT JOIN FETCH v.topic t " +
+           "LEFT JOIN FETCH v.createdBy c " +
            "WHERE p.student.id = :studentId " +
            "AND p.nextReviewAt <= :now ",
            countQuery = "SELECT COUNT(p) FROM StudentVocabularyProgress p WHERE p.student.id = :studentId AND p.nextReviewAt <= :now")

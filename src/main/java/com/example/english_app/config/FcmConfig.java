@@ -29,27 +29,27 @@ public class FcmConfig {
 
     @Bean
     public FirebaseApp firebaseApp() throws IOException {
-        /* 
-        CẤU HÌNH ĐỂ CHẠY LOCAL (Sử dụng file trong thư mục resources) 
-        Khi test dưới local, bạn hãy uncomment đoạn này và comment đoạn Render bên dưới
-        log.info("Initializing Firebase Application from classpath: {}", firebaseConfigPath);
-        ClassPathResource resource = new ClassPathResource(firebaseConfigPath);
-        try (InputStream serviceAccount = resource.getInputStream()) {
-            FirebaseOptions options = FirebaseOptions.builder()
-                .setCredentials(GoogleCredentials.fromStream(serviceAccount)).build();
+        InputStream serviceAccount = null;
+        java.io.File envFile = new java.io.File(firebaseConfigPathEnv);
 
-            if (FirebaseApp.getApps().isEmpty()) {
-                return FirebaseApp.initializeApp(options);
+        if (envFile.exists() && !envFile.isDirectory()) {
+            // Chạy trên Render
+            log.info("Initializing Firebase from absolute path: {}", firebaseConfigPathEnv);
+            serviceAccount = new java.io.FileInputStream(envFile);
+        } else {
+            // Chạy dưới Local
+            log.info("Initializing Firebase from classpath: {}", firebaseConfigPath);
+            ClassPathResource resource = new ClassPathResource(firebaseConfigPath);
+            if (resource.exists()) {
+                serviceAccount = resource.getInputStream();
+            } else {
+                throw new java.io.FileNotFoundException("Firebase config file not found at " + firebaseConfigPathEnv + " or classpath:" + firebaseConfigPath);
             }
-            return FirebaseApp.getInstance();
         }
-        */
 
-        // --- CẤU HÌNH ĐỂ DEPLOY LÊN RENDER (Sử dụng đường dẫn tuyệt đối) ---
-        log.info("Initializing Firebase Application from absolute path: {}", firebaseConfigPathEnv);
-        try (InputStream serviceAccount = new java.io.FileInputStream(firebaseConfigPathEnv)) {
+        try (InputStream is = serviceAccount) {
             FirebaseOptions options = FirebaseOptions.builder()
-                .setCredentials(GoogleCredentials.fromStream(serviceAccount)).build();
+                .setCredentials(GoogleCredentials.fromStream(is)).build();
 
             if (FirebaseApp.getApps().isEmpty()) {
                 return FirebaseApp.initializeApp(options);

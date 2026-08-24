@@ -4,6 +4,7 @@ import com.example.english_app.entity.enums.CefrLevel;
 import com.example.english_app.entity.enums.VocabularyStatus;
 import com.example.english_app.entity.vocabulary.Vocabulary;
 import org.springframework.data.domain.Page;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,6 +14,7 @@ import org.springframework.data.domain.Pageable;
 public interface VocabularyRepository extends JpaRepository<Vocabulary, Long> {
     boolean existsByWord(String word);
 
+    @EntityGraph(attributePaths = {"topic", "createdBy"})
     @Query("SELECT v FROM Vocabulary v WHERE " +
         "(:topicId IS NULL OR v.topic.id = :topicId) AND " +
         "(:createdById IS NULL OR v.createdBy.id = :createdById) AND " + 

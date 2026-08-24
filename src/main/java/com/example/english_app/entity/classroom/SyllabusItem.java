@@ -6,6 +6,8 @@ import lombok.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+
+import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.UpdateTimestamp;
 import com.example.english_app.entity.vocabulary.Topic;
 
@@ -48,6 +50,7 @@ public class SyllabusItem {
         joinColumns = @JoinColumn(name = "syllabus_item_id"),
         inverseJoinColumns = @JoinColumn(name = "topic_id")
     )
+    @BatchSize(size = 20)
     private List<Topic> topics;
 
     @Column(name = "sort_order", nullable = false)
