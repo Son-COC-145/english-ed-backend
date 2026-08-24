@@ -118,6 +118,11 @@
             <groupId>com.azure</groupId>
             <artifactId>azure-storage-blob</artifactId>
             <version>12.29.0</version>
+		<!-- Firebase Admin SDK for Push Notifications -->
+        <dependency>
+            <groupId>com.google.firebase</groupId>
+            <artifactId>firebase-admin</artifactId>
+            <version>9.2.0</version>
         </dependency>
 
 		<dependency>

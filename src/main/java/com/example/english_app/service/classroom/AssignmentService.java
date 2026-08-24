@@ -18,7 +18,10 @@ import com.example.english_app.exception.ErrorCode;
 import com.example.english_app.mapper.ClassroomMapper;
 import com.example.english_app.repository.classroom.AssignmentRepository;
 import com.example.english_app.repository.classroom.CourseRepository;
+import com.example.english_app.repository.classroom.CourseStudentRepository;
 import com.example.english_app.repository.user.UserRepository;
+import com.example.english_app.service.notification.NotificationService;
+import com.example.english_app.entity.classroom.CourseStudent;
 
 import lombok.RequiredArgsConstructor;
 
@@ -29,6 +32,8 @@ public class AssignmentService {
     private final CourseRepository courseRepository;
     private final UserRepository userRepository;
     private final ClassroomMapper classroomMapper;
+    private final CourseStudentRepository courseStudentRepository;
+    private final NotificationService notificationService;
 
     @Transactional
     public AssignmentResponse createAssignment(Long teacherId, Long courseId, AssignmentRequest request) {
@@ -48,7 +53,17 @@ public class AssignmentService {
                 .deadlineAt(request.getDeadlineAt())
                 .build();
 
-        return classroomMapper.toAssignmentResponse(assignmentRepository.save(assignment));
+        Assignment savedAssignment = assignmentRepository.save(assignment);
+
+        List<CourseStudent> students = courseStudentRepository.findByCourseId(courseId);
+        for (CourseStudent cs : students) {
+             notificationService.sendToUser(cs.getStudent().getId(), 
+                "Bài tập mới", 
+                "Giáo viên vừa giao bài tập: " + savedAssignment.getTitle(), 
+                "ASSIGNMENT");
+        }
+
+        return classroomMapper.toAssignmentResponse(savedAssignment);
     }
 
     public PageResponse<AssignmentResponse> getAssignmentsByCourse(Long courseId, String keyword, Pageable pageable) {

@@ -76,10 +76,4 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("Đăng xuất thành công"));
     }
 
-    @Operation(summary = "Lấy thông tin tài khoản hiện tại")
-    @PreAuthorize("isAuthenticated()")
-    @GetMapping("/me")
-    public ResponseEntity<ApiResponse<UserResponse>> getCurrentUser(Authentication authentication) {
-        return ResponseEntity.ok(ApiResponse.success(authService.getCurrentUser(authentication.getName())));
-    }
 }

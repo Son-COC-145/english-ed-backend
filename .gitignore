@@ -55,4 +55,8 @@ application.properties
 application-*.properties
 
 ### Documentation ###
-docs/
+docs-local/
+
+
+###Firebase###
+firebase-adminsdk.json

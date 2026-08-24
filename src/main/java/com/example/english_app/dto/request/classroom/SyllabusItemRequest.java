@@ -8,6 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Data
 @Builder
@@ -30,4 +31,6 @@ public class SyllabusItemRequest {
 
     @Builder.Default
     private Short sortOrder = 0;
+
+    private List<Short> topicIds;
 }

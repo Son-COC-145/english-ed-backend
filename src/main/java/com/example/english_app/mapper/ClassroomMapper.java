@@ -5,6 +5,9 @@ import com.example.english_app.dto.response.UserResponse;
 import com.example.english_app.dto.response.classroom.*;
 import com.example.english_app.entity.classroom.*;
 import org.springframework.stereotype.Component;
+import java.util.stream.Collectors;
+import com.example.english_app.dto.response.TopicResponse;
+import com.example.english_app.entity.vocabulary.Topic;
 
 @Component
 public class ClassroomMapper {
@@ -103,7 +106,19 @@ public class ClassroomMapper {
                 .scheduledDate(entity.getScheduledDate())
                 .materialId(entity.getMaterial() != null ? entity.getMaterial().getId() : null)
                 .sortOrder(entity.getSortOrder())
+                .topics(entity.getTopics() != null ? entity.getTopics().stream().map(this::toTopicResponse).collect(Collectors.toList()) : null)
                 .updatedAt(entity.getUpdatedAt())
+                .build();
+    }
+
+    private TopicResponse toTopicResponse(Topic topic) {
+        if (topic == null) return null;
+        return TopicResponse.builder()
+                .id(topic.getId())
+                .nameEn(topic.getNameEn())
+                .nameVi(topic.getNameVi())
+                .iconUrl(topic.getIconUrl())
+                .isActive(topic.getIsActive())
                 .build();
     }
 
