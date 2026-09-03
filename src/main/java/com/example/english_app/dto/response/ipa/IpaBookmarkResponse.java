@@ -1,5 +1,6 @@
 package com.example.english_app.dto.response.ipa;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -19,5 +20,12 @@ public class IpaBookmarkResponse implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private Short phonemeId;
+
+    /**
+     * @JsonProperty bắt buộc: Lombok @Data sinh getter isBookmarked() → Jackson
+     * bỏ prefix "is" → serialize thành "bookmarked". Annotation này giữ đúng key
+     * "isBookmarked" trong JSON để FE khớp với contract đã thoả thuận.
+     */
+    @JsonProperty("isBookmarked")
     private boolean isBookmarked;
 }
