@@ -108,9 +108,16 @@ public class IpaPronunciationServiceImpl implements IpaPronunciationService {
                 new PronunciationCompletedEvent(studentId, xp, savedLog.getId())
         );
 
-        // 10. Build và trả về Response
+        // 10. Build và trả về Response (kèm stable IDs phục vụ đối chiếu mobile và logging)
+        Short phonemeId = exampleWord.getPhoneme() != null ? exampleWord.getPhoneme().getId() : null;
+        String scoreLevel = azureResult.getScoreLevel() != null ? azureResult.getScoreLevel() : "GOOD";
+
         return new PronunciationResultResponse(
+                savedLog.getId(),
+                exampleWord.getId(),
+                phonemeId,
                 azureResult.getOverallScore(),
+                scoreLevel,
                 azureResult.getFluencyScore(),
                 azureResult.getCompletenessScore(),
                 stressCorrect,

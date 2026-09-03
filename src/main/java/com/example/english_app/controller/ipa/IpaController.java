@@ -37,13 +37,33 @@ public class IpaController {
             @RequestParam String text,
             @RequestParam(defaultValue = "WORD") String type,
             @RequestParam(defaultValue = "MALE") String voice) {
+
+        if (text == null || text.trim().isEmpty()) {
+            throw new com.example.english_app.exception.AppException(
+                    com.example.english_app.exception.ErrorCode.INVALID_REQUEST, "text không được để trống");
+        }
+        if (text.length() > 150) {
+            throw new com.example.english_app.exception.AppException(
+                    com.example.english_app.exception.ErrorCode.INVALID_REQUEST, "text không được vượt quá 150 ký tự");
+        }
+
+        if (!"WORD".equalsIgnoreCase(type) && !"PHONEME".equalsIgnoreCase(type)) {
+            throw new com.example.english_app.exception.AppException(
+                    com.example.english_app.exception.ErrorCode.INVALID_REQUEST, "type phải là 'WORD' hoặc 'PHONEME'");
+        }
+
+        if (!"MALE".equalsIgnoreCase(voice) && !"FEMALE".equalsIgnoreCase(voice)) {
+            throw new com.example.english_app.exception.AppException(
+                    com.example.english_app.exception.ErrorCode.INVALID_REQUEST, "voice phải là 'MALE' hoặc 'FEMALE'");
+        }
+
         String voiceName = "FEMALE".equalsIgnoreCase(voice) 
                 ? com.example.english_app.service.audio.AzureTtsService.VOICE_FEMALE_US 
                 : com.example.english_app.service.audio.AzureTtsService.VOICE_MALE_US;
         
         byte[] audioBytes = "PHONEME".equalsIgnoreCase(type)
-                ? azureTtsService.synthesizePhoneme(text, voiceName)
-                : azureTtsService.synthesizeWord(text, voiceName);
+                ? azureTtsService.synthesizePhoneme(text.trim(), voiceName)
+                : azureTtsService.synthesizeWord(text.trim(), voiceName);
         
         return ResponseEntity.ok()
                 .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, "audio/mpeg")
@@ -89,10 +109,13 @@ public class IpaController {
         return ResponseEntity.ok(ApiResponse.success(ipaService.getPronunciationRuleDetail(id)));
     }
 
-    @Operation(summary = "Lấy chi tiết 1 âm IPA (kèm video khẩu hình, gợi ý sửa lỗi & từ ví dụ)")
+    @Operation(summary = "Lấy chi tiết 1 âm IPA (kèm video khẩu hình, gợi ý sửa lỗi, từ ví dụ & trạng thái bookmark)")
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<IpaPhonemeDetailResponse>> getPhonemeDetail(@PathVariable Short id) {
-        IpaPhonemeDetailResponse data = ipaService.getPhonemeDetail(id);
+    public ResponseEntity<ApiResponse<IpaPhonemeDetailResponse>> getPhonemeDetail(
+            @PathVariable Short id,
+            Authentication authentication) {
+        Long userId = extractUserId(authentication);
+        IpaPhonemeDetailResponse data = ipaService.getPhonemeDetail(userId, id);
         return ResponseEntity.ok(ApiResponse.success(data));
     }
 
@@ -105,13 +128,13 @@ public class IpaController {
         return ResponseEntity.ok(ApiResponse.success(ipaService.getPracticeHistory(userId, id)));
     }
 
-    @Operation(summary = "Lưu / Bỏ lưu âm IPA (Bookmark toggle)")
+    @Operation(summary = "Lưu / Bỏ lưu âm IPA (Bookmark toggle) — trả về typed response")
     @PostMapping("/{id}/bookmark")
-    public ResponseEntity<ApiResponse<Map<String, Boolean>>> toggleBookmark(
+    public ResponseEntity<ApiResponse<com.example.english_app.dto.response.ipa.IpaBookmarkResponse>> toggleBookmark(
             @PathVariable Short id,
             Authentication authentication) {
         Long userId = extractUserId(authentication);
-        Map<String, Boolean> data = ipaService.toggleBookmark(userId, id);
+        com.example.english_app.dto.response.ipa.IpaBookmarkResponse data = ipaService.toggleBookmark(userId, id);
         return ResponseEntity.ok(ApiResponse.success(data));
     }
 

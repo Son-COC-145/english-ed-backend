@@ -53,6 +53,10 @@ public class StudentOnboarding {
     @Column(name = "placement_completed_at")
     private LocalDateTime placementCompletedAt;
 
+    @Column(name = "is_placement_skipped", nullable = false)
+    @Builder.Default
+    private Boolean isPlacementSkipped = false;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "roadmap_json", columnDefinition = "jsonb")
     private String roadmapJson;

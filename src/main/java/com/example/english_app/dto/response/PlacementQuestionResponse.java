@@ -21,21 +21,40 @@ import java.util.Map;
 public class PlacementQuestionResponse {
 
     private Long sessionId;
+    private Long submittedQuestionId;
+
+    /**
+     * Trạng thái session: "IN_PROGRESS" hoặc "COMPLETED"
+     */
+    @Builder.Default
+    private String sessionStatus = "IN_PROGRESS";
+
+    /**
+     * Thông tin câu hỏi tiếp theo (Flattened properties)
+     */
     private Long questionId;
     private int questionIndex;
     private int totalQuestions;
-
     private String cefrLevel;
     private String skill;
     private String questionType;
     private Integer timeoutSeconds;
-
     private Map<String, Object> content;
+
+    /**
+     * Object lồng nextQuestion (Nested properties) theo đúng hợp đồng đề xuất của FE:
+     * { "submittedQuestionId": 6, "sessionStatus": "IN_PROGRESS", "nextQuestion": { ... } }
+     */
+    private Map<String, Object> nextQuestion;
 
     // ─── Completion signal ─────────────────────────────────────────────────────
     /** true khi bài thi vừa hoàn tất trong lần submit này. */
     @Builder.Default
     private boolean isTestCompleted = false;
+
+    public boolean isCompleted() {
+        return isTestCompleted;
+    }
 
     /** Điền sẵn kết quả khi isTestCompleted=true, null nếu còn tiếp tục làm. */
     private PlacementResultResponse placementResult;
@@ -45,3 +64,4 @@ public class PlacementQuestionResponse {
     private String previousCorrectAnswer;
     private String previousExplanation;
 }
+

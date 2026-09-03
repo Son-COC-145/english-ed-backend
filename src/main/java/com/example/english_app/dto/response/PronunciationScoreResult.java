@@ -43,6 +43,12 @@ public class PronunciationScoreResult {
     private String scoreColor;
 
     /**
+     * Cấp độ đánh giá ngữ nghĩa (Section 4.9 FE report):
+     * EXCELLENT (≥80) | GOOD (60-79) | NEEDS_PRACTICE (<60) | NONE
+     */
+    private String scoreLevel;
+
+    /**
      * Trạng thái đánh giá: "SCORED" hoặc "UNAVAILABLE".
      */
     private String status;
