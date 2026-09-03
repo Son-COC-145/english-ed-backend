@@ -73,24 +73,51 @@ public class OnboardingLifecycleService {
     /**
      * Tính toán và trả về trạng thái onboarding hiện tại của user.
      *
-     * <p><b>PERF:</b> Dùng {@code findByStudentIdWithUser} (JOIN FETCH) để load
-     * {@code StudentOnboarding} và {@code User} trong 1 query thay vì 2 query riêng.
-     * Endpoint này được gọi khi app khởi động/login nên cần cực kỳ nhẹ.
+     * <p><b>Invariant (FE contract 3.1 & 3.2):</b>
+     * <ul>
+     *   <li>Placement chưa xong (NOT_STARTED / IN_PROGRESS) → nextStep = PLACEMENT_TEST
+     *   <li>Placement đã xong, Goal chưa xong             → nextStep = GOAL_SURVEY
+     *   <li>Placement & Goal đã xong, Settings chưa xong   → nextStep = SETTINGS
+     *   <li>Placement & Goal & Settings xong, chưa complete → nextStep = COMPLETE (KHÔNG BAO GIỜ là SETTINGS)
+     *   <li>Onboarding completed                           → nextStep = COMPLETED (Terminal)
+     * </ul>
      */
     @Transactional(readOnly = true)
     public OnboardingStatusResponse getStatus(Long userId) {
-        // Happy path (phổ biến): user đã bắt đầu onboarding → 1 query lấy cả 2
         Optional<StudentOnboarding> opt = onboardingRepository.findByStudentIdWithUser(userId);
 
         if (opt.isEmpty()) {
-            // Lần đầu dùng app – chưa có StudentOnboarding record
-            // Cần query User riêng để lấy fullName
             User user = findUser(userId);
+            String placementStatus = "NOT_STARTED";
+            Long activeSessionId = null;
+
+            var activeSessionOpt = sessionRepository
+                    .findTopByStudentIdAndIsCompletedFalseOrderByStartedAtDesc(userId);
+            if (activeSessionOpt.isPresent() && !activeSessionOpt.get().isExpired()) {
+                placementStatus = "IN_PROGRESS";
+                activeSessionId = activeSessionOpt.get().getId();
+                return OnboardingStatusResponse.builder()
+                        .goalSurveyCompleted(false)
+                        .placementTestCompleted(false)
+                        .settingsCompleted(false)
+                        .onboardingCompleted(false)
+                        .placementTestStatus("IN_PROGRESS")
+                        .activePlacementSessionId(activeSessionId)
+                        .nextStep("PLACEMENT_TEST")
+                        .stepNumber(STEP_PLACEMENT_TEST)
+                        .totalSteps(TOTAL_STEPS)
+                        .userName(user.getFullName())
+                        .roadmapGenerated(false)
+                        .build();
+            }
+
             return OnboardingStatusResponse.builder()
                     .goalSurveyCompleted(false)
                     .placementTestCompleted(false)
                     .settingsCompleted(false)
                     .onboardingCompleted(false)
+                    .placementTestStatus("NOT_STARTED")
+                    .activePlacementSessionId(null)
                     .nextStep("GOAL_SURVEY")
                     .stepNumber(STEP_GOAL_SURVEY)
                     .totalSteps(TOTAL_STEPS)
@@ -100,34 +127,67 @@ public class OnboardingLifecycleService {
         }
 
         StudentOnboarding ob = opt.get();
-        // ob.getStudent() đã được JOIN FETCH → không tốn thêm query
-        String userName     = ob.getStudent().getFullName();
+        String userName       = ob.getStudent().getFullName();
         boolean goalDone      = ob.getGoalSurveyJson() != null;
         boolean placementDone = ob.getPlacementCefrLevel() != null;
         boolean roadmapDone   = ob.getRoadmapJson() != null;
         boolean settingsDone  = ob.getDailyGoalXp() != null && ob.getDailyGoalXp() > 0;
+        boolean isCompleted   = Boolean.TRUE.equals(ob.getOnboardingCompleted());
 
-        // Xác định bước tiếp theo theo thứ tự tuyến tính
+        // 1. Phân loại trạng thái Placement Test rõ ràng (Section 3.2)
+        String placementStatus = "NOT_STARTED";
+        Long activeSessionId = null;
+
+        if (placementDone) {
+            if (Boolean.TRUE.equals(ob.getIsPlacementSkipped())) {
+                placementStatus = "SKIPPED";
+            } else {
+                placementStatus = "COMPLETED";
+            }
+        } else {
+            var activeSessionOpt = sessionRepository
+                    .findTopByStudentIdAndIsCompletedFalseOrderByStartedAtDesc(userId);
+            if (activeSessionOpt.isPresent()) {
+                var s = activeSessionOpt.get();
+                if (!s.isExpired()) {
+                    placementStatus = "IN_PROGRESS";
+                    activeSessionId = s.getId();
+                }
+            }
+        }
+
+        // 2. Xác định nextStep tuân thủ tuyệt đối bảng Invariant (Section 3.1 & 3.2)
         String nextStep;
         int stepNumber;
-        if (!goalDone) {
-            nextStep   = "GOAL_SURVEY";    stepNumber = STEP_GOAL_SURVEY;
+
+        if ("IN_PROGRESS".equals(placementStatus)) {
+            nextStep = "PLACEMENT_TEST";
+            stepNumber = STEP_PLACEMENT_TEST;
+        } else if (!goalDone) {
+            nextStep = "GOAL_SURVEY";
+            stepNumber = STEP_GOAL_SURVEY;
         } else if (!placementDone) {
-            nextStep   = "PLACEMENT_TEST"; stepNumber = STEP_PLACEMENT_TEST;
-        } else if (!roadmapDone) {
-            // Roadmap đang được sinh hoặc chưa sẵn — giữ user ở bước xem roadmap
-            nextStep   = "ROADMAP_VIEW";   stepNumber = STEP_ROADMAP_VIEW;
-        } else if (!settingsDone || !ob.getOnboardingCompleted()) {
-            nextStep   = "SETTINGS";       stepNumber = STEP_SETTINGS;
+            nextStep = "PLACEMENT_TEST";
+            stepNumber = STEP_PLACEMENT_TEST;
+        } else if (!settingsDone) {
+            nextStep = "SETTINGS";
+            stepNumber = STEP_SETTINGS;
+        } else if (!isCompleted) {
+            // ĐÃ XONG CẢ 3 BƯỚC NHƯNG CHƯA BẤM COMPLETE -> BƯỚC TIẾP LÀ COMPLETE (KHÔNG BAO GIỜ LÀ SETTINGS)
+            nextStep = "COMPLETE";
+            stepNumber = 4;
         } else {
-            nextStep   = "COMPLETED";      stepNumber = STEP_COMPLETED;
+            nextStep = "COMPLETED";
+            stepNumber = STEP_COMPLETED;
         }
 
         return OnboardingStatusResponse.builder()
                 .goalSurveyCompleted(goalDone)
                 .placementTestCompleted(placementDone)
                 .settingsCompleted(settingsDone)
-                .onboardingCompleted(ob.getOnboardingCompleted())
+                .onboardingCompleted(isCompleted)
+                .placementTestStatus(placementStatus)
+                .activePlacementSessionId(activeSessionId)
                 .nextStep(nextStep)
                 .stepNumber(stepNumber)
                 .totalSteps(TOTAL_STEPS)

@@ -33,9 +33,12 @@ public enum ErrorCode {
     PLACEMENT_TEST_NOT_FOUND(5003, "Không tìm thấy bài kiểm tra phân loại", HttpStatus.NOT_FOUND),
     PLACEMENT_TEST_EXPIRED(5004, "Bài kiểm tra đã hết hạn", HttpStatus.BAD_REQUEST),
     ANSWER_ALREADY_SUBMITTED(5005, "Câu hỏi này đã được trả lời trong phiên làm bài hiện tại", HttpStatus.CONFLICT),
-    AUDIO_PROCESSING_FAILED(5010, "Không thể xử lý audio", HttpStatus.BAD_REQUEST),
-    PRONUNCIATION_UNAVAILABLE(5011, "Dịch vụ chấm phát âm tạm thời không khả dụng", HttpStatus.SERVICE_UNAVAILABLE),
-    ROADMAP_NOT_GENERATED(5012, "Lộ trình chưa được tạo. Vui lòng hoàn thành bài kiểm tra phân loại trước.", HttpStatus.NOT_FOUND),
+    AUDIO_PROCESSING_FAILED(5009, "Không thể xử lý audio", HttpStatus.BAD_REQUEST),
+    UNSUPPORTED_AUDIO_FORMAT(5010, "Định dạng audio không được hỗ trợ. Vui lòng sử dụng WAV, WebM hoặc OGG", HttpStatus.UNSUPPORTED_MEDIA_TYPE),
+    AUDIO_PAYLOAD_TOO_LARGE(5011, "Kích thước file audio vượt quá giới hạn cho phép (tối đa 5MB)", HttpStatus.PAYLOAD_TOO_LARGE),
+    AUDIO_EMPTY_OR_CORRUPT(5012, "File audio rỗng hoặc không thể xử lý", HttpStatus.BAD_REQUEST),
+    PRONUNCIATION_UNAVAILABLE(5013, "Dịch vụ chấm phát âm tạm thời không khả dụng", HttpStatus.SERVICE_UNAVAILABLE),
+    ROADMAP_NOT_GENERATED(5014, "Lộ trình chưa được tạo. Vui lòng hoàn thành bài kiểm tra phân loại trước.", HttpStatus.NOT_FOUND),
 
     // AI Quota
     QUOTA_EXCEEDED(6001, "Bạn đã hết lượt sử dụng AI hôm nay. Vui lòng nâng cấp gói Premium!", HttpStatus.FORBIDDEN),

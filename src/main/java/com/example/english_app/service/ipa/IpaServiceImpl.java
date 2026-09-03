@@ -72,12 +72,23 @@ public class IpaServiceImpl implements IpaService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public IpaPhonemeDetailResponse getPhonemeDetail(Long userId, Short id) {
+        IpaPhonemeDetailResponse base = getPhonemeDetail(id);
+        if (userId == null) {
+            return base;
+        }
+        boolean isBookmarked = bookmarkRepository.existsById(new StudentPhonemeBookmarkId(userId, id));
+        return base.withBookmark(isBookmarked);
+    }
+
+    @Override
     @Transactional
-    public Map<String, Boolean> toggleBookmark(Long userId, Short phonemeId) {
+    public com.example.english_app.dto.response.ipa.IpaBookmarkResponse toggleBookmark(Long userId, Short phonemeId) {
         var id = new StudentPhonemeBookmarkId(userId, phonemeId);
         if (bookmarkRepository.existsById(id)) {
             bookmarkRepository.deleteById(id);
-            return Map.of("isBookmarked", false);
+            return new com.example.english_app.dto.response.ipa.IpaBookmarkResponse(phonemeId, false);
         } else {
             var bookmark = StudentPhonemeBookmark.builder()
                     .id(id)
@@ -85,7 +96,7 @@ public class IpaServiceImpl implements IpaService {
                     .phoneme(ipaPhonemeRepository.getReferenceById(phonemeId))
                     .build();
             bookmarkRepository.save(bookmark);
-            return Map.of("isBookmarked", true);
+            return new com.example.english_app.dto.response.ipa.IpaBookmarkResponse(phonemeId, true);
         }
     }
 
@@ -270,7 +281,8 @@ public class IpaServiceImpl implements IpaService {
         return new IpaPhonemeDetailResponse(
                 p.getId(), p.getSymbol(), p.getPhonemeType(), p.getNameVi(),
                 p.getAudioMaleUrl(), p.getAudioFemaleUrl(), p.getVideoMouthUrl(),
-                p.getIsCommonVnError(), p.getPronunciationTipVi(), p.getCefrIntroLevel(), words
+                p.getIsCommonVnError(), p.getPronunciationTipVi(), p.getCefrIntroLevel(), words,
+                null
         );
     }
 

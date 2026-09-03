@@ -125,9 +125,10 @@ class IpaServiceImplTest {
         given(userRepository.getReferenceById(1L)).willReturn(null);
         given(phonemeRepository.getReferenceById((short) 1)).willReturn(mockPhoneme);
 
-        Map<String, Boolean> result = ipaService.toggleBookmark(1L, (short) 1);
+        com.example.english_app.dto.response.ipa.IpaBookmarkResponse result = ipaService.toggleBookmark(1L, (short) 1);
 
-        assertThat(result.get("isBookmarked")).isTrue();
+        assertThat(result.isBookmarked()).isTrue();
+        assertThat(result.getPhonemeId()).isEqualTo((short) 1);
         verify(bookmarkRepository, never()).deleteById(any());
     }
 
@@ -136,9 +137,10 @@ class IpaServiceImplTest {
     void toggleBookmark_exists_removesAndReturnsFalse() {
         given(bookmarkRepository.existsById(any(StudentPhonemeBookmarkId.class))).willReturn(true);
 
-        Map<String, Boolean> result = ipaService.toggleBookmark(1L, (short) 1);
+        com.example.english_app.dto.response.ipa.IpaBookmarkResponse result = ipaService.toggleBookmark(1L, (short) 1);
 
-        assertThat(result.get("isBookmarked")).isFalse();
+        assertThat(result.isBookmarked()).isFalse();
+        assertThat(result.getPhonemeId()).isEqualTo((short) 1);
         verify(bookmarkRepository).deleteById(any(StudentPhonemeBookmarkId.class));
     }
 }

@@ -35,38 +35,22 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class PronunciationService {
 
-    private static final int PASSING_SCORE = 60; // Điểm tối thiểu để tính isCorrect = true
+    private static final int PASSING_SCORE = 60;
 
     private final AudioAssessmentPort audioAssessmentPort;
     private final PlacementTestSessionRepository sessionRepository;
     private final PlacementTestAnswerRepository answerRepository;
     private final QuestionRepository questionRepository;
+    private final PlacementTestService placementTestService;
 
     // ─── Public API ───────────────────────────────────────────────────────────
 
     /**
-     * Entry point từ controller: nhận audio, đánh giá phát âm, ghi kết quả vào DB.
-     *
-     * <p>Flow:
-     * <ol>
-     *   <li>Validate session (ownership + trạng thái + timeout).
-     *   <li>Đọc audio bytes từ MultipartFile.
-     *   <li>Gọi {@link AudioAssessmentPort#assess} (có fallback nội bộ).
-     *   <li>Lưu {@link PlacementTestAnswer} với skill = PRONUNCIATION.
-     *   <li>Cập nhật lastActivityAt.
-     *   <li>Trả về kết quả cho controller.
-     * </ol>
-     *
-     * @param userId    ID user lấy từ JWT.
-     * @param sessionId ID session đang làm bài.
-     * @param questionId ID câu hỏi đang làm
-     * @param audioFile File audio từ multipart/form-data.
-     * @param word      Từ tham chiếu cần phát âm.
-     * @param wordIndex Vị trí của từ trong bộ câu hỏi phát âm (dùng để log).
-     * @return Kết quả đánh giá phát âm.
+     * Entry point đầy đủ (P0 Section 3.5): Nhận audio, đánh giá phát âm, lưu DB,
+     * cập nhật CAT state và trả về CẢ điểm số VÀ câu tiếp theo / kết quả hoàn tất.
      */
     @Transactional
-    public PronunciationScoreResult submitPronunciation(
+    public com.example.english_app.dto.response.PlacementPronunciationAnswerResponse submitPronunciationWithProgression(
             Long userId,
             Long sessionId,
             Long questionId,
@@ -84,20 +68,70 @@ public class PronunciationService {
         // 2. Đọc audio bytes
         byte[] audioBytes = readAudioBytes(audioFile);
 
-        // 3. Gọi Azure (fallback nội bộ trong AudioAssessmentPort — không bao giờ throw)
+        // 3. Gọi Azure
         PronunciationScoreResult result = audioAssessmentPort.assess(audioBytes, word);
 
         log.info("Pronunciation assessed: userId={}, sessionId={}, word='{}', wordIndex={}, status={}, score={}",
                 userId, sessionId, word, wordIndex, result.getStatus(), result.getOverallScore());
 
         // 4. Ghi kết quả vào PlacementTestAnswer
+        boolean isCorrect = result.getOverallScore() != null && result.getOverallScore() >= PASSING_SCORE;
         recordPronunciationAnswer(session, question, word, result);
 
-        // 5. Cập nhật lastActivityAt
+        // 5. Cập nhật lastActivityAt & counter & CAT state
         session.setLastActivityAt(LocalDateTime.now());
+        session.setCurrentQuestionIndex(session.getCurrentQuestionIndex() + 1);
+        placementTestService.updateCatState(session, isCorrect);
         sessionRepository.save(session);
 
-        return result;
+        int answeredCount = session.getCurrentQuestionIndex();
+        boolean shouldFinish = answeredCount >= placementTestService.getMaxPlacementQuestions()
+                || (session.getConfidenceScore() != null
+                        && session.getConfidenceScore().doubleValue() >= placementTestService.getConfidenceThreshold());
+
+        if (shouldFinish) {
+            com.example.english_app.dto.response.PlacementResultResponse placementResult =
+                    placementTestService.completeTest(session.getId(), userId);
+            return com.example.english_app.dto.response.PlacementPronunciationAnswerResponse.builder()
+                    .sessionId(session.getId())
+                    .submittedQuestionId(questionId)
+                    .sessionStatus("COMPLETED")
+                    .isTestCompleted(true)
+                    .placementResult(placementResult)
+                    .pronunciationResult(result)
+                    .nextQuestion(null)
+                    .build();
+        }
+
+        com.example.english_app.dto.response.PlacementQuestionResponse nextQuestion =
+                placementTestService.getNextQuestion(session.getId(), userId);
+        nextQuestion.setSubmittedQuestionId(questionId);
+        nextQuestion.setPreviousAnswerCorrect(isCorrect);
+
+        return com.example.english_app.dto.response.PlacementPronunciationAnswerResponse.builder()
+                .sessionId(session.getId())
+                .submittedQuestionId(questionId)
+                .sessionStatus("IN_PROGRESS")
+                .isTestCompleted(false)
+                .pronunciationResult(result)
+                .nextQuestion(nextQuestion)
+                .build();
+    }
+
+    /**
+     * Legacy entry point trả về chỉ PronunciationScoreResult.
+     */
+    @Transactional
+    public PronunciationScoreResult submitPronunciation(
+            Long userId,
+            Long sessionId,
+            Long questionId,
+            MultipartFile audioFile,
+            String word,
+            int wordIndex) {
+
+        return submitPronunciationWithProgression(userId, sessionId, questionId, audioFile, word, wordIndex)
+                .getPronunciationResult();
     }
 
     // ─── Session Validation ───────────────────────────────────────────────────

@@ -113,10 +113,13 @@ public class AzureAudioAnalysisService implements AudioAssessmentPort {
 
     private void validateNotEmpty(byte[] audioBytes, String referenceText) {
         if (audioBytes == null || audioBytes.length < 4) {
-            throw new AppException(ErrorCode.AUDIO_PROCESSING_FAILED);
+            throw new AppException(ErrorCode.AUDIO_EMPTY_OR_CORRUPT);
+        }
+        if (audioBytes.length > 5 * 1024 * 1024) {
+            throw new AppException(ErrorCode.AUDIO_PAYLOAD_TOO_LARGE);
         }
         if (referenceText == null || referenceText.isBlank()) {
-            throw new AppException(ErrorCode.AUDIO_PROCESSING_FAILED);
+            throw new AppException(ErrorCode.INVALID_REQUEST, "referenceText không được để trống");
         }
     }
 
@@ -126,7 +129,7 @@ public class AzureAudioAnalysisService implements AudioAssessmentPort {
      * Nhận diện format audio từ 4 byte đầu tiên (magic bytes).
      * Bảo vệ khỏi tấn công file giả mạo extension.
      *
-     * @throws AppException AUDIO_PROCESSING_FAILED nếu format không được hỗ trợ.
+     * @throws AppException UNSUPPORTED_AUDIO_FORMAT nếu format không được hỗ trợ.
      */
     private AudioFormat detectFormat(byte[] audioBytes) {
         byte[] header = Arrays.copyOf(audioBytes, 4);
@@ -144,7 +147,7 @@ public class AzureAudioAnalysisService implements AudioAssessmentPort {
         log.warn("Unsupported audio format. Magic bytes: {}",
                 String.format("%02X %02X %02X %02X",
                         header[0], header[1], header[2], header[3]));
-        throw new AppException(ErrorCode.AUDIO_PROCESSING_FAILED);
+        throw new AppException(ErrorCode.UNSUPPORTED_AUDIO_FORMAT);
     }
 
     // ─── Azure API call ───────────────────────────────────────────────────────
@@ -284,6 +287,7 @@ public class AzureAudioAnalysisService implements AudioAssessmentPort {
 
             short overallScore = calculateOverallScore(pronScore, accuracyScore, completenessScore);
             String scoreColor  = classifyColor(overallScore);
+            String scoreLevel  = classifyLevel(overallScore);
 
             return PronunciationScoreResult.builder()
                     .word(word)
@@ -292,6 +296,7 @@ public class AzureAudioAnalysisService implements AudioAssessmentPort {
                     .fluencyScore(fluencyScore)
                     .completenessScore(completenessScore)
                     .scoreColor(scoreColor)
+                    .scoreLevel(scoreLevel)
                     .status("SCORED")
                     .build();
 
@@ -324,6 +329,12 @@ public class AzureAudioAnalysisService implements AudioAssessmentPort {
         return "RED";
     }
 
+    private String classifyLevel(short score) {
+        if (score >= COLOR_GREEN_THRESHOLD)  return "EXCELLENT";
+        if (score >= COLOR_YELLOW_THRESHOLD) return "GOOD";
+        return "NEEDS_PRACTICE";
+    }
+
     /** Kết quả fallback khi Azure không khả dụng hoặc timeout. */
     private PronunciationScoreResult buildUnavailableResult(String word) {
         return PronunciationScoreResult.builder()
@@ -333,6 +344,7 @@ public class AzureAudioAnalysisService implements AudioAssessmentPort {
                 .fluencyScore(null)
                 .completenessScore(null)
                 .scoreColor("NONE")
+                .scoreLevel("NONE")
                 .status("UNAVAILABLE")
                 .build();
     }
