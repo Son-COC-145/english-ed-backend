@@ -120,3 +120,11 @@ azure:
   storage:
     connection-string: ${AZURE_STORAGE_CONNECTION_STRING:}
     container-name: ${AZURE_STORAGE_CONTAINER_NAME:english-app-media}
+firebase:
+  config:
+    path: firebase-adminsdk.json
+
+gamification:
+  daily-mission:
+    new-words-limit: 5
+    review-words-limit: 15

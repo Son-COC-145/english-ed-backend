@@ -31,6 +31,15 @@ import com.example.english_app.dto.response.StudentStatResponse;
 import com.example.english_app.dto.response.StudentVocabularyProgressResponse;
 
 import java.util.List;
+import java.util.ArrayList;
+import java.time.temporal.ChronoUnit;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
+import com.example.english_app.dto.response.DailyMissionResponse;
+import com.example.english_app.dto.response.VocabularyResponse;
+import com.example.english_app.entity.classroom.Course;
+import com.example.english_app.repository.classroom.CourseStudentRepository;
+import com.example.english_app.repository.classroom.SyllabusItemRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -42,6 +51,14 @@ public class GameficationService {
     private final StudentVocabularyProgressRepository studentVocabularyProgressRepository;
     private final VocabularyRepository vocabularyRepository;
     private final UserRepository userRepository;
+    private final CourseStudentRepository courseStudentRepository;
+    private final SyllabusItemRepository syllabusItemRepository;
+
+    @Value("${gamification.daily-mission.new-words-limit:5}")
+    private int newWordsLimit;
+
+    @Value("${gamification.daily-mission.review-words-limit:15}")
+    private int reviewWordsLimit;
 
     @Transactional
     public MinigameSubmitResponse procesGameSubmit(MinigameSubmitRequest request) {
@@ -295,6 +312,84 @@ public class GameficationService {
                 .playedAt(r.getPlayedAt())
                 .build();
     }
+
+    public DailyMissionResponse getDailyMission() {
+        User user = getCurrentUser();
+        Long studentId = user.getId();
+
+        // 1. Lấy danh sách ÔN TẬP
+        Pageable reviewPage = PageRequest.of(0, reviewWordsLimit);
+        List<Vocabulary> reviewVocabs = studentVocabularyProgressRepository
+               .findVocabulariesToReview(studentId, LocalDateTime.now(), reviewPage).getContent();
+
+        // 2. Tính toán Tuần học hiện tại để tìm TỪ MỚI
+        List<Course> activeCourses = courseStudentRepository.findActiveCoursesByStudentId(studentId);
+        List<Vocabulary> newVocabs = new ArrayList<>();
+        
+        if (!activeCourses.isEmpty()) {
+            List<Long> courseIds = new ArrayList<>();
+            List<Short> weekNumbers = new ArrayList<>();
+            
+            for (Course c : activeCourses) {
+                if (c.getStartDate() != null) {
+                    long daysBetween = ChronoUnit.DAYS.between(c.getStartDate(), LocalDate.now());
+                    short weekNum = (short) ((Math.max(0, daysBetween) / 7) + 1);
+                    
+                    courseIds.add(c.getId());
+                    weekNumbers.add(weekNum);
+                }
+            }
+
+            if (!courseIds.isEmpty()) {
+                List<Long> topicIds = syllabusItemRepository.findTopicIdsByCoursesAndWeeks(courseIds, weekNumbers);
+
+                if (!topicIds.isEmpty()) {
+                    newVocabs = vocabularyRepository.findRandomNewVocabularies(topicIds, studentId, newWordsLimit);
+                }
+            }
+        }
+
+        return DailyMissionResponse.builder()
+                .reviewWords(reviewVocabs.stream().map(this::mapToVocabularyResponse).toList())
+                .newWords(newVocabs.stream().map(this::mapToVocabularyResponse).toList())
+                .build();
+    }
+
+    private VocabularyResponse mapToVocabularyResponse(Vocabulary v) {
+        VocabularyResponse.TopicBrief topicBrief = null;
+        if (v.getTopic() != null) {
+            topicBrief = VocabularyResponse.TopicBrief.builder()
+                    .id(v.getTopic().getId())
+                    .nameEn(v.getTopic().getNameEn())
+                    .nameVi(v.getTopic().getNameVi())
+                    .build();
+        }
+        VocabularyResponse.UserBrief userBrief = null;
+        if (v.getCreatedBy() != null) {
+            userBrief = VocabularyResponse.UserBrief.builder()
+                    .id(v.getCreatedBy().getId())
+                    .fullName(v.getCreatedBy().getFullName())
+                    .email(v.getCreatedBy().getEmail())
+                    .build();
+        }
+        return VocabularyResponse.builder()
+                .id(v.getId())
+                .topic(topicBrief)
+                .word(v.getWord())
+                .ipaTranscription(v.getIpaTranscription())
+                .cefrLevel(v.getCefrLevel() != null ? v.getCefrLevel().name() : null)
+                .definitionVi(v.getDefinitionVi())
+                .imageUrl(v.getImageUrl())
+                .audioUsUrl(v.getAudioUsUrl())
+                .audioUkUrl(v.getAudioUkUrl())
+                .collocationJson(v.getCollocationJson())
+                .nuanceNote(v.getNuanceNote())
+                .exampleSentencesJson(v.getExampleSentencesJson())
+                .dialogueJson(v.getDialogueJson())
+                .status(v.getStatus() != null ? v.getStatus().name() : null)
+                .createdBy(userBrief)
+                .publishedAt(v.getPublishedAt())
+                .createdAt(v.getCreatedAt())
+                .build();
+    }
 }
-
-

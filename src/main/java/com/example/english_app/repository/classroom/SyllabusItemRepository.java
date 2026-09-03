@@ -4,6 +4,7 @@ import com.example.english_app.entity.classroom.SyllabusItem;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,6 +14,7 @@ import java.util.List;
 
 @Repository
 public interface SyllabusItemRepository extends JpaRepository<SyllabusItem, Long> {
+    @EntityGraph(attributePaths = {"topics"})
     List<SyllabusItem> findAllByCourseId(Long courseId);
 
     @Query("SELECT s FROM SyllabusItem s WHERE s.course.id = :courseId " +
@@ -23,4 +25,10 @@ public interface SyllabusItemRepository extends JpaRepository<SyllabusItem, Long
             @Param("keyword") String keyword,
             @Param("weekNumber") Short weekNumber,
             Pageable pageable);
+
+    @Query("SELECT t.id FROM SyllabusItem si JOIN si.topics t " +
+           "WHERE si.course.id IN :courseIds AND si.weekNumber IN :weekNumbers")
+    List<Long> findTopicIdsByCoursesAndWeeks(
+           @Param("courseIds") List<Long> courseIds, 
+           @Param("weekNumbers") List<Short> weekNumbers);
 }

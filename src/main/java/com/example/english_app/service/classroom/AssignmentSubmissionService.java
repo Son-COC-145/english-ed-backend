@@ -23,6 +23,7 @@ import com.example.english_app.repository.classroom.AssignmentRepository;
 import com.example.english_app.repository.classroom.AssignmentSubmissionRepository;
 import com.example.english_app.repository.classroom.CourseStudentRepository;
 import com.example.english_app.repository.user.UserRepository;
+import com.example.english_app.service.notification.NotificationService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -34,6 +35,7 @@ public class AssignmentSubmissionService {
     private final UserRepository userRepository;
     private final CourseStudentRepository courseStudentRepository;
     private final ClassroomMapper classroomMapper;
+    private final NotificationService notificationService;
 
     @Transactional
     public AssignmentSubmissionResponse submitAssignment(Long studentId, Long assignmentId,
@@ -71,7 +73,14 @@ public class AssignmentSubmissionService {
         submission.setStatus(AssignmentSubmissionStatus.GRADED);
         submission.setCommentedAt(LocalDateTime.now());
 
-        return classroomMapper.toAssignmentSubmissionResponse(submissionRepository.save(submission));
+        AssignmentSubmission savedSubmission = submissionRepository.save(submission);
+
+        notificationService.sendToUser(savedSubmission.getStudent().getId(), 
+            "Đã có điểm", 
+            "Bài tập " + savedSubmission.getAssignment().getTitle() + " đã được chấm điểm.", 
+            "GRADE");
+
+        return classroomMapper.toAssignmentSubmissionResponse(savedSubmission);
     }
 
     public PageResponse<AssignmentSubmissionResponse> getSubmissionsByAssignment(Long assignmentId, Pageable pageable) {
