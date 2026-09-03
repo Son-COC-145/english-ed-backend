@@ -174,6 +174,10 @@ public class OnboardingController {
     private Long userId(Authentication auth) {
         Jwt jwt = (Jwt) auth.getPrincipal();
         Number id = jwt.getClaim("userId");
-        return id != null ? id.longValue() : null;
+        if (id == null) {
+            throw new com.example.english_app.exception.AppException(
+                    com.example.english_app.exception.ErrorCode.UNAUTHORIZED);
+        }
+        return id.longValue();
     }
 }
