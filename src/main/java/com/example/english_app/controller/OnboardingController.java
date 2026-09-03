@@ -90,18 +90,19 @@ public class OnboardingController {
                 placementTestService.submitAnswer(userId(auth), request)));
     }
 
-    @Operation(summary = "Nộp câu trả lời phát âm (audio)")
+    @Operation(summary = "Nộp câu trả lời phát âm (audio) — trả kèm điểm số và câu tiếp theo")
     @PostMapping(value = "/placement-test/pronunciation/submit-answer", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ApiResponse<PronunciationScoreResult>> submitPronunciationAnswer(
+    public ResponseEntity<ApiResponse<com.example.english_app.dto.response.PlacementPronunciationAnswerResponse>> submitPronunciationAnswer(
             Authentication auth,
             @RequestParam("sessionId") Long sessionId,
             @RequestParam("questionId") Long questionId,
             @RequestPart("audioFile") MultipartFile audioFile,
             @RequestParam("word") String word,
-            @RequestParam("wordIndex") int wordIndex) {
+            @RequestParam(value = "wordIndex", defaultValue = "0") int wordIndex) {
 
-        PronunciationScoreResult result = pronunciationService.submitPronunciation(
-                userId(auth), sessionId, questionId, audioFile, word, wordIndex);
+        com.example.english_app.dto.response.PlacementPronunciationAnswerResponse result =
+                pronunciationService.submitPronunciationWithProgression(
+                        userId(auth), sessionId, questionId, audioFile, word, wordIndex);
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 

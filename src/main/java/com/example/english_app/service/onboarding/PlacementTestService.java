@@ -98,6 +98,7 @@ public class PlacementTestService {
 
         short baselineScore = 20;
         onboarding.setPlacementCefrLevel(CefrLevel.A1);
+        onboarding.setIsPlacementSkipped(true);
         onboarding.setPlacementVocabScore(baselineScore);
         onboarding.setPlacementGrammarScore(baselineScore);
         onboarding.setPlacementReadingScore(baselineScore);
@@ -219,14 +220,19 @@ public class PlacementTestService {
             PlacementResultResponse result = completeTest(session.getId(), userId);
             return PlacementQuestionResponse.builder()
                     .sessionId(session.getId())
+                    .submittedQuestionId(request.getQuestionId())
+                    .sessionStatus("COMPLETED")
                     .isTestCompleted(true)
                     .placementResult(result)
                     .previousAnswerCorrect(isCorrect)
                     .previousCorrectAnswer(question.getCorrectAnswer())
+                    .nextQuestion(null)
                     .build();
         }
 
         PlacementQuestionResponse nextQuestion = getNextQuestion(session.getId(), userId);
+        nextQuestion.setSubmittedQuestionId(request.getQuestionId());
+        nextQuestion.setSessionStatus("IN_PROGRESS");
         nextQuestion.setPreviousAnswerCorrect(isCorrect);
         nextQuestion.setPreviousCorrectAnswer(question.getCorrectAnswer());
         return nextQuestion;
@@ -256,6 +262,7 @@ public class PlacementTestService {
                         .build());
 
         onboarding.setPlacementCefrLevel(finalLevel);
+        onboarding.setIsPlacementSkipped(false);
         onboarding.setPlacementVocabScore(scores.getVocab());
         onboarding.setPlacementGrammarScore(scores.getGrammar());
         onboarding.setPlacementReadingScore(scores.getReading());
@@ -284,6 +291,9 @@ public class PlacementTestService {
         return resultFactory.buildResponse(finalLevel, scores, answers, roadmapJson, roadmapGenerated);
     }
 
+    /**
+     * Đọc kết quả bài test đã làm trước đó (không tính lại).
+     */
     @Transactional(readOnly = true)
     public PlacementResultResponse getResult(Long userId) {
         StudentOnboarding onboarding = onboardingRepository.findByStudentId(userId)
@@ -316,7 +326,7 @@ public class PlacementTestService {
     }
 
     // CAT Algorithm
-    private void updateCatState(PlacementTestSession session, boolean isCorrect) {
+    public void updateCatState(PlacementTestSession session, boolean isCorrect) {
         CefrLevel[] levels = CefrLevel.values();
         int idx = session.getCurrentCefrEstimate().ordinal();
 
@@ -337,6 +347,14 @@ public class PlacementTestService {
             confidence = 100.0;
 
         session.setConfidenceScore(BigDecimal.valueOf(Math.min(confidence, 100.0)));
+    }
+
+    public int getMaxPlacementQuestions() {
+        return maxPlacementQuestions;
+    }
+
+    public double getConfidenceThreshold() {
+        return confidenceThreshold;
     }
 
     private Question pickNextQuestion(CefrLevel level, List<Long> excludeIds) {
@@ -375,8 +393,32 @@ public class PlacementTestService {
             content = Map.of("raw", q.getContentJson());
         }
 
+        // Section 3.6: Chuẩn hóa metadata cho câu hỏi phát âm
+        if (q.getQuestionType() != null && q.getQuestionType().name().equals("PRONUNCIATION")) {
+            Map<String, Object> enriched = new LinkedHashMap<>(content);
+            if (!enriched.containsKey("ipaTranscription") && enriched.containsKey("ipa")) {
+                enriched.put("ipaTranscription", enriched.get("ipa"));
+            }
+            if (!enriched.containsKey("instruction")) {
+                enriched.put("instruction", "Đọc to từ bên dưới vào microphone");
+            }
+            content = enriched;
+        }
+
+        // Tạo nested nextQuestion Map để Mobile dễ mapping theo hợp đồng { "nextQuestion": { ... } }
+        Map<String, Object> nextMap = new LinkedHashMap<>();
+        nextMap.put("questionId", q.getId());
+        nextMap.put("questionIndex", answeredCount + 1);
+        nextMap.put("totalQuestions", maxPlacementQuestions);
+        nextMap.put("cefrLevel", q.getCefrLevel().name());
+        nextMap.put("skill", q.getSkill().name());
+        nextMap.put("questionType", q.getQuestionType().name());
+        nextMap.put("timeoutSeconds", q.getTimeoutSeconds());
+        nextMap.put("content", content);
+
         return PlacementQuestionResponse.builder()
                 .sessionId(sessionId)
+                .sessionStatus("IN_PROGRESS")
                 .questionId(q.getId())
                 .questionIndex(answeredCount + 1)
                 .totalQuestions(maxPlacementQuestions)
@@ -385,6 +427,7 @@ public class PlacementTestService {
                 .questionType(q.getQuestionType().name())
                 .timeoutSeconds(q.getTimeoutSeconds())
                 .content(content)
+                .nextQuestion(nextMap)
                 .build();
     }
 

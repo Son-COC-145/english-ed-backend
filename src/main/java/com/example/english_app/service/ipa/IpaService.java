@@ -12,12 +12,12 @@ import com.example.english_app.entity.enums.PhonemeType;
 import com.example.english_app.entity.enums.PronunciationRuleCategory;
 
 import java.util.List;
-import java.util.Map;
 
 public interface IpaService {
     List<IpaPhonemeResponse> getAllPhonemes(PhonemeType type, Boolean isCommonError);
     IpaPhonemeDetailResponse getPhonemeDetail(Short id);
-    Map<String, Boolean> toggleBookmark(Long userId, Short phonemeId);
+    IpaPhonemeDetailResponse getPhonemeDetail(Long userId, Short id);
+    com.example.english_app.dto.response.ipa.IpaBookmarkResponse toggleBookmark(Long userId, Short phonemeId);
     IpaMasterySummaryResponse getPhonemeMastery(Long userId);
     List<IpaPracticeHistoryResponse> getPracticeHistory(Long userId, Short phonemeId);
     List<IpaMinimalPairResponse> getMinimalPairs();

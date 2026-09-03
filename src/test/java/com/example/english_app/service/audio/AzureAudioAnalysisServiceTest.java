@@ -36,7 +36,7 @@ class AzureAudioAnalysisServiceTest {
         AppException exception = assertThrows(AppException.class, () -> {
             audioAnalysisService.assess(new byte[0], "hello");
         });
-        assertEquals(5010, exception.getErrorCode().getCode()); // AUDIO_PROCESSING_FAILED
+        assertEquals(5012, exception.getErrorCode().getCode()); // AUDIO_EMPTY_OR_CORRUPT
     }
 
     @Test
@@ -46,6 +46,6 @@ class AzureAudioAnalysisServiceTest {
         AppException exception = assertThrows(AppException.class, () -> {
             audioAnalysisService.assess(invalidAudio, "hello");
         });
-        assertEquals(5010, exception.getErrorCode().getCode());
+        assertEquals(5010, exception.getErrorCode().getCode()); // UNSUPPORTED_AUDIO_FORMAT
     }
 }

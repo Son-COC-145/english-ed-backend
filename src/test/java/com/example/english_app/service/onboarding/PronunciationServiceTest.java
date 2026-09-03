@@ -41,6 +41,9 @@ class PronunciationServiceTest {
     @Mock
     private QuestionRepository questionRepository;
 
+    @Mock
+    private PlacementTestService placementTestService;
+
     @InjectMocks
     private PronunciationService pronunciationService;
 
@@ -56,9 +59,15 @@ class PronunciationServiceTest {
                 .student(mockUser)
                 .startedAt(LocalDateTime.now())
                 .lastActivityAt(LocalDateTime.now())
+                .currentQuestionIndex(0)
                 .isCompleted(false)
                 .build();
         mockQuestion = Question.builder().id(200L).build();
+
+        lenient().when(placementTestService.getMaxPlacementQuestions()).thenReturn(15);
+        lenient().when(placementTestService.getConfidenceThreshold()).thenReturn(85.0);
+        lenient().when(placementTestService.getNextQuestion(anyLong(), anyLong()))
+                .thenReturn(com.example.english_app.dto.response.PlacementQuestionResponse.builder().build());
     }
 
     @Test

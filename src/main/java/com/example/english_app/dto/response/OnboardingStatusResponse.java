@@ -17,15 +17,26 @@ public class OnboardingStatusResponse {
     private boolean onboardingCompleted;
 
     /**
-     * Bước tiếp theo cần thực hiện.
-     * <p>Giá trị hợp lệ (theo thứ tự flow):
-     * {@code GOAL_SURVEY} → {@code PLACEMENT_TEST} → {@code ROADMAP_VIEW} → {@code SETTINGS} → {@code COMPLETED}
+     * Bước tiếp theo cần thực hiện:
+     * GOAL_SURVEY | PLACEMENT_TEST | SETTINGS | COMPLETE | COMPLETED
      */
     private String nextStep;
 
     private Integer stepNumber;
     private Integer totalSteps;
     private String userName;
+
+    /**
+     * Trạng thái chi tiết của Placement Test:
+     * NOT_STARTED | IN_PROGRESS | COMPLETED | SKIPPED
+     */
+    private String placementTestStatus;
+
+    /**
+     * ID của session đang làm dở (nếu placementTestStatus == IN_PROGRESS).
+     * Phục vụ Mobile resume an toàn mà không cần lưu ID vào local storage.
+     */
+    private Long activePlacementSessionId;
 
     private String placementCefrLevel;
     private Short dailyGoalXp;
