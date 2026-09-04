@@ -85,9 +85,10 @@ public class PronunciationService {
         sessionRepository.save(session);
 
         int answeredCount = session.getCurrentQuestionIndex();
-        boolean shouldFinish = answeredCount >= placementTestService.getMaxPlacementQuestions()
-                || (session.getConfidenceScore() != null
-                        && session.getConfidenceScore().doubleValue() >= placementTestService.getConfidenceThreshold());
+        // Dùng chung shouldFinishEarly() với PlacementTestService để áp dụng
+        // ngưỡng tối thiểu số câu (minQuestionsBeforeEarlyStop) — tránh bug
+        // early-stop sau vài câu sai liên tiếp ngay từ đầu bài.
+        boolean shouldFinish = placementTestService.shouldFinishEarly(session, answeredCount);
 
         if (shouldFinish) {
             com.example.english_app.dto.response.PlacementResultResponse placementResult =
