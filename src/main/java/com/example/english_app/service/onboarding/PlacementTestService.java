@@ -43,6 +43,14 @@ public class PlacementTestService {
     @Value("${onboarding.placement.max-wrong-streak:3}")
     private int maxWrongStreak;
 
+    /**
+     * Số câu tối thiểu phải hoàn thành trước khi cho phép kết thúc sớm (CAT early-stop).
+     * Ngăn bug: user sai 3 câu liên tiếp ở câu 3→5 → confidence = 100% → test bị đánh
+     * dấu COMPLETED khi chỉ làm được ~5 câu, gây nhầm lẫn "đã hoàn thành" khi mở lại app.
+     */
+    @Value("${onboarding.placement.min-questions-before-early-stop:10}")
+    private int minQuestionsBeforeEarlyStop;
+
     private final PlacementTestSessionRepository sessionRepository;
     private final PlacementTestAnswerRepository answerRepository;
     private final QuestionRepository questionRepository;
@@ -53,12 +61,20 @@ public class PlacementTestService {
     private final UserRepository userRepository;
 
     public PlacementQuestionResponse startTest(Long userId) {
-        // Guard: đã hoàn thành placement test rồi
-        onboardingRepository.findByStudentId(userId).ifPresent(ob -> {
-            if (ob.getPlacementCefrLevel() != null) {
-                throw ErrorCode.PLACEMENT_TEST_ALREADY_COMPLETED.toException();
-            }
-        });
+        // Guard: đã hoàn thành placement test rồi → KHÔNG throw error,
+        // trả về completion signal để FE tự động điều hướng đến màn hình kết quả.
+        // Trước đây throw exception → FE hiển thị lỗi "đã hoàn thành" gây nhầm lẫn khi
+        // mở lại app sau khi CAT kết thúc sớm (early-stop) mà user chưa kịp thấy kết quả.
+        var existingOnboarding = onboardingRepository.findByStudentId(userId);
+        if (existingOnboarding.isPresent() && existingOnboarding.get().getPlacementCefrLevel() != null) {
+            PlacementResultResponse result = getResult(userId);
+            return PlacementQuestionResponse.builder()
+                    .sessionStatus("COMPLETED")
+                    .isTestCompleted(true)
+                    .placementResult(result)
+                    .nextQuestion(null)
+                    .build();
+        }
 
         // Kiểm tra session đang dở
         Optional<PlacementTestSession> existing = sessionRepository
@@ -212,9 +228,7 @@ public class PlacementTestService {
 
         int answeredCount = session.getCurrentQuestionIndex();
 
-        boolean shouldFinish = answeredCount >= maxPlacementQuestions
-                || (session.getConfidenceScore() != null
-                        && session.getConfidenceScore().doubleValue() >= confidenceThreshold);
+        boolean shouldFinish = shouldFinishEarly(session, answeredCount);
 
         if (shouldFinish) {
             PlacementResultResponse result = completeTest(session.getId(), userId);
@@ -355,6 +369,27 @@ public class PlacementTestService {
 
     public double getConfidenceThreshold() {
         return confidenceThreshold;
+    }
+
+    public int getMinQuestionsBeforeEarlyStop() {
+        return minQuestionsBeforeEarlyStop;
+    }
+
+    /**
+     * Kiểm tra xem bài kiểm tra đã đủ điều kiện kết thúc chưa.
+     *
+     * <p>Có 2 điều kiện kết thúc:
+     * <ul>
+     *   <li><b>Normal:</b> Đã trả lời đủ {@code maxPlacementQuestions} câu.
+     *   <li><b>Early stop (CAT):</b> Confidence >= threshold VÀ đã trả lời >= {@code minQuestionsBeforeEarlyStop}.
+     *       Guard tối thiểu ngăn việc kết thúc quá sớm khi user mắc chuỗi sai ngay từ đầu.
+     * </ul>
+     */
+    public boolean shouldFinishEarly(PlacementTestSession session, int answeredCount) {
+        if (answeredCount >= maxPlacementQuestions) return true;
+        return answeredCount >= minQuestionsBeforeEarlyStop
+                && session.getConfidenceScore() != null
+                && session.getConfidenceScore().doubleValue() >= confidenceThreshold;
     }
 
     private Question pickNextQuestion(CefrLevel level, List<Long> excludeIds) {
