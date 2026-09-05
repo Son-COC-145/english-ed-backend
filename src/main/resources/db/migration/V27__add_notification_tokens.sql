@@ -8,4 +8,4 @@ CREATE TABLE IF NOT EXISTS user_device_tokens (
     CONSTRAINT uk_user_token UNIQUE (user_id, token)
 );
 
-CREATE INDEX idx_user_device_tokens_user_id ON user_device_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_device_tokens_user_id ON user_device_tokens(user_id);

@@ -9,7 +9,7 @@
 
 -- 1. Don dep cac session cu trung lap (neu co) truoc khi tao partial unique index
 UPDATE placement_test_sessions s
-SET is_completed = true, completed_at = NOW()
+SET is_completed = true, last_activity_at = NOW()
 WHERE s.is_completed = false
   AND s.id < (
       SELECT MAX(s2.id)
