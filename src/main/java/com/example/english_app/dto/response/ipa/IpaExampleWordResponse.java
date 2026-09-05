@@ -39,7 +39,13 @@ public class IpaExampleWordResponse implements Serializable {
      */
     private String ttsUrl;
 
-    /** Static factory để giữ backward-compatible khi gọi new IpaExampleWordResponse(id, word, ipa, audioUrl). */
+    /** Nghĩa tiếng Việt của từ. VD: "con cừ", "bài hát". */
+    private String meaningVi;
+
+    /** URL ảnh minh họa nghĩa của từ (Unsplash hoặc Azure Blob). */
+    private String imageUrl;
+
+    /** Static factory để giữ backward-compatible. */
     public static IpaExampleWordResponse of(Long id, String word, String ipaTranscription, String audioUrl) {
         String tts = buildTtsUrl(word, "MALE");
         return IpaExampleWordResponse.builder()
@@ -48,6 +54,21 @@ public class IpaExampleWordResponse implements Serializable {
                 .ipaTranscription(ipaTranscription)
                 .audioUrl(audioUrl)
                 .ttsUrl(tts)
+                .build();
+    }
+
+    /** Factory method đầy đủ với nghĩa và ảnh minh họa. */
+    public static IpaExampleWordResponse of(Long id, String word, String ipaTranscription,
+                                            String audioUrl, String meaningVi, String imageUrl) {
+        String tts = buildTtsUrl(word, "MALE");
+        return IpaExampleWordResponse.builder()
+                .id(id)
+                .word(word)
+                .ipaTranscription(ipaTranscription)
+                .audioUrl(audioUrl)
+                .ttsUrl(tts)
+                .meaningVi(meaningVi)
+                .imageUrl(imageUrl)
                 .build();
     }
 

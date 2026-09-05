@@ -73,10 +73,13 @@ public class AdminIpaServiceImpl implements AdminIpaService {
                 .word(request.getWord())
                 .ipaTranscription(request.getIpaTranscription())
                 .audioUrl(request.getAudioUrl())
+                .meaningVi(request.getMeaningVi())
+                .imageUrl(request.getImageUrl())
                 .build();
 
         IpaExampleWord saved = exampleWordRepository.save(word);
-        return IpaExampleWordResponse.of(saved.getId(), saved.getWord(), saved.getIpaTranscription(), saved.getAudioUrl());
+        return IpaExampleWordResponse.of(saved.getId(), saved.getWord(), saved.getIpaTranscription(),
+                saved.getAudioUrl(), saved.getMeaningVi(), saved.getImageUrl());
     }
 
     @Override
@@ -89,9 +92,12 @@ public class AdminIpaServiceImpl implements AdminIpaService {
         word.setWord(request.getWord());
         word.setIpaTranscription(request.getIpaTranscription());
         word.setAudioUrl(request.getAudioUrl());
+        word.setMeaningVi(request.getMeaningVi());
+        word.setImageUrl(request.getImageUrl());
 
         IpaExampleWord saved = exampleWordRepository.save(word);
-        return IpaExampleWordResponse.of(saved.getId(), saved.getWord(), saved.getIpaTranscription(), saved.getAudioUrl());
+        return IpaExampleWordResponse.of(saved.getId(), saved.getWord(), saved.getIpaTranscription(),
+                saved.getAudioUrl(), saved.getMeaningVi(), saved.getImageUrl());
     }
 
     @Override
@@ -217,7 +223,8 @@ public class AdminIpaServiceImpl implements AdminIpaService {
 
     private IpaPhonemeDetailResponse mapToDetailResponse(IpaPhoneme p) {
         var words = p.getExampleWords() != null ? p.getExampleWords().stream()
-                .map(w -> IpaExampleWordResponse.of(w.getId(), w.getWord(), w.getIpaTranscription(), w.getAudioUrl()))
+                .map(w -> IpaExampleWordResponse.of(w.getId(), w.getWord(), w.getIpaTranscription(),
+                        w.getAudioUrl(), w.getMeaningVi(), w.getImageUrl()))
                 .toList() : Collections.<IpaExampleWordResponse>emptyList();
 
         return new IpaPhonemeDetailResponse(

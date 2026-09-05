@@ -18,6 +18,12 @@ public class AdminExampleWordRequest {
     @NotBlank(message = "Phiên âm IPA không được để trống")
     private String ipaTranscription;
 
-    @NotBlank(message = "Đường dẫn audio không được để trống")
+    /** URL audio pre-generated. Có thể null — khi null FE sẽ dùng TTS fallback. */
     private String audioUrl;
+
+    /** Nghĩa tiếng Việt của từ. */
+    private String meaningVi;
+
+    /** URL ảnh minh họa nghĩa của từ. */
+    private String imageUrl;
 }

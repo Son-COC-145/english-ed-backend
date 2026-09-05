@@ -33,6 +33,7 @@ public class IpaController {
 
     @Operation(summary = "Phát âm thanh động qua Azure TTS (Fallback tức thì nếu từ thiếu audio)")
     @GetMapping(value = "/tts/stream", produces = "audio/mpeg")
+    @PreAuthorize("permitAll()")
     public ResponseEntity<byte[]> streamTts(
             @RequestParam String text,
             @RequestParam(defaultValue = "WORD") String type,
