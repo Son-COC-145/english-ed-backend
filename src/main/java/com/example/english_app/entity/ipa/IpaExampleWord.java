@@ -28,4 +28,12 @@ public class IpaExampleWord {
 
     @Column(name = "audio_url", nullable = false, length = 500)
     private String audioUrl;
+
+    /** Nghĩa tiếng Việt của từ, dùng để hiển thị trong Module 1. */
+    @Column(name = "meaning_vi", length = 200)
+    private String meaningVi;
+
+    /** URL ảnh minh họa nghĩa của từ (Unsplash hoặc Azure Blob). */
+    @Column(name = "image_url", length = 500)
+    private String imageUrl;
 }

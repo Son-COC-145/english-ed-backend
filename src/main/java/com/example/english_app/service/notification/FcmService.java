@@ -2,6 +2,8 @@ package com.example.english_app.service.notification;
 
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.lang.Nullable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -11,18 +13,25 @@ import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.MulticastMessage;
 import com.google.firebase.messaging.Notification;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class FcmService {
     
     private final FirebaseMessaging firebaseMessaging;
 
+    public FcmService(@Nullable @Autowired(required = false) FirebaseMessaging firebaseMessaging) {
+        this.firebaseMessaging = firebaseMessaging;
+    }
+
     @Async
     public void sendMulticast(List<String> tokens, String title, String body) {
+        if (firebaseMessaging == null) {
+            log.debug("FirebaseMessaging is not initialized. Skipping FCM message: {}", title);
+            return;
+        }
+
         if(tokens == null || tokens.isEmpty()) {
             log.debug("No tokens provided for FCM Multicast message");
             return;

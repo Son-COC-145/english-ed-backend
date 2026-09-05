@@ -276,7 +276,8 @@ public class IpaServiceImpl implements IpaService {
 
     private IpaPhonemeDetailResponse mapToDetailResponse(IpaPhoneme p) {
         var words = p.getExampleWords().stream()
-                .map(w -> IpaExampleWordResponse.of(w.getId(), w.getWord(), w.getIpaTranscription(), w.getAudioUrl()))
+                .map(w -> IpaExampleWordResponse.of(w.getId(), w.getWord(), w.getIpaTranscription(),
+                        w.getAudioUrl(), w.getMeaningVi(), w.getImageUrl()))
                 .toList();
         return new IpaPhonemeDetailResponse(
                 p.getId(), p.getSymbol(), p.getPhonemeType(), p.getNameVi(),
