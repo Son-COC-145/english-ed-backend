@@ -1,13 +1,13 @@
 package com.example.english_app.config;
 
-import java.io.IOException;
 import java.io.InputStream;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.lang.Nullable;
 
-import org.springframework.beans.factory.annotation.Value;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
@@ -28,38 +28,51 @@ public class FcmConfig {
     private String firebaseConfigPath;
 
     @Bean
-    public FirebaseApp firebaseApp() throws IOException {
+    @Nullable
+    public FirebaseApp firebaseApp() {
         InputStream serviceAccount = null;
         java.io.File envFile = new java.io.File(firebaseConfigPathEnv);
 
-        if (envFile.exists() && !envFile.isDirectory()) {
-            // Chạy trên Render
-            log.info("Initializing Firebase from absolute path: {}", firebaseConfigPathEnv);
-            serviceAccount = new java.io.FileInputStream(envFile);
-        } else {
-            // Chạy dưới Local
-            log.info("Initializing Firebase from classpath: {}", firebaseConfigPath);
-            ClassPathResource resource = new ClassPathResource(firebaseConfigPath);
-            if (resource.exists()) {
-                serviceAccount = resource.getInputStream();
+        try {
+            if (envFile.exists() && !envFile.isDirectory()) {
+                // Chạy trên Render
+                log.info("Initializing Firebase from absolute path: {}", firebaseConfigPathEnv);
+                serviceAccount = new java.io.FileInputStream(envFile);
             } else {
-                throw new java.io.FileNotFoundException("Firebase config file not found at " + firebaseConfigPathEnv + " or classpath:" + firebaseConfigPath);
+                // Chạy dưới Local
+                ClassPathResource resource = new ClassPathResource(firebaseConfigPath);
+                if (resource.exists()) {
+                    log.info("Initializing Firebase from classpath: {}", firebaseConfigPath);
+                    serviceAccount = resource.getInputStream();
+                } else {
+                    log.warn("Firebase config file not found at {} or classpath:{}. Push notifications via FCM will be disabled in this environment.",
+                            firebaseConfigPathEnv, firebaseConfigPath);
+                    return null;
+                }
             }
-        }
 
-        try (InputStream is = serviceAccount) {
-            FirebaseOptions options = FirebaseOptions.builder()
-                .setCredentials(GoogleCredentials.fromStream(is)).build();
+            try (InputStream is = serviceAccount) {
+                FirebaseOptions options = FirebaseOptions.builder()
+                    .setCredentials(GoogleCredentials.fromStream(is)).build();
 
-            if (FirebaseApp.getApps().isEmpty()) {
-                return FirebaseApp.initializeApp(options);
+                if (FirebaseApp.getApps().isEmpty()) {
+                    return FirebaseApp.initializeApp(options);
+                }
+                return FirebaseApp.getInstance();
             }
-            return FirebaseApp.getInstance();
+        } catch (Exception e) {
+            log.error("Failed to initialize FirebaseApp: {}. Push notifications will be disabled.", e.getMessage());
+            return null;
         }
     }
 
     @Bean
-    public FirebaseMessaging firebaseMessaging(FirebaseApp firebaseApp) {
+    @Nullable
+    public FirebaseMessaging firebaseMessaging(@Nullable FirebaseApp firebaseApp) {
+        if (firebaseApp == null) {
+            log.warn("FirebaseApp is not available. FirebaseMessaging bean is disabled.");
+            return null;
+        }
         return FirebaseMessaging.getInstance(firebaseApp);
     }
 }
