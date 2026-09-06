@@ -50,6 +50,7 @@ spring:
 
   security:
     oauth2:
+      redirect-uri: ${SPRING_SECURITY_OAUTH2_REDIRECT_URI:${app.frontend-url}/oauth2/redirect}
       client:
         registration:
           google:
