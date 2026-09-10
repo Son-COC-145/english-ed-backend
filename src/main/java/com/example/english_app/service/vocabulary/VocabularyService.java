@@ -193,7 +193,7 @@ public class VocabularyService {
      * Map Vocabulary entity sang VocabularyResponse.
      * @param studentId null = không populate userProgress (admin/anonymous context)
      */
-    private VocabularyResponse toResponse(Vocabulary vocabulary, Long studentId) {
+    public VocabularyResponse toResponse(Vocabulary vocabulary, Long studentId) {
         VocabularyResponse.TopicBrief topicResponse = vocabulary.getTopic() != null
                 ? VocabularyResponse.TopicBrief.builder()
                         .id(vocabulary.getTopic().getId())
@@ -230,7 +230,7 @@ public class VocabularyService {
                 .topic(topicResponse)
                 .word(vocabulary.getWord())
                 .ipaTranscription(vocabulary.getIpaTranscription())
-                .cefrLevel(vocabulary.getCefrLevel().name())
+                .cefrLevel(vocabulary.getCefrLevel() != null ? vocabulary.getCefrLevel().name() : null)
                 .definitionVi(vocabulary.getDefinitionVi())
                 .imageUrl(vocabulary.getImageUrl())
                 .audioUkUrl(vocabulary.getAudioUkUrl())
@@ -239,7 +239,7 @@ public class VocabularyService {
                 .exampleSentences(parseExampleSentences(vocabulary.getExampleSentencesJson()))
                 .collocations(parseCollocations(vocabulary.getCollocationJson()))
                 .dialogue(parseDialogue(vocabulary.getDialogueJson()))
-                .status(vocabulary.getStatus().name())
+                .status(vocabulary.getStatus() != null ? vocabulary.getStatus().name() : null)
                 .createdBy(userResponse)
                 .publishedAt(vocabulary.getPublishedAt())
                 .createdAt(vocabulary.getCreatedAt())

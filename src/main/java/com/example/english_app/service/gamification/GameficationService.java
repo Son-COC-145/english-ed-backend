@@ -47,6 +47,7 @@ import com.example.english_app.repository.user.UserRepository;
 import com.example.english_app.repository.vocabulary.VocabularyRepository;
 import com.example.english_app.repository.classroom.CourseStudentRepository;
 import com.example.english_app.repository.classroom.SyllabusItemRepository;
+import com.example.english_app.service.vocabulary.VocabularyService;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -66,6 +67,7 @@ public class GameficationService {
     private final CourseStudentRepository courseStudentRepository;
     private final SyllabusItemRepository syllabusItemRepository;
     private final IdempotencyKeyRepository idempotencyKeyRepository;
+    private final VocabularyService vocabularyService;
 
     private final ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule());
@@ -458,8 +460,8 @@ public class GameficationService {
         }
 
         return DailyMissionResponse.builder()
-                .reviewWords(reviewVocabs.stream().map(this::mapToVocabularyResponse).toList())
-                .newWords(newVocabs.stream().map(this::mapToVocabularyResponse).toList())
+                .reviewWords(reviewVocabs.stream().map(v -> vocabularyService.toResponse(v, studentId)).toList())
+                .newWords(newVocabs.stream().map(v -> vocabularyService.toResponse(v, studentId)).toList())
                 .build();
     }
 
@@ -598,41 +600,4 @@ public class GameficationService {
         }
     }
 
-    private VocabularyResponse mapToVocabularyResponse(Vocabulary v) {
-        VocabularyResponse.TopicBrief topicBrief = null;
-        if (v.getTopic() != null) {
-            topicBrief = VocabularyResponse.TopicBrief.builder()
-                    .id(v.getTopic().getId())
-                    .nameEn(v.getTopic().getNameEn())
-                    .nameVi(v.getTopic().getNameVi())
-                    .build();
-        }
-        VocabularyResponse.UserBrief userBrief = null;
-        if (v.getCreatedBy() != null) {
-            userBrief = VocabularyResponse.UserBrief.builder()
-                    .id(v.getCreatedBy().getId())
-                    .fullName(v.getCreatedBy().getFullName())
-                    .email(v.getCreatedBy().getEmail())
-                    .build();
-        }
-        return VocabularyResponse.builder()
-                .id(v.getId())
-                .topic(topicBrief)
-                .word(v.getWord())
-                .ipaTranscription(v.getIpaTranscription())
-                .cefrLevel(v.getCefrLevel() != null ? v.getCefrLevel().name() : null)
-                .definitionVi(v.getDefinitionVi())
-                .imageUrl(v.getImageUrl())
-                .audioUsUrl(v.getAudioUsUrl())
-                .audioUkUrl(v.getAudioUkUrl())
-                .collocationJson(v.getCollocationJson())
-                .nuanceNote(v.getNuanceNote())
-                .exampleSentencesJson(v.getExampleSentencesJson())
-                .dialogueJson(v.getDialogueJson())
-                .status(v.getStatus() != null ? v.getStatus().name() : null)
-                .createdBy(userBrief)
-                .publishedAt(v.getPublishedAt())
-                .createdAt(v.getCreatedAt())
-                .build();
-    }
 }
