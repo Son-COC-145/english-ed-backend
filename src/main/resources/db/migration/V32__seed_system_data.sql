@@ -507,17 +507,17 @@ SELECT setval(pg_get_serial_sequence('speaking_scenarios', 'id'), (SELECT MAX(id
 -- ------------------------------------------------------------------------------
 -- 13. NOTIFICATIONS: Thông báo chào mừng & nhắc nhở học tập
 -- ------------------------------------------------------------------------------
-INSERT INTO notifications (user_id, title, body, type, is_read, data, created_at)
+INSERT INTO notifications (user_id, title, body, type, is_read, created_at)
 SELECT 
     s.id,
     'Chào mừng bạn đến với English App!',
     'Hãy bắt đầu ngày mới bằng việc hoàn thành nhiệm vụ 5 từ vựng mới và ôn tập các từ đến hạn nhé!',
-    'SYSTEM', false, '{"screen": "DAILY_MISSION"}'::jsonb, CURRENT_TIMESTAMP - INTERVAL '1 day'
+    'SYSTEM', false, CURRENT_TIMESTAMP - INTERVAL '1 day'
 FROM users s WHERE s.email = 'student@example.com'
 UNION ALL
 SELECT 
     s.id,
     '🔥 Chuỗi Streak 5 ngày!',
     'Chúc mừng bạn đã duy trì chuỗi học tập 5 ngày liên tiếp. Học ngay để giữ streak nào!',
-    'STREAK_REMINDER', false, '{"screen": "HOME"}'::jsonb, CURRENT_TIMESTAMP - INTERVAL '3 hours'
+    'STREAK_REMINDER', false, CURRENT_TIMESTAMP - INTERVAL '3 hours'
 FROM users s WHERE s.email = 'student@example.com';
