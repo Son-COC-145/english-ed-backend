@@ -25,6 +25,7 @@ public interface SpeakingScenarioRepository extends JpaRepository<SpeakingScenar
 
     @Query("SELECT s FROM SpeakingScenario s WHERE " +
            "(:id IS NULL OR s.id = :id) AND " +
+           "(:cefrLevel IS NULL OR s.cefrLevel = :cefrLevel) AND " +
            "(:topicId IS NULL OR s.topic.id = :topicId) AND " +
            "(:isActive IS NULL OR s.isActive = :isActive) AND " +
            "(:title IS NULL OR LOWER(s.titleVi) LIKE LOWER(CONCAT('%', CAST(:title AS string), '%')) " +
@@ -34,6 +35,7 @@ public interface SpeakingScenarioRepository extends JpaRepository<SpeakingScenar
             @Param("title") String title,
             @Param("topicId") Short topicId,
             @Param("isActive") Boolean isActive,
+            @Param("cefrLevel") CefrLevel cefrLevel,
             Pageable pageable
     );
 }

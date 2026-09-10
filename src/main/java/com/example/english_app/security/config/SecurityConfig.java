@@ -1,5 +1,7 @@
 package com.example.english_app.security.config;
 
+import org.springframework.http.HttpMethod;
+
 import com.example.english_app.security.oauth2.CustomOAuth2UserService;
 import com.example.english_app.security.oauth2.OAuth2SuccessHandler;
 import com.example.english_app.security.userdetails.CustomUserDetailsService;
@@ -73,9 +75,9 @@ public class SecurityConfig {
                                                                 "/api/v1/payments/vnpay-return",
                                                                 "/api/v1/payments/vnpay-ipn")
                                                 .permitAll()
-                                                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/ipa/phonemes/**")
+                                                .requestMatchers(HttpMethod.GET, "/api/v1/ipa/phonemes/**", "/speaking/avatars/**")
                                                 .permitAll()
-                                                .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**")
+                                                .requestMatchers(HttpMethod.OPTIONS, "/**")
                                                 .permitAll()
                                                 .anyRequest().authenticated())
                                 .formLogin(form -> form.disable())

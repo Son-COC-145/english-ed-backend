@@ -1,8 +1,20 @@
 package com.example.english_app.entity.speaking;
 
 import com.example.english_app.entity.user.User;
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -30,12 +42,18 @@ public class SpeakingSession {
     @JoinColumn(name = "scenario_id", nullable = false)
     private SpeakingScenario scenario;
 
-    @CreationTimestamp
-    @Column(name = "started_at", nullable = false, updatable = false)
-    private LocalDateTime startedAt;
+    @Column(nullable = false)
+    @Builder.Default
+    private String status = "ONGOING";
 
-    @Column(name = "ended_at")
-    private LocalDateTime endedAt;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "scenario_snapshot_json", columnDefinition = "jsonb")
+    private String scenarioSnapshotJson;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "hint_requests_json", columnDefinition = "jsonb")
+    @Builder.Default
+    private String hintRequestsJson = "[]";
 
     @Column(name = "hint_used_count", nullable = false)
     @Builder.Default
@@ -56,4 +74,11 @@ public class SpeakingSession {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "evaluation_json", columnDefinition = "jsonb")
     private String evaluationJson;
+
+    @CreationTimestamp
+    @Column(name = "started_at", nullable = false, updatable = false)
+    private LocalDateTime startedAt;
+
+    @Column(name = "ended_at")
+    private LocalDateTime endedAt;
 }

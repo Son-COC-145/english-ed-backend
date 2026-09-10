@@ -1,5 +1,10 @@
 package com.example.english_app.mapper;
 
+import com.example.english_app.dto.response.GrammarCorrection;
+import com.example.english_app.dto.response.VocabularySuggestion;
+import com.fasterxml.jackson.databind.JsonNode;
+import java.util.stream.StreamSupport;
+
 import com.example.english_app.dto.response.SpeakingScenarioResponse;
 import com.example.english_app.dto.response.SpeakingSessionResponse;
 import com.example.english_app.dto.response.SpeakingTurnResponse;
@@ -58,6 +63,7 @@ public class SpeakingMapper {
 
         return SpeakingSessionResponse.builder()
                 .id(entity.getId())
+                .status(entity.getStatus())
                 .studentId(entity.getStudent() != null ? entity.getStudent().getId() : null)
                 .scenarioId(entity.getScenario() != null ? entity.getScenario().getId() : null)
                 .startedAt(entity.getStartedAt())
@@ -75,17 +81,23 @@ public class SpeakingMapper {
     public SpeakingTurnResponse toTurnResponse(SpeakingTurn entity) {
         if (entity == null) return null;
 
-        Object grammarErrors = parseJson(entity.getGrammarErrorsJson());
-        Object vocabularySuggestions = parseJson(entity.getVocabularySuggestionsJson());
+        var grammarErrors = corrections(entity.getGrammarErrorsJson(), true);
+        var vocabularySuggestions = corrections(entity.getVocabularySuggestionsJson(), false);
 
         return SpeakingTurnResponse.builder()
                 .id(entity.getId())
                 .turnIndex(entity.getTurnIndex())
+                .status(entity.getStatus())
+                .evaluationStatus(entity.getEvaluationStatus())
+                .errorCode(entity.getErrorCode())
+                .audioMetrics(parseJson(entity.getAudioMetricsJson()))
                 .speaker(entity.getSpeaker())
                 .transcriptText(entity.getTranscriptText())
                 .audioUrl(entity.getAudioUrl())
-                .grammarErrors(grammarErrors)
-                .vocabularySuggestions(vocabularySuggestions)
+                .grammarErrors(grammarErrors.stream().map(n -> new GrammarCorrection(
+                        n.path("original").asText(n.path("error").asText("")), n.path("correction").asText(""), n.path("explanation").asText(""))).toList())
+                .vocabularySuggestions(vocabularySuggestions.stream().map(n -> new VocabularySuggestion(
+                        n.path("original").asText(n.path("word").asText("")), n.path("suggestion").asText(""), n.path("reason").asText(""))).toList())
                 .createdAt(entity.getCreatedAt())
                 .build();
     }
@@ -100,9 +112,21 @@ public class SpeakingMapper {
             try {
                 return objectMapper.readValue(jsonString, new TypeReference<List<Object>>() {});
             } catch (Exception ex) {
-                log.warn("Failed to parse JSON string: {}", jsonString);
+                log.warn("Failed to parse legacy speaking JSON");
                 return jsonString; // Fallback to raw string
             }
+        }
+    }
+
+    private List<JsonNode> corrections(String value, boolean grammar) {
+        if (value == null || value.isBlank()) return List.of();
+        try {
+            var node = objectMapper.readTree(value);
+            if (!node.isArray()) throw new IllegalArgumentException("Expected correction array");
+            return StreamSupport.stream(node.spliterator(), false).toList();
+        } catch (Exception e) {
+            log.warn("Cannot parse legacy {} corrections", grammar ? "grammar" : "vocabulary");
+            return List.of();
         }
     }
 }

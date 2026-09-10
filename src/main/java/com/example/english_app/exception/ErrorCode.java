@@ -63,6 +63,9 @@ public enum ErrorCode {
     SCENARIO_ALREADY_EXISTS(8102, "Tên kịch bản giao tiếp đã tồn tại", HttpStatus.BAD_REQUEST),
     SESSION_NOT_FOUND(8103, "Không tìm thấy phiên giao tiếp", HttpStatus.NOT_FOUND),
 
+    SPEAKING_CONFLICT(8104, "Phiên hoặc lượt nói chưa sẵn sàng", HttpStatus.CONFLICT),
+    SPEAKING_UNAVAILABLE(8105, "Dịch vụ hội thoại tạm thời không khả dụng", HttpStatus.SERVICE_UNAVAILABLE),
+
     // Classroom
     COURSE_NOT_FOUND(9001, "Khóa học không tồn tại", HttpStatus.NOT_FOUND),
     STUDENT_ALREADY_IN_COURSE(9002, "Học viên đã tham gia khóa học này", HttpStatus.BAD_REQUEST),

@@ -1,161 +1,122 @@
-# Kiến trúc Luồng Xử Lý (Flow Architecture) - Module 3
+﻿# Module 3 — Speaking: phase 1–3
 
-*Tài liệu mô tả ĐẦY ĐỦ các luồng nghiệp vụ chuẩn và Đặc tả API (API Specification) chi tiết nhất cho hệ thống AI Speaking Coach (Phản xạ giao tiếp).*
+## Quyền và vòng đời
 
----
+Mọi API theo session kiểm tra đăng nhập và chủ sở hữu, kể cả SSE, audio, hint,
+report và retry. Session không tồn tại hoặc thuộc người khác đều trả 404.
+Học viên chỉ đọc scenario active. ADMIN/TEACHER quản lý được scenario inactive,
+nhưng không tài khoản nào bắt đầu phiên mới với scenario inactive.
 
-## 1. Luồng Quản trị Kịch Bản (Admin/Teacher Flow)
-Giáo viên hoặc Admin cấu hình các Scenario để luyện tập.
+Trạng thái: ONGOING → EVALUATING → COMPLETED; lỗi đánh giá chuyển sang
+EVALUATION_FAILED; retry đưa về EVALUATING.
 
-```mermaid
-sequenceDiagram
-    actor Teacher
-    participant BE as Backend
-    participant DB as Database
+/end khóa session rồi đóng nhận lượt mới và tạo job trong cùng transaction.
+Các lượt đã nhận tiếp tục hoàn tất; report đợi hội thoại và đánh giá từng lượt.
+Phiên chưa có lượt học viên trả 409. End lặp lại trả trạng thái/kết quả đã có,
+không tạo job hoặc cấp XP thêm. End không tự retry phiên lỗi.
 
-    Teacher->>BE: Tạo Kịch bản (Context, Hint phrases, CEFR level)
-    BE->>DB: Lưu SpeakingScenario
-    BE-->>Teacher: Thành công
-    
-    Teacher->>BE: Gán AI Prompt (Thiết lập Persona cho AI)
-    BE->>DB: Cập nhật System Prompt cho Kịch bản
-    
-    Teacher->>BE: Bật Trạng thái (Activate)
-    BE->>DB: is_active = true
-    BE-->>Teacher: Kịch bản khả dụng cho Học viên
-```
+## Lưu hội thoại và SSE
 
-### 📦 Đặc tả API tương ứng (SpeakingScenarioController)
-- **`GET /api/v1/speaking-scenarios`**: Lấy danh sách Kịch bản. (Hỗ trợ phân trang, filter theo role học viên/giáo viên).
-- **`POST /api/v1/speaking-scenarios`**: Tạo mới Kịch bản (Context, Hint phrases, CEFR level, System Prompt, Persona).
-- **`PUT /api/v1/speaking-scenarios/{id}`**: Cập nhật kịch bản (Bao gồm việc Activate/Deactivate kịch bản để public cho học viên).
-- **`DELETE /api/v1/speaking-scenarios/{id}`**: Xóa kịch bản.
+PostgreSQL là nguồn dữ liệu chính; luồng Speaking không phụ thuộc Redis.
+Start lưu snapshot prompt, persona, context, goal, CEFR, hints và tạo lượt chào AI.
+Audio/text được lưu vào speaking_turns cùng job INPUT trước khi trả 202.
 
----
+- Idempotency-Key: 8–100 ký tự [A-Za-z0-9_-].
+- Cùng key và SHA-256 nội dung: trả lượt cũ, kể cả sau khi end.
+- Cùng key, khác payload: 409. Lượt trước đang xử lý hoặc lỗi chưa retry: 409.
+- Khóa session và unique (session_id,turn_index) bảo vệ thứ tự.
+- Unique request key và job theo turn/kind hoặc session/kind chống ghi trùng.
+- Audio tối đa 5 MiB, phát hiện định dạng từ bytes; text tối đa 4.000 ký tự.
 
-## 2. Luồng Khởi tạo Phiên Giao Tiếp (Session Initialization)
-Thiết lập ngữ cảnh và chuẩn bị bộ nhớ cache cực nhanh để phục vụ hội thoại không độ trễ.
+Worker INPUT gọi STT, lưu transcript, tạo RESPONSE và TURN_EVALUATION.
+Worker RESPONSE gọi LLM, lưu text hoàn tất với response_text_ready=true, rồi gọi TTS.
+TTS lỗi chỉ chạy lại TTS. Provider luôn được gọi ngoài transaction; ghi DB dùng
+transaction ngắn. Audio nằm trong DB, tải qua API kiểm tra owner.
 
-```mermaid
-sequenceDiagram
-    actor Student
-    participant App as Mobile App
-    participant BE as Backend System
-    participant Redis as Redis Cache
-    participant DB as Database
+SSE chỉ đọc DB, không tạo job/gọi AI. Event transcript/text chứa snapshot toàn lượt:
+frontend thay nội dung theo id, không nối vào bản cũ. Event audio có turnId/audioUrl;
+frontend chống phát lại theo turnId. Reconnect nhận lại snapshot DB. Text LLM dở
+có thể bị thay thế khi retry. Stream kết thúc với done khi lượt AI cuối hoàn tất,
+error khi lượt thất bại; hết timeout thì reconnect nếu còn cần theo dõi.
 
-    Student->>App: Chọn Kịch Bản
-    App->>BE: POST /api/v1/speaking-session/start
-    
-    BE->>DB: Load AI Persona Prompt từ Scenario
-    BE->>DB: Tạo bản ghi SpeakingSession (Trạng thái ONGOING)
-    
-    BE->>Redis: Lưu AI Prompt & Lịch sử rỗng (TTL: 1h)
-    
-    BE-->>App: Trả về Session ID & Câu chào mở màn (Text + Audio)
-    App->>Student: Play Audio câu chào
-```
+## Scheduler, retry và log
 
-### 📦 Đặc tả API tương ứng (SpeakingSessionController)
-- **`POST /api/v1/speaking-session/start`**:
-  - **Request Body:** `{"scenarioId": 15}`
-  - **Response (200 OK):**
-    ```json
-    {
-      "sessionId": "a1b2c3d4-...",
-      "initialGreeting": "Hello! Welcome to the coffee shop. What can I get for you today?",
-      "audioUrl": "https://cdn.../greeting.mp3"
-    }
-    ```
+SpeakingWorker poll theo speaking.worker.poll-ms (mặc định 500 ms), tối đa 4 worker
+mỗi instance. Claim dùng FOR UPDATE SKIP LOCKED. Lease 5 phút; token cũ hoặc lease
+hết hạn không được ghi kết quả. Job report chưa đủ đầu vào được bỏ qua khi poll.
 
----
+Loại job: INPUT, RESPONSE, TURN_EVALUATION, SESSION_EVALUATION.
+Trạng thái job: PENDING, RUNNING, COMPLETED, FAILED.
+Mỗi đợt tối đa 3 lần thử; backoff bắt đầu 10, 20 giây, giới hạn 300 giây.
+Retry thủ công giữ tổng attempts và cấp ngân sách thêm 3 lần.
+Worker chết: job hết lease được nhận lại; hết ngân sách thì ghi lỗi mà không gọi
+provider thêm. Không đảm bảo provider nhận đúng một request khi timeout xảy ra
+sau khi provider đã xử lý; DB chỉ nhận kết quả từ lease hợp lệ.
 
-## 3. Đường ống Streaming Thời gian thực (Real-time Pipeline)
-Đây là cốt lõi của Module 3, xử lý luồng Voice-to-Voice thông qua STT -> LLM -> TTS trả về dạng Stream SSE.
+| Bảng | Thuộc tính |
+|---|---|
+| speaking_jobs | id, session_id, turn_id, kind, status, attempts, max_attempts, available_at, lease_token, lease_expires_at, created_at, updated_at, started_at, finished_at, error_code, error_message |
+| speaking_job_attempts | id, job_id, attempt_no, status, lease_token, started_at, finished_at, error_code, error_message, retryable |
 
-```mermaid
-sequenceDiagram
-    actor Student
-    participant App as Mobile App
-    participant BE as Backend Pipeline
-    participant STT as Audio-to-Text (Gemini)
-    participant LLM as Text-to-Text (Gemini)
-    participant TTS as Text-to-Audio (ElevenLabs/Google)
+Attempt có trạng thái RUNNING, SUCCEEDED, FAILED, TIMED_OUT, DEFERRED và unique
+(job_id,attempt_no). Log ứng dụng ghi jobId/sessionId/kind/attempt/loại exception.
+Không ghi transcript, audio, API key hay payload provider. error_message hiện lưu
+tên lớp exception để tránh lộ dữ liệu; error_code là mã lỗi xử lý.
 
-    Student->>App: Giữ Mic nói xong (Push to talk)
-    App->>BE: Gửi File Audio (.m4a/.wav) lên API /audio-input
-    
-    %% STT Phase
-    BE->>STT: Gửi Audio để dịch sang chữ
-    STT-->>BE: Trả về Transcript (Text)
-    BE->>Redis: Push Transcript của Student vào Lịch sử
-    
-    %% SSE Setup
-    App->>BE: Ngay lập tức mở kết nối SSE tới /stream-response
-    
-    %% LLM Streaming Phase
-    BE->>LLM: Gửi Prompt + Mảng Lịch sử từ Redis (Stream Mode)
-    
-    loop Nhận từng chunk Text từ LLM
-        LLM-->>BE: Text Chunk
-        BE-->>App: (SSE Event: text) Đẩy chunk -> App chạy hiệu ứng Typing
-    end
-    
-    %% TTS Phase
-    BE->>Redis: Push Câu trả lời đầy đủ của AI vào Lịch sử
-    BE->>TTS: Gửi Full Text để tổng hợp âm thanh
-    TTS-->>BE: Audio URL
-    BE-->>App: (SSE Event: audio) Đẩy Audio URL (Kết thúc stream)
-    
-    App->>Student: Tự động Play Audio AI trả lời
-```
+## Báo cáo và chấm điểm
 
-### 📦 Đặc tả API tương ứng (SpeakingSessionController)
-- **`POST /api/v1/speaking-session/{id}/audio-input`**:
-  - **Content-Type:** `multipart/form-data`
-  - **Body:** `file` (File audio người dùng vừa thu âm).
-  - **Response:** `202 Accepted` (Báo hiệu backend đã nhận file và bắt đầu xử lý STT).
-- **`GET /api/v1/speaking-session/{id}/stream-response`**:
-  - **Content-Type:** `text/event-stream` (Server-Sent Events)
-  - **Event Stream:** Trả về liên tục các chunk chữ từ LLM (`event: text`) và URL file audio hoàn chỉnh ở cuối luồng (`event: audio`).
+Grammar DTO: original, correction, explanation.
+Vocabulary DTO: original, suggestion, reason.
+Không có lỗi trả mảng rỗng. Backend kiểm tra kiểu dữ liệu, nguồn trích dẫn tồn tại
+trong transcript và không nhận bản sửa giống bản gốc. Legacy error/word được ánh xạ
+sang original; lý do không tồn tại ở legacy trả chuỗi rỗng.
 
----
+Goal snapshot tách theo dấu chấm phẩy/xuống dòng thành checklist. AI phải trả đủ
+criterion theo goal_index, achieved boolean và explanation. Mục tiêu đạt cần
+turn_id học viên hợp lệ và evidence đúng nguyên văn; chưa đạt có turn_id=null,
+evidence="". Backend tính task_completion_score từ tỷ lệ đạt, luôn trong 0–100.
 
-## 4. Luồng Phân tích & Đánh giá Hậu kỳ (Post-Conversation Evaluation)
-Xử lý nền (Background job) chạy sau khi user kết thúc cuộc gọi để chấm lỗi ngữ pháp, trôi chảy và XP.
+Fluency/intonation score trả null ở phase 1–3, kể cả điểm legacy chưa xác minh.
+Thiếu thời lượng: fluency.scoreStatus=INSUFFICIENT_DATA. Có đo nhưng chưa hiệu chỉnh:
+RUBRIC_NOT_CALIBRATED. Intonation: NOT_ASSESSED. WPM/pause/filler là số đo, chưa phải
+điểm. Rubric audio được hiệu chỉnh thuộc phase sau.
 
-```mermaid
-sequenceDiagram
-    actor Student
-    participant App as Mobile App
-    participant BE as Backend (Job Background)
-    participant LLM as AI Evaluator
-    participant DB as Database
-    participant Game as Gamification Service
+Report có sessionId, status, turns (transcript, sửa lỗi, audio và trạng thái),
+evaluation (criteria, general_feedback, fluency, intonationStatus), jobs (trạng thái,
+attempts, lịch retry, error_code), xpEarned, hintUsedCount. Không trả phần trăm giả.
+XP hiện có được ghi cùng transaction hoàn tất session; khóa và trạng thái COMPLETED
+ngăn cấp trùng. Chính sách hint/bonus thuộc phase 4.
 
-    Student->>App: Bấm "Kết Thúc Cuộc Gọi"
-    App->>BE: POST /api/v1/speaking-session/{sessionId}/end
-    
-    %% Background Processing Starts
-    BE->>BE: Đổ History từ Redis xuống DB (SpeakingTurn)
-    BE->>BE: Dọn dẹp RAM (Xóa Key Redis)
-    
-    par Đánh giá tự động
-        BE->>BE: Tính Fluency (Đếm Filler words um, uh & WPM)
-        BE->>LLM: Gửi Transcript toàn cuộc gọi để Check Ngữ Pháp (JSON Mode)
-        LLM-->>BE: Trả về List Lỗi, Cách Sửa & Điểm Nhiệm vụ
-    end
-    
-    BE->>DB: Gộp kết quả lưu vào evaluation_json của Session
-    
-    %% Kích hoạt Thưởng
-    BE->>Game: Trigger XP cho việc hoàn thành hội thoại
-    Game->>DB: Cập nhật Gamification
-    
-    BE-->>App: Trả về Báo cáo (Report) hoàn chỉnh
-    App->>Student: Hiển thị giao diện "Sửa lỗi" và "Điểm XP"
-```
+## API
 
-### 📦 Đặc tả API tương ứng (SpeakingSessionController)
-- **`POST /api/v1/speaking-session/{id}/end`**:
-  - **Response (200 OK):** Trả về JSON chứa Report toàn bộ cuộc gọi (bao gồm transcript, điểm phát âm, danh sách lỗi ngữ pháp và đề xuất cải thiện).
+Prefix: /api/v1/speaking-session. JSON được bọc trong ApiResponse.data.
+
+| Method/path | Input | Kết quả |
+|---|---|---|
+| POST /start | {scenarioId} | 202, session/greetingTurnId |
+| POST /{id}/audio-input | multipart file, Idempotency-Key | 202, turnId/status/transcript |
+| POST /{id}/text-input | {transcript}, Idempotency-Key | 202, turnId/status/transcript |
+| GET /{id}/stream-response | JWT | SSE snapshot, không gọi AI |
+| POST /{id}/end | Không cần body | 202 khi xử lý/lỗi; 200 khi COMPLETED |
+| GET /{id}/report | JWT | 200, trạng thái/kết quả |
+| POST /{id}/retry | JWT | 202, retry job lỗi |
+| POST /{id}/turns/{turnId}/retry | JWT | 202, retry lượt và report phụ thuộc |
+| GET /{id}/turns/{turnId}/audio | JWT | Audio, Cache-Control: no-store |
+| POST /{id}/hints | Idempotency-Key | Hints snapshot, đếm phía server |
+
+Frontend cần tích hợp key, snapshot SSE, polling report và các trạng thái mới.
+Thu âm, panel hint và transcript tăng dần từ mic cần phối hợp frontend.
+
+## Migration và kiểm thử
+
+V33 thêm dữ liệu bền vững/snapshot; V34 là thư viện scenario đã có; V35 thêm audit,
+lease và ràng buộc. V35 giữ lượt legacy, đánh lại ordinal theo (turn_index,id) rồi
+thêm unique index. Nếu có job trùng, migration dừng để xử lý dữ liệu thay vì tự xóa.
+Không sửa migration đã triển khai. Hội thoại chỉ còn ở Redis của phiên cũ không tự
+khôi phục từ DB: kết thúc phiên cũ trước rollout hoặc chuyển dữ liệu riêng.
+
+Unit test kiểm tra quyền, idempotency, schema, retry TTS, lease và thiếu dữ liệu.
+SpeakingStorePostgresTest opt-in trên PostgreSQL tạm qua biến
+SPEAKING_TEST_JDBC_URL=jdbc:postgresql://127.0.0.1:55439/postgres, user phase123.
+Test tạo/xóa schema riêng, không dùng cấu hình DB ứng dụng. Provider test dùng
+HTTP server giả trên localhost, không gọi AI thật.
