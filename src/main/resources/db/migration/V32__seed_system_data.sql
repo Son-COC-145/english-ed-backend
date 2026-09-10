@@ -369,7 +369,7 @@ ON CONFLICT (class_id, student_id) DO NOTHING;
 -- ------------------------------------------------------------------------------
 -- 9. TEACHING MATERIALS: Tài liệu học tập cho lớp học
 -- ------------------------------------------------------------------------------
-INSERT INTO teaching_materials (id, teacher_id, class_id, title, file_type, file_url, file_size_kb, is_live_presenting, created_at, updated_at)
+INSERT INTO teaching_materials (id, teacher_id, class_id, title, file_type, file_url, file_size_kb, is_live_presenting, uploaded_at, updated_at)
 VALUES
   (1, (SELECT id FROM users WHERE email = 'teacher@example.com'), 1, 
    'Slide Bài giảng: Daily Life & Vocabulary', 'PDF', 'https://cdn.example.com/materials/daily_life_slides.pdf', 2450, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
