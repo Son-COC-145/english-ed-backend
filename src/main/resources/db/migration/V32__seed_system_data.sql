@@ -37,7 +37,7 @@ SET password_hash = EXCLUDED.password_hash,
 -- ------------------------------------------------------------------------------
 -- 2. TOPICS: Các chủ đề từ vựng theo khung CEFR và Danh mục
 -- ------------------------------------------------------------------------------
-INSERT INTO topics (id, name_en, name_vi, iconUrl, is_active, cefr_level, category)
+INSERT INTO topics (id, name_en, name_vi, icon_url, is_active, cefr_level, category)
 VALUES
   (1,  'Daily Life & Routines',      'Cuộc sống thường ngày',        'https://images.unsplash.com/photo-1506784983877-45594efa4cbe', true, 'A1', 'DAILY_CONVERSATION'),
   (2,  'Family & Relationships',     'Gia đình & Mối quan hệ',       'https://images.unsplash.com/photo-1511895426328-dc8714191300', true, 'A1', 'DAILY_CONVERSATION'),
@@ -52,7 +52,7 @@ VALUES
 ON CONFLICT (id) DO UPDATE
 SET name_en = EXCLUDED.name_en,
     name_vi = EXCLUDED.name_vi,
-    iconUrl = EXCLUDED.iconUrl,
+    icon_url = EXCLUDED.icon_url,
     is_active = EXCLUDED.is_active,
     cefr_level = EXCLUDED.cefr_level,
     category = EXCLUDED.category;
