@@ -25,6 +25,9 @@ public class SpeakingTurnResponse {
     private String transcriptText;
     private String audioUrl;
     private Object audioMetrics;
+    private String audioStatus;
+    private String audioAnalysisStatus;
+    private Double durationSeconds;
     private List<GrammarCorrection> grammarErrors;
     private List<VocabularySuggestion> vocabularySuggestions;
     private LocalDateTime createdAt;

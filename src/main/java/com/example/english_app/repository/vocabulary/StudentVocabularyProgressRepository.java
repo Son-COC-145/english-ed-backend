@@ -69,6 +69,14 @@ public interface StudentVocabularyProgressRepository extends JpaRepository<Stude
            "AND p.status <> com.example.english_app.entity.enums.LearningStatus.NEW")
     long countDueReviews(@Param("studentId") Long studentId, @Param("now") LocalDateTime now);
 
+    @Query("SELECT COUNT(p) FROM StudentVocabularyProgress p " +
+           "WHERE p.student.id = :studentId AND p.nextReviewAt <= :now " +
+           "AND p.status <> com.example.english_app.entity.enums.LearningStatus.NEW " +
+           "AND (:topicId IS NULL OR p.vocabulary.topic.id = :topicId) " +
+           "AND (:cefrLevel IS NULL OR p.vocabulary.cefrLevel = :cefrLevel)")
+    long countDueReviewsFiltered(@Param("studentId") Long studentId, @Param("now") LocalDateTime now,
+                                 @Param("topicId") Short topicId, @Param("cefrLevel") CefrLevel cefrLevel);
+
     // ─── Vocabulary Progress Filters ─────────────────────────────────────────
 
     /** Filter theo status – dùng cho màn Đang học / Đang ôn / Đã thuộc */

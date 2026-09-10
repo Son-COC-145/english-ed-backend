@@ -41,7 +41,11 @@ public class VocabularyService {
     public VocabularyResponse getById(Long id) {
         Vocabulary vocabulary = vocabularyRepository.findById(id)
                 .orElseThrow(() -> ErrorCode.VOCABULARY_NOT_FOUND.toException());
-        return toResponse(vocabulary, resolveCurrentStudentId());
+        Long studentId = resolveCurrentStudentId();
+        if (studentId != null && vocabulary.getStatus() != VocabularyStatus.PUBLISHED) {
+            throw ErrorCode.VOCABULARY_NOT_FOUND.toException();
+        }
+        return toResponse(vocabulary, studentId);
     }
 
     public PageResponse<VocabularyResponse> filterVocabularies(

@@ -96,6 +96,10 @@ public class SpeakingStore {
     }
 
     public SpeakingTurn submit(Long id, Long userId, String key, String hash, byte[] audio, String mime, String text) {
+        return submit(id, userId, key, hash, audio, mime, text, null);
+    }
+
+    public SpeakingTurn submit(Long id, Long userId, String key, String hash, byte[] audio, String mime, String text, String audioUrl) {
         SpeakingSession s = lockOwned(id, userId);
         var existing = turns.findBySessionIdAndRequestKey(id, key);
         if (existing.isPresent()) {
@@ -124,6 +128,10 @@ public class SpeakingStore {
                 .inputHash(hash)
                 .audioData(audio)
                 .audioContentType(mime)
+                .audioUrl(audioUrl)
+                .recordedAt(audio == null ? null : LocalDateTime.now())
+                .audioAnalysisStatus(audio == null ? "INSUFFICIENT_DATA" : "PENDING")
+                .audioStatus(audio == null ? "PENDING" : "PENDING")
                 .transcriptText(text == null ? "" : text)
                 .build());
 
@@ -190,6 +198,16 @@ public class SpeakingStore {
             if ("FAILED".equals(t.getStatus())) {
                 t.setStatus("PENDING");
                 t.setErrorCode(null);
+            }
+            if (turnId == null || turnId.equals(t.getId())) {
+                if (t.getSpeaker() == SpeakerRole.AI && "FAILED".equals(t.getAudioStatus())) {
+                    t.setAudioStatus("PENDING");
+                    t.setAudioErrorCode(null);
+                }
+                if (t.getSpeaker() == SpeakerRole.STUDENT && "FAILED".equals(t.getAudioAnalysisStatus())) {
+                    t.setAudioAnalysisStatus("PENDING");
+                    t.setAudioErrorCode(null);
+                }
             }
             if ("FAILED".equals(t.getEvaluationStatus())) {
                 t.setEvaluationStatus("PENDING");
@@ -286,6 +304,11 @@ public class SpeakingStore {
         SpeakingTurn t = turn(j.turnId());
         t.setTranscriptText(transcript);
         t.setAudioMetricsJson(metrics);
+        JsonNode metricNode = json.read(metrics);
+        t.setDurationSeconds(metricNode.has("durationSeconds") ? metricNode.path("durationSeconds").asDouble() : null);
+        t.setMetricsVersion(metricNode.path("metricsVersion").asText("1"));
+        t.setAudioAnalysisStatus(metricNode.path("audioAnalysisStatus").asText(
+                metricNode.has("durationSeconds") ? "MEASURED" : "INSUFFICIENT_DATA"));
         t.setStatus("COMPLETED");
 
         SpeakingTurn reply = turns.saveAndFlush(SpeakingTurn.builder()
@@ -321,13 +344,19 @@ public class SpeakingStore {
     }
 
     public void responseDone(Job j, String text, byte[] audio) {
+        responseDone(j, text, audio, null);
+    }
+
+    public void responseDone(Job j, String text, byte[] audio, String audioUrl) {
         if (!current(j)) {
             return;
         }
         SpeakingTurn t = turn(j.turnId());
         t.setTranscriptText(text);
         t.setAudioData(audio);
+        t.setAudioUrl(audioUrl);
         t.setAudioContentType("audio/mpeg");
+        t.setAudioStatus("READY");
         t.setStatus("COMPLETED");
         t.setErrorCode(null);
         done(j);
@@ -361,7 +390,12 @@ public class SpeakingStore {
         s.setTaskCompletionScore((short) report.path("task_completion_score").asInt());
 
         short xp = (short) (20 + Math.max(0, 10 - s.getHintUsedCount() * 2));
-        jdbc.update("""
+        int rewardInserted = jdbc.update("""
+                insert into speaking_reward_ledger(session_id, student_id, xp_amount)
+                values (?, ?, ?)
+                on conflict (session_id) do nothing
+                """, s.getId(), s.getStudent().getId(), xp);
+        if (rewardInserted > 0) jdbc.update("""
                 insert into student_stats(student_id, total_xp, current_streak, longest_streak, streak_freeze_count, total_study_minutes, updated_at)
                 values (?, ?, 0, 0, 0, 0, CURRENT_TIMESTAMP)
                 on conflict (student_id) do update set total_xp = student_stats.total_xp + EXCLUDED.total_xp, updated_at = CURRENT_TIMESTAMP
@@ -397,6 +431,13 @@ public class SpeakingStore {
             } else {
                 SpeakingTurn t = turn(j.turnId());
                 t.setErrorCode(code);
+                if ("INPUT".equals(j.kind())) {
+                    t.setAudioAnalysisStatus("FAILED");
+                } else if ("RESPONSE".equals(j.kind())) {
+                    t.setAudioStatus("FAILED");
+                    t.setStatus("FAILED");
+                    t.setAudioErrorCode(code);
+                }
                 if ("TURN_EVALUATION".equals(j.kind())) {
                     t.setEvaluationStatus("FAILED");
                 } else {

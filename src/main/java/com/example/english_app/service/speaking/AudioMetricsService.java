@@ -53,6 +53,7 @@ public class AudioMetricsService {
 
     public Map<String, Object> analyze(byte[] audio, String transcript, Double providerDuration) {
         Map<String, Object> metrics = new LinkedHashMap<>();
+        metrics.put("metricsVersion", "1");
         int words = (int) WORD.matcher(transcript).results().count();
         int fillers = (int) FILLER.matcher(transcript).results().count();
 
@@ -61,6 +62,7 @@ public class AudioMetricsService {
         metrics.put("fillerMethod", "lexical_um_uh_er_erm_only");
         metrics.put("intonationStatus", "UNAVAILABLE");
         metrics.put("pauseStatus", "UNAVAILABLE");
+        metrics.put("measurementSource", audio == null ? "UNAVAILABLE" : "STT_PROVIDER");
 
         if (providerDuration != null && Double.isFinite(providerDuration) && providerDuration > 0) {
             metrics.put("durationSeconds", providerDuration);
@@ -116,6 +118,7 @@ public class AudioMetricsService {
                 double duration = frames / (double) pcm.getSampleRate();
                 metrics.put("durationSeconds", duration);
                 metrics.put("durationSource", "DECODED_AUDIO");
+                metrics.put("measurementSource", "DECODED_AUDIO");
 
                 int step = Math.max(1, (int) pcm.getSampleRate() / 8000);
                 double sampleRate = pcm.getSampleRate() / step;

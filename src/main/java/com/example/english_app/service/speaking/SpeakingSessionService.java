@@ -9,6 +9,7 @@ import com.example.english_app.entity.speaking.SpeakingSession;
 import com.example.english_app.entity.speaking.SpeakingTurn;
 import com.example.english_app.exception.ErrorCode;
 import com.example.english_app.mapper.SpeakingMapper;
+import com.example.english_app.service.integration.CloudinaryService;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,7 @@ public class SpeakingSessionService {
     private final SpeakingAccess access;
     private final SpeakingMapper mapper;
     private final SpeakingJson json;
+    private final CloudinaryService cloudinary;
 
     @Transactional
     public SpeakingSessionResponse startSession(StartSessionRequest request) {
@@ -57,7 +59,9 @@ public class SpeakingSessionService {
         try {
             byte[] data = file.getBytes();
             String mime = AudioMetricsService.detectMime(data);
-            SpeakingTurn turn = store.submit(id, userId, requestKey, hash(data), data, mime, null);
+            String audioUrl = cloudinary.uploadFile(data, "video",
+                    "speaking/session-" + id + "/student-" + requestKey);
+            SpeakingTurn turn = store.submit(id, userId, requestKey, hash(data), data, mime, null, audioUrl);
             return new AudioInputResponse(turn.getId(), turn.getStatus(), turn.getTranscriptText());
         } catch (IOException e) {
             throw ErrorCode.AUDIO_PROCESSING_FAILED.toException();
@@ -111,13 +115,12 @@ public class SpeakingSessionService {
                 .hintUsedCount(session.getHintUsedCount())
                 .evaluation(json.read(session.getEvaluationJson()))
                 .turns(turns)
-                .jobs(store.jobProgress(id))
                 .build();
     }
 
     private SpeakingTurnResponse turnResponse(SpeakingTurn turn) {
         SpeakingTurnResponse response = mapper.toTurnResponse(turn);
-        if (turn.getAudioData() != null) {
+        if (turn.getAudioData() != null && (turn.getAudioUrl() == null || turn.getAudioUrl().isBlank())) {
             response.setAudioUrl("/api/v1/speaking-session/" + turn.getSession().getId() + "/turns/" + turn.getId() + "/audio");
         }
         return response;

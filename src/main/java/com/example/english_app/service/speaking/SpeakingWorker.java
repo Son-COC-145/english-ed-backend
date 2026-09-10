@@ -3,6 +3,7 @@ package com.example.english_app.service.speaking;
 import com.example.english_app.entity.enums.SpeakerRole;
 import com.example.english_app.entity.speaking.SpeakingTurn;
 import com.example.english_app.service.integration.TtsGenerationService;
+import com.example.english_app.service.integration.CloudinaryService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import jakarta.annotation.PreDestroy;
@@ -26,6 +27,7 @@ public class SpeakingWorker {
     private final SpeakingAiClient ai;
     private final AudioMetricsService metrics;
     private final TtsGenerationService tts;
+    private final CloudinaryService cloudinary;
 
     private final ExecutorService workers = Executors.newFixedThreadPool(4);
     private final AtomicInteger active = new AtomicInteger();
@@ -103,7 +105,16 @@ public class SpeakingWorker {
                 if (audio == null || audio.length == 0) {
                     throw new IllegalStateException("Empty TTS audio");
                 }
-                store.responseDone(job, text, audio);
+                String audioUrl = null;
+                try {
+                    audioUrl = cloudinary.uploadFile(audio, "video",
+                            "speaking/session-" + job.sessionId() + "/turn-" + turn.getId());
+                } catch (RuntimeException uploadFailure) {
+                    // Keep the DB copy usable when Cloudinary is temporarily unavailable.
+                    log.warn("Speaking audio upload failed sessionId={} turnId={} error={}",
+                            job.sessionId(), turn.getId(), uploadFailure.getClass().getSimpleName());
+                }
+                store.responseDone(job, text, audio, audioUrl);
             }
             case "TURN_EVALUATION" -> {
                 SpeakingTurn turn = store.turn(job.turnId());

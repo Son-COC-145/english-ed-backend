@@ -32,6 +32,7 @@ public class TopicService {
     private final UserRepository userRepository;
 
     public PageResponse<TopicResponse> filterTopics(String nameSearch, Boolean isActive, Pageable pageable) {
+        if (isCurrentStudent()) isActive = Boolean.TRUE;
         Page<Topic> topics = topicRepository.filterTopics(nameSearch, isActive, pageable);
         List<Topic> topicList = topics.getContent();
 
@@ -81,6 +82,9 @@ public class TopicService {
     public TopicResponse getById(Short id) {
         Topic topic = topicRepository.findById(id)
                 .orElseThrow(() -> ErrorCode.TOPIC_NOT_FOUND.toException());
+        if (isCurrentStudent() && !Boolean.TRUE.equals(topic.getIsActive())) {
+            throw ErrorCode.TOPIC_NOT_FOUND.toException();
+        }
 
         boolean student = isCurrentStudent();
         Long studentId = student ? resolveCurrentStudentId() : null;

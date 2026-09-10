@@ -1,7 +1,5 @@
 package com.example.english_app.dto.response;
 
-import java.util.Map;
-
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -24,5 +22,4 @@ public class SessionEvaluationResponse {
     private Short hintUsedCount;
     private Object evaluation;
     private List<SpeakingTurnResponse> turns;
-    private List<Map<String, Object>> jobs;
 }

@@ -3,6 +3,7 @@ package com.example.english_app.service.speaking;
 import com.example.english_app.entity.enums.SpeakerRole;
 import com.example.english_app.entity.speaking.*;
 import com.example.english_app.service.integration.TtsGenerationService;
+import com.example.english_app.service.integration.CloudinaryService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -18,8 +19,9 @@ class SpeakingWorkerTest {
     final SpeakingStore store = mock(SpeakingStore.class);
     final SpeakingAiClient ai = mock(SpeakingAiClient.class);
     final TtsGenerationService tts = mock(TtsGenerationService.class);
+    final CloudinaryService cloudinary = mock(CloudinaryService.class);
     final SpeakingJson json = new SpeakingJson(new ObjectMapper());
-    final SpeakingWorker worker = new SpeakingWorker(store, json, ai, new AudioMetricsService(), tts);
+    final SpeakingWorker worker = new SpeakingWorker(store, json, ai, new AudioMetricsService(), tts, cloudinary);
 
     SpeakingStore.Job job(String kind) {
         when(store.session(1L)).thenReturn(SpeakingSession.builder().scenarioSnapshotJson("{\"cefr\":\"A2\"}").build());
@@ -31,9 +33,10 @@ class SpeakingWorkerTest {
         var job = job("RESPONSE");
         when(store.turn(2L)).thenReturn(SpeakingTurn.builder().transcriptText("Hello").responseTextReady(true).build());
         when(tts.generateAudioStream("Hello", null)).thenReturn(new byte[]{1});
+        when(cloudinary.uploadFile(any(), eq("video"), anyString())).thenReturn("https://cdn.test/audio.mp3");
         worker.process(job);
         verifyNoInteractions(ai);
-        verify(store).responseDone(eq(job), eq("Hello"), aryEq(new byte[]{1}));
+        verify(store).responseDone(eq(job), eq("Hello"), aryEq(new byte[]{1}), eq("https://cdn.test/audio.mp3"));
     }
 
     @Test void lostLeaseDoesNotStartTts() throws Exception {

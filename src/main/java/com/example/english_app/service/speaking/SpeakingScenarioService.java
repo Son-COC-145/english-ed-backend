@@ -30,7 +30,7 @@ public class SpeakingScenarioService {
     public PageResponse<SpeakingScenarioResponse> filterScenarios(Short id, String title, Short topicId,
             Boolean isActive, CefrLevel cefrLevel, Pageable pageable) {
         Page<SpeakingScenario> speakingScenarios = speakingScenarioRepository.filterScenarios(id, title, topicId,
-                SpeakingAccess.managesScenarios() ? isActive : true, cefrLevel, pageable);
+                SpeakingAccess.managesScenarios() ? isActive : Boolean.TRUE, cefrLevel, pageable);
         return PageResponse.of(speakingScenarios.map(this::visibleResponse));
     }
 
@@ -126,21 +126,34 @@ public class SpeakingScenarioService {
         scenario.setIsActive(false);
         speakingScenarioRepository.save(scenario);
     }
+
     private SpeakingScenarioResponse visibleResponse(SpeakingScenario scenario) {
-        var response=speakingMapper.toScenarioResponse(scenario);
+        var response = speakingMapper.toScenarioResponse(scenario);
         if (!SpeakingAccess.managesScenarios()) {
             response.setHintPhrases(null);
             response.setAiSystemPrompt(null);
         }
         return response;
     }
+
     private void validate(SpeakingScenarioRequest request) {
         try {
-            var hints=json.read(request.getHintPhrasesJson());
-            if (!hints.isArray() || hints.size()<3 || hints.size()>5) throw ErrorCode.INVALID_REQUEST.toException();
-            for (var hint:hints)
-                if (!hint.isTextual() || hint.asText().isBlank() || hint.asText().length()>250)
+            var hints = json.read(request.getHintPhrasesJson());
+            if (!hints.isArray() || hints.size() < 3 || hints.size() > 5)
+                throw ErrorCode.INVALID_REQUEST.toException();
+            for (var hint : hints)
+                if (!hint.isTextual() || hint.asText().isBlank() || hint.asText().length() > 250)
                     throw ErrorCode.INVALID_REQUEST.toException();
-        } catch (IllegalArgumentException e) { throw ErrorCode.INVALID_REQUEST.toException(); }
+            var uniqueHints = new java.util.HashSet<String>();
+            for (var hint : hints) if (!uniqueHints.add(hint.asText().strip().toLowerCase(java.util.Locale.ROOT)))
+                throw ErrorCode.INVALID_REQUEST.toException();
+            if (request.getContextDescription().length() > 2000
+                    || request.getAiRoleName().length() > 200
+                    || request.getAiSystemPrompt().length() > 8000
+                    || request.getGoalDescription().length() > 2000)
+                throw ErrorCode.INVALID_REQUEST.toException();
+        } catch (IllegalArgumentException e) {
+            throw ErrorCode.INVALID_REQUEST.toException();
+        }
     }
 }

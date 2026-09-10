@@ -231,7 +231,7 @@ public class GameficationService {
         Pageable pageable = PageRequest.of(page, size);
 
         long dueCount = studentVocabularyProgressRepository
-                .countDueReviews(user.getId(), now);
+                .countDueReviewsFiltered(user.getId(), now, topicId, cefrLevel);
 
         Page<StudentVocabularyProgress> dueItems = studentVocabularyProgressRepository
                 .findDueReviews(user.getId(), now, topicId, cefrLevel, pageable);

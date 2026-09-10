@@ -63,6 +63,26 @@ public class SpeakingTurn {
     @Column(name = "audio_content_type", length = 100)
     private String audioContentType;
 
+    @Column(name = "recorded_at")
+    private LocalDateTime recordedAt;
+
+    @Column(name = "duration_seconds")
+    private Double durationSeconds;
+
+    @Column(name = "audio_analysis_status", nullable = false, length = 32)
+    @Builder.Default
+    private String audioAnalysisStatus = "PENDING";
+
+    @Column(name = "metrics_version", length = 32)
+    private String metricsVersion;
+
+    @Column(name = "audio_status", nullable = false, length = 32)
+    @Builder.Default
+    private String audioStatus = "PENDING";
+
+    @Column(name = "audio_error_code", length = 100)
+    private String audioErrorCode;
+
     @Column(name = "transcript_text", nullable = false, columnDefinition = "TEXT")
     private String transcriptText;
 
