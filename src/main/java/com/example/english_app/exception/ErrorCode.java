@@ -52,6 +52,11 @@ public enum ErrorCode {
     TOPIC_ALREADY_EXISTS(8002, "Chủ đề đã tồn tại", HttpStatus.BAD_REQUEST),
     VOCABULARY_NOT_FOUND(8003, "Từ vựng không tồn tại", HttpStatus.NOT_FOUND),
     VOCABULARY_ALREADY_EXISTS(8004, "Từ vựng đã tồn tại", HttpStatus.BAD_REQUEST),
+    VOCABULARY_PROGRESS_NOT_FOUND(8005, "Không tìm thấy tiến trình học từ vựng này", HttpStatus.NOT_FOUND),
+    VOCABULARY_NOT_PUBLISHED(8006, "Từ vựng chưa được phát hành", HttpStatus.FORBIDDEN),
+    INVALID_REVIEW_RATING(8007, "Mức đánh giá không hợp lệ", HttpStatus.BAD_REQUEST),
+    /** attemptId đã được xử lý – trả 200 với cached result thay vì 409 để Mobile retry an toàn */
+    DUPLICATE_ATTEMPT(8008, "Attempt này đã được xử lý", HttpStatus.OK),
 
     // Speaking Coach
     SCENARIO_NOT_FOUND(8101, "Kịch bản giao tiếp không tồn tại", HttpStatus.NOT_FOUND),

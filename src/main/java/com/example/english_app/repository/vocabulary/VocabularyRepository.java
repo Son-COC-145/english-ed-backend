@@ -11,10 +11,27 @@ import org.springframework.data.repository.query.Param;
 
 import org.springframework.data.domain.Pageable;
 
+import java.util.List;
+
 public interface VocabularyRepository extends JpaRepository<Vocabulary, Long> {
     boolean existsByWord(String word);
     
     long countByTopicId(Short topicId);
+
+    @Query("SELECT v.topic.id, COUNT(v) FROM Vocabulary v " +
+           "WHERE v.topic.id IN :topicIds " +
+           "AND (:publishedOnly = false OR v.status = com.example.english_app.entity.enums.VocabularyStatus.PUBLISHED) " +
+           "GROUP BY v.topic.id")
+    List<Object[]> countVocabulariesByTopicIds(
+            @Param("topicIds") List<Short> topicIds,
+            @Param("publishedOnly") boolean publishedOnly);
+
+    @Query("SELECT COUNT(v) FROM Vocabulary v " +
+           "WHERE v.topic.id = :topicId " +
+           "AND (:publishedOnly = false OR v.status = com.example.english_app.entity.enums.VocabularyStatus.PUBLISHED)")
+    long countVocabulariesByTopicId(
+            @Param("topicId") Short topicId,
+            @Param("publishedOnly") boolean publishedOnly);
 
     @EntityGraph(attributePaths = {"topic", "createdBy"})
     @Query("SELECT v FROM Vocabulary v WHERE " +
@@ -41,9 +58,8 @@ public interface VocabularyRepository extends JpaRepository<Vocabulary, Long> {
         ORDER BY RANDOM()
         LIMIT :limit
         """, nativeQuery = true)
-    java.util.List<Vocabulary> findRandomNewVocabularies(
-        @Param("topicIds") java.util.List<Long> topicIds, 
+    List<Vocabulary> findRandomNewVocabularies(
+        @Param("topicIds") List<Long> topicIds, 
         @Param("studentId") Long studentId, 
         @Param("limit") int limit);
 }
-
