@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -29,12 +30,20 @@ public class SpeakingWorker {
     private final TtsGenerationService tts;
     private final CloudinaryService cloudinary;
 
-    private final ExecutorService workers = Executors.newFixedThreadPool(4);
+    @Value("${speaking.worker.pool-size:4}")
+    private int poolSize;
+
+    private ExecutorService workers;
     private final AtomicInteger active = new AtomicInteger();
+
+    @jakarta.annotation.PostConstruct
+    void initialize() {
+        workers = Executors.newFixedThreadPool(poolSize);
+    }
 
     @Scheduled(fixedDelayString = "${speaking.worker.poll-ms:500}")
     public void poll() {
-        while (active.get() < 4) {
+        while (active.get() < poolSize) {
             SpeakingStore.Job job = store.claim();
             if (job == null) {
                 return;

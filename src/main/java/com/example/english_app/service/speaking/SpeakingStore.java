@@ -7,6 +7,7 @@ import com.example.english_app.entity.speaking.SpeakingTurn;
 import com.example.english_app.exception.ErrorCode;
 import com.example.english_app.repository.speaking.SpeakingScenarioRepository;
 import com.example.english_app.repository.speaking.SpeakingSessionRepository;
+import com.example.english_app.repository.speaking.SpeakingStartRequestRepository;
 import com.example.english_app.repository.speaking.SpeakingTurnRepository;
 import com.example.english_app.repository.user.UserRepository;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -33,6 +34,7 @@ public class SpeakingStore {
 
     private final SpeakingSessionRepository sessions;
     private final SpeakingScenarioRepository scenarios;
+    private final SpeakingStartRequestRepository startRequests;
     private final SpeakingTurnRepository turns;
     private final UserRepository users;
     private final JdbcTemplate jdbc;
@@ -64,9 +66,21 @@ public class SpeakingStore {
         return turns.findBySessionIdOrderByTurnIndexAscIdAsc(id);
     }
 
-    public SpeakingSession start(Long userId, Short scenarioId) {
+    public SpeakingSession start(Long userId, Short scenarioId, String requestKey) {
+        int claimed = startRequests.claim(userId, requestKey, scenarioId);
+        if (claimed == 0) {
+            var existing = startRequests.findByStudentIdAndRequestKey(userId, requestKey)
+                    .orElseThrow(ErrorCode.SESSION_NOT_FOUND::toException);
+            if (!scenarioId.equals(existing.getScenario().getId()) || existing.getSession() == null) {
+                throw ErrorCode.SPEAKING_CONFLICT.toException();
+            }
+            return sessions.findById(existing.getSession().getId())
+                    .orElseThrow(ErrorCode.SESSION_NOT_FOUND::toException);
+        }
+
         SpeakingScenario scenario = scenarios.findById(scenarioId)
                 .filter(s -> Boolean.TRUE.equals(s.getIsActive()))
+                .filter(s -> s.getTopic() == null || Boolean.TRUE.equals(s.getTopic().getIsActive()))
                 .orElseThrow(ErrorCode.SCENARIO_NOT_FOUND::toException);
 
         Map<String, Object> snapshot = new LinkedHashMap<>();
@@ -92,7 +106,18 @@ public class SpeakingStore {
                 .build());
 
         enqueue(s.getId(), greeting.getId(), "RESPONSE");
+        startRequests.bindSession(userId, requestKey, s);
         return s;
+    }
+
+    public void attachAudioUrl(Long id, Long userId, Long turnId, String audioUrl) {
+        SpeakingSession session = lockOwned(id, userId);
+        SpeakingTurn turn = turns.findById(turnId)
+                .filter(t -> t.getSession().getId().equals(session.getId()))
+                .orElseThrow(ErrorCode.SESSION_NOT_FOUND::toException);
+        if (turn.getAudioUrl() == null || turn.getAudioUrl().isBlank()) {
+            turn.setAudioUrl(audioUrl);
+        }
     }
 
     public SpeakingTurn submit(Long id, Long userId, String key, String hash, byte[] audio, String mime, String text) {
@@ -281,7 +306,7 @@ public class SpeakingStore {
     }
 
     public SpeakingSession session(Long id) {
-        return sessions.findById(id).orElseThrow();
+        return sessions.findById(id).orElseThrow(ErrorCode.SESSION_NOT_FOUND::toException);
     }
 
     public SpeakingTurn turn(Long id) {
@@ -300,7 +325,7 @@ public class SpeakingStore {
         if (!current(j)) {
             return;
         }
-        SpeakingSession s = sessions.lockById(j.sessionId()).orElseThrow();
+        SpeakingSession s = sessions.lockById(j.sessionId()).orElseThrow(ErrorCode.SESSION_NOT_FOUND::toException);
         SpeakingTurn t = turn(j.turnId());
         t.setTranscriptText(transcript);
         t.setAudioMetricsJson(metrics);
@@ -340,7 +365,7 @@ public class SpeakingStore {
         }
         jdbc.update("update speaking_jobs set status='FAILED', error_code='TURN_PROCESSING_FAILED', error_message='A required turn failed', finished_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP, lease_expires_at=null where id=?", j.id());
         finishAttempt(j, "FAILED", "TURN_PROCESSING_FAILED", "A required turn failed", true);
-        sessions.lockById(j.sessionId()).orElseThrow().setStatus("EVALUATION_FAILED");
+        sessions.lockById(j.sessionId()).orElseThrow(ErrorCode.SESSION_NOT_FOUND::toException).setStatus("EVALUATION_FAILED");
     }
 
     public void responseDone(Job j, String text, byte[] audio) {
@@ -378,7 +403,7 @@ public class SpeakingStore {
         if (!current(j)) {
             return;
         }
-        SpeakingSession s = sessions.lockById(j.sessionId()).orElseThrow();
+        SpeakingSession s = sessions.lockById(j.sessionId()).orElseThrow(ErrorCode.SESSION_NOT_FOUND::toException);
         if ("COMPLETED".equals(s.getStatus())) {
             done(j);
             return;
@@ -427,7 +452,7 @@ public class SpeakingStore {
         finishAttempt(j, "FAILED", code, message, !terminal);
         if (terminal) {
             if (j.turnId() == null) {
-                sessions.lockById(j.sessionId()).orElseThrow().setStatus("EVALUATION_FAILED");
+                sessions.lockById(j.sessionId()).orElseThrow(ErrorCode.SESSION_NOT_FOUND::toException).setStatus("EVALUATION_FAILED");
             } else {
                 SpeakingTurn t = turn(j.turnId());
                 t.setErrorCode(code);

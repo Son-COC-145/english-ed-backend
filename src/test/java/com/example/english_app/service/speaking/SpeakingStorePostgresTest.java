@@ -48,8 +48,10 @@ class SpeakingStorePostgresTest {
         @Bean PlatformTransactionManager transactionManager(jakarta.persistence.EntityManagerFactory emf) { return new JpaTransactionManager(emf); }
         @Bean JdbcTemplate jdbcTemplate(DataSource ds) { return new JdbcTemplate(ds); }
         @Bean SpeakingJson speakingJson() { return new SpeakingJson(new ObjectMapper()); }
-        @Bean SpeakingStore store(SpeakingSessionRepository sessions, SpeakingScenarioRepository scenarios, SpeakingTurnRepository turns, UserRepository users, JdbcTemplate jdbc, SpeakingJson json) {
-            return new SpeakingStore(sessions,scenarios,turns,users,jdbc,json);
+        @Bean SpeakingStore store(SpeakingSessionRepository sessions, SpeakingScenarioRepository scenarios,
+                                  SpeakingStartRequestRepository startRequests, SpeakingTurnRepository turns,
+                                  UserRepository users, JdbcTemplate jdbc, SpeakingJson json) {
+            return new SpeakingStore(sessions,scenarios,startRequests,turns,users,jdbc,json);
         }
     }
     @BeforeAll void initialize() throws Exception {
@@ -59,7 +61,7 @@ class SpeakingStorePostgresTest {
         new JdbcTemplate(admin).execute("create schema "+schema);
         source=new DriverManagerDataSource(url+"?currentSchema="+schema,"phase123","");
         try(var connection=source.getConnection()) {
-            for(String file:List.of("V1__init.sql","V33__durable_speaking_sessions.sql","V34__speaking_scenario_library.sql","V35__speaking_job_audit_and_invariants.sql")) {
+            for(String file:List.of("V1__init.sql","V33__durable_speaking_sessions.sql","V34__speaking_scenario_library.sql","V35__speaking_job_audit_and_invariants.sql","V39__speaking_start_idempotency.sql")) {
                 String sql=Files.readString(Path.of("src/main/resources/db/migration",file),StandardCharsets.UTF_8)
                     .replace("public.",schema+".").replace("SELECT pg_catalog.set_config('search_path', '', false);","SET search_path TO "+schema+";");
                 ScriptUtils.executeSqlScript(connection,new ByteArrayResource(sql.getBytes(StandardCharsets.UTF_8)));
@@ -80,7 +82,7 @@ class SpeakingStorePostgresTest {
         jdbc.execute("truncate speaking_job_attempts,speaking_jobs,speaking_turns,speaking_sessions,student_stats restart identity");
     }
     private SpeakingSession readySession() {
-        var session=store.start(1L,scenarioId);
+        var session=store.start(1L,scenarioId,"startkey1");
         var greeting=store.claim();
         store.responseDone(greeting,"Welcome!",new byte[]{1,2,3});
         return session;
@@ -97,7 +99,7 @@ class SpeakingStorePostgresTest {
         assertThatThrownBy(()->store.hint(s.getId(),2L,"hintkey01")).isInstanceOf(com.example.english_app.exception.AppException.class);
         assertThatThrownBy(()->store.end(s.getId(),2L)).isInstanceOf(com.example.english_app.exception.AppException.class);
         jdbc.update("update speaking_scenarios set is_active=false where id=?",scenarioId);
-        try { assertThatThrownBy(()->store.start(1L,scenarioId)).isInstanceOf(com.example.english_app.exception.AppException.class); }
+        try { assertThatThrownBy(()->store.start(1L,scenarioId,"startkey2")).isInstanceOf(com.example.english_app.exception.AppException.class); }
         finally { jdbc.update("update speaking_scenarios set is_active=true where id=?",scenarioId); }
     }
     @Test void concurrentDuplicateInputCreatesOneTurnAndOneJob() throws Exception {
@@ -131,7 +133,7 @@ class SpeakingStorePostgresTest {
         assertThatThrownBy(()->store.submit(s.getId(),1L,"request02","new",null,null,"hello again")).isInstanceOf(com.example.english_app.exception.AppException.class);
     }
     @Test void staleWorkerCannotOverwriteReclaimedJob() {
-        var s=store.start(1L,scenarioId);
+        var s=store.start(1L,scenarioId,"startkey3");
         var stale=store.claim();
         jdbc.update("update speaking_jobs set lease_expires_at=now()-interval '1 second' where id=?",stale.id());
         var current=store.claim();

@@ -12,6 +12,7 @@ import com.example.english_app.mapper.SpeakingMapper;
 import com.example.english_app.service.integration.CloudinaryService;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -25,6 +26,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class SpeakingSessionService {
 
     private final SpeakingStore store;
@@ -34,8 +36,9 @@ public class SpeakingSessionService {
     private final CloudinaryService cloudinary;
 
     @Transactional
-    public SpeakingSessionResponse startSession(StartSessionRequest request) {
-        SpeakingSession session = store.start(access.userId(), request.getScenarioId());
+    public SpeakingSessionResponse startSession(StartSessionRequest request, String requestKey) {
+        validateKey(requestKey);
+        SpeakingSession session = store.start(access.userId(), request.getScenarioId(), requestKey);
         List<SpeakingTurn> history = store.history(session.getId());
         SpeakingSessionResponse response = mapper.toSessionResponse(session, history);
         if (!history.isEmpty()) {
@@ -59,9 +62,20 @@ public class SpeakingSessionService {
         try {
             byte[] data = file.getBytes();
             String mime = AudioMetricsService.detectMime(data);
-            String audioUrl = cloudinary.uploadFile(data, "video",
-                    "speaking/session-" + id + "/student-" + requestKey);
-            SpeakingTurn turn = store.submit(id, userId, requestKey, hash(data), data, mime, null, audioUrl);
+            String inputHash = hash(data);
+            SpeakingTurn turn = store.submit(id, userId, requestKey, inputHash, data, mime, null);
+            if (turn.getAudioUrl() == null || turn.getAudioUrl().isBlank()) {
+                try {
+                    String audioUrl = cloudinary.uploadFile(data, "video",
+                            "speaking/session-" + id + "/student-" + requestKey);
+                    store.attachAudioUrl(id, userId, turn.getId(), audioUrl);
+                    turn.setAudioUrl(audioUrl);
+                } catch (RuntimeException uploadFailure) {
+                    // The DB copy remains the canonical fallback; worker can process it without Cloudinary.
+                    log.warn("Speaking input audio upload failed sessionId={} turnId={} error={}",
+                            id, turn.getId(), uploadFailure.getClass().getSimpleName());
+                }
+            }
             return new AudioInputResponse(turn.getId(), turn.getStatus(), turn.getTranscriptText());
         } catch (IOException e) {
             throw ErrorCode.AUDIO_PROCESSING_FAILED.toException();
@@ -108,8 +122,8 @@ public class SpeakingSessionService {
         return SessionEvaluationResponse.builder()
                 .sessionId(id)
                 .status(session.getStatus())
-                .fluencyScore(null)
-                .intonationScore(null)
+                .fluencyScore(session.getFluencyScore())
+                .intonationScore(session.getIntonationScore())
                 .taskCompletionScore(session.getTaskCompletionScore())
                 .xpEarned(session.getXpEarned())
                 .hintUsedCount(session.getHintUsedCount())

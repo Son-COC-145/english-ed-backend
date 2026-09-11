@@ -16,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -27,17 +28,22 @@ public class SpeakingScenarioService {
     private final SpeakingMapper speakingMapper;
     private final SpeakingJson json;
 
+    @Transactional(readOnly = true)
     public PageResponse<SpeakingScenarioResponse> filterScenarios(Short id, String title, Short topicId,
             Boolean isActive, CefrLevel cefrLevel, Pageable pageable) {
         Page<SpeakingScenario> speakingScenarios = speakingScenarioRepository.filterScenarios(id, title, topicId,
+                !SpeakingAccess.managesScenarios(),
                 SpeakingAccess.managesScenarios() ? isActive : Boolean.TRUE, cefrLevel, pageable);
         return PageResponse.of(speakingScenarios.map(this::visibleResponse));
     }
 
+    @Transactional(readOnly = true)
     public SpeakingScenarioResponse getScenarioById(Short id) {
         SpeakingScenario scenario = speakingScenarioRepository.findById(id)
                 .orElseThrow(() -> ErrorCode.SCENARIO_NOT_FOUND.toException());
-        if (!SpeakingAccess.managesScenarios() && !Boolean.TRUE.equals(scenario.getIsActive()))
+        if (!SpeakingAccess.managesScenarios()
+                && (!Boolean.TRUE.equals(scenario.getIsActive())
+                        || (scenario.getTopic() != null && !Boolean.TRUE.equals(scenario.getTopic().getIsActive()))))
             throw ErrorCode.SCENARIO_NOT_FOUND.toException();
         return visibleResponse(scenario);
     }
@@ -145,8 +151,9 @@ public class SpeakingScenarioService {
                 if (!hint.isTextual() || hint.asText().isBlank() || hint.asText().length() > 250)
                     throw ErrorCode.INVALID_REQUEST.toException();
             var uniqueHints = new java.util.HashSet<String>();
-            for (var hint : hints) if (!uniqueHints.add(hint.asText().strip().toLowerCase(java.util.Locale.ROOT)))
-                throw ErrorCode.INVALID_REQUEST.toException();
+            for (var hint : hints)
+                if (!uniqueHints.add(hint.asText().strip().toLowerCase(java.util.Locale.ROOT)))
+                    throw ErrorCode.INVALID_REQUEST.toException();
             if (request.getContextDescription().length() > 2000
                     || request.getAiRoleName().length() > 200
                     || request.getAiSystemPrompt().length() > 8000

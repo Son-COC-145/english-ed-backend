@@ -50,13 +50,15 @@ public class SpeakingSessionController {
     @PostMapping("/start")
     @RateLimitedAi
     public ResponseEntity<ApiResponse<SpeakingSessionResponse>> start(
+            @RequestHeader("Idempotency-Key") String key,
             @Valid @RequestBody StartSessionRequest request) {
         return ResponseEntity.status(HttpStatus.ACCEPTED)
-                .body(ApiResponse.success(sessions.startSession(request)));
+                .body(ApiResponse.success(sessions.startSession(request, key)));
     }
 
     @Operation(summary = "Gửi file ghi âm của người dùng, thực hiện STT và lên lịch xử lý lượt nói")
     @PostMapping(value = "/{id}/audio-input", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @RateLimitedAi
     public ResponseEntity<ApiResponse<AudioInputResponse>> audio(
             @PathVariable Long id,
             @RequestHeader("Idempotency-Key") String key,
@@ -67,6 +69,7 @@ public class SpeakingSessionController {
 
     @Operation(summary = "Gửi tin nhắn dạng text thay cho audio")
     @PostMapping("/{id}/text-input")
+    @RateLimitedAi
     public ResponseEntity<ApiResponse<AudioInputResponse>> text(
             @PathVariable Long id,
             @RequestHeader("Idempotency-Key") String key,
@@ -83,6 +86,7 @@ public class SpeakingSessionController {
 
     @Operation(summary = "Kết thúc phiên luyện nói và yêu cầu đánh giá toàn bộ phiên")
     @PostMapping("/{id}/end")
+    @RateLimitedAi
     public ResponseEntity<ApiResponse<SessionEvaluationResponse>> end(@PathVariable Long id) {
         var report = sessions.endSession(id);
         int statusCode = "COMPLETED".equals(report.getStatus()) ? 200 : 202;
@@ -105,6 +109,7 @@ public class SpeakingSessionController {
 
     @Operation(summary = "Thử lại xử lý phiên nói khi gặp lỗi")
     @PostMapping("/{id}/retry")
+    @RateLimitedAi
     public ResponseEntity<ApiResponse<String>> retry(@PathVariable Long id) {
         sessions.retry(id);
         return ResponseEntity.status(HttpStatus.ACCEPTED)
@@ -124,6 +129,7 @@ public class SpeakingSessionController {
     }
 
     @PostMapping("/{id}/turns/{turnId}/retry")
+    @RateLimitedAi
     public ResponseEntity<ApiResponse<String>> retryTurn(@PathVariable Long id, @PathVariable Long turnId) {
         sessions.retryTurn(id, turnId);
         return ResponseEntity.accepted().body(ApiResponse.success("Retry scheduled"));

@@ -114,6 +114,8 @@ gemini:
 
 speaking:
   provider: ${SPEAKING_PROVIDER:gemini}
+  worker:
+    pool-size: ${SPEAKING_WORKER_POOL_SIZE:4}
   openai:
     api-key: ${OPENAI_API_KEY:}
     base-url: ${SPEAKING_OPENAI_BASE_URL:https://api.openai.com/v1}

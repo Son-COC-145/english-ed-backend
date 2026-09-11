@@ -20,9 +20,10 @@ import static org.mockito.Mockito.*;
 class SpeakingStoreTest {
     final SpeakingSessionRepository sessions = mock(SpeakingSessionRepository.class);
     final SpeakingScenarioRepository scenarios = mock(SpeakingScenarioRepository.class);
+    final SpeakingStartRequestRepository startRequests = mock(SpeakingStartRequestRepository.class);
     final SpeakingTurnRepository turns = mock(SpeakingTurnRepository.class);
     final JdbcTemplate jdbc = mock(JdbcTemplate.class);
-    final SpeakingStore store = new SpeakingStore(sessions, scenarios, turns, mock(UserRepository.class), jdbc,
+    final SpeakingStore store = new SpeakingStore(sessions, scenarios, startRequests, turns, mock(UserRepository.class), jdbc,
             new SpeakingJson(new ObjectMapper()));
     SpeakingSession session;
 
@@ -47,7 +48,7 @@ class SpeakingStoreTest {
 
     @Test void inactiveScenarioCannotStart() {
         when(scenarios.findById((short) 1)).thenReturn(Optional.of(SpeakingScenario.builder().isActive(false).build()));
-        assertThatThrownBy(() -> store.start(7L, (short) 1)).isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(() -> store.start(7L, (short) 1, "startkey1")).isInstanceOf(RuntimeException.class);
         verify(sessions, never()).saveAndFlush(any());
         verifyNoInteractions(jdbc);
     }
