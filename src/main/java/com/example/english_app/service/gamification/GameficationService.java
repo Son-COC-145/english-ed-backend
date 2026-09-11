@@ -2,9 +2,14 @@ package com.example.english_app.service.gamification;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.time.temporal.ChronoUnit;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.function.Supplier;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -59,6 +64,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class GameficationService {
 
+    private static final String MINIGAME_SUBMIT = "MINIGAME_SUBMIT";
+    private static final String VOCABULARY_REVIEW_SUBMIT = "VOCABULARY_REVIEW_SUBMIT";
+
     private final MinigameResultRepository minigameResultRepository;
     private final StudentStatRepository studentStatRepository;
     private final StudentVocabularyProgressRepository studentVocabularyProgressRepository;
@@ -85,11 +93,21 @@ public class GameficationService {
     @Transactional
     public MinigameSubmitResponse procesGameSubmit(MinigameSubmitRequest request) {
         User user = getCurrentUser();
+        String hash = hashRequest(MINIGAME_SUBMIT, request.getVocabularyId(), request.getGameType(),
+                request.getIsCorrect(), request.getDurationSeconds());
+        claimOrGet(user.getId(), MINIGAME_SUBMIT, request.getAttemptId(), hash,
+                MinigameSubmitResponse.class, () -> processMinigameSubmit(request));
+        return readCachedResult(user.getId(), MINIGAME_SUBMIT, request.getAttemptId(),
+                MinigameSubmitResponse.class);
+    }
+
+    private MinigameSubmitResponse processMinigameSubmit(MinigameSubmitRequest request) {
+        User user = getCurrentUser();
 
         // Idempotency check
         if (request.getAttemptId() != null) {
             var cached = idempotencyKeyRepository
-                    .findByUserIdAndAttemptId(user.getId(), request.getAttemptId());
+                    .findByUserIdAndOperationTypeAndAttemptId(user.getId(), MINIGAME_SUBMIT, request.getAttemptId());
             if (cached.isPresent()) {
                 try {
                     return objectMapper.readValue(cached.get().getResultJson(), MinigameSubmitResponse.class);
@@ -144,9 +162,9 @@ public class GameficationService {
                 .build();
 
         // Cache idempotency result
-        if (request.getAttemptId() != null) {
-            cacheIdempotencyResult(user.getId(), request.getAttemptId(), response);
-        }
+        cacheIdempotencyResult(user.getId(), MINIGAME_SUBMIT, request.getAttemptId(),
+                hashRequest(MINIGAME_SUBMIT, request.getVocabularyId(), request.getGameType(),
+                        request.getIsCorrect(), request.getDurationSeconds()), response);
 
         return response;
     }
@@ -158,11 +176,21 @@ public class GameficationService {
     @Transactional
     public ReviewSubmitResponse processReviewSubmit(ReviewSubmitRequest request) {
         User user = getCurrentUser();
+        String hash = hashRequest(VOCABULARY_REVIEW_SUBMIT, request.getVocabularyId(), request.getRating(),
+                request.getDurationSeconds());
+        claimOrGet(user.getId(), VOCABULARY_REVIEW_SUBMIT, request.getAttemptId(), hash,
+                ReviewSubmitResponse.class, () -> processReviewSubmitMutation(request));
+        return readCachedResult(user.getId(), VOCABULARY_REVIEW_SUBMIT, request.getAttemptId(),
+                ReviewSubmitResponse.class);
+    }
+
+    private ReviewSubmitResponse processReviewSubmitMutation(ReviewSubmitRequest request) {
+        User user = getCurrentUser();
 
         // Idempotency check
         if (request.getAttemptId() != null) {
             var cached = idempotencyKeyRepository
-                    .findByUserIdAndAttemptId(user.getId(), request.getAttemptId());
+                    .findByUserIdAndOperationTypeAndAttemptId(user.getId(), VOCABULARY_REVIEW_SUBMIT, request.getAttemptId());
             if (cached.isPresent()) {
                 try {
                     return objectMapper.readValue(cached.get().getResultJson(), ReviewSubmitResponse.class);
@@ -214,9 +242,9 @@ public class GameficationService {
                 .build();
 
         // Cache idempotency result
-        if (request.getAttemptId() != null) {
-            cacheIdempotencyResult(user.getId(), request.getAttemptId(), response);
-        }
+        cacheIdempotencyResult(user.getId(), VOCABULARY_REVIEW_SUBMIT, request.getAttemptId(),
+                hashRequest(VOCABULARY_REVIEW_SUBMIT, request.getVocabularyId(), request.getRating(),
+                        request.getDurationSeconds()), response);
 
         return response;
     }
@@ -227,7 +255,7 @@ public class GameficationService {
 
     public DueReviewPageResponse getDueReviews(int page, int size, Short topicId, CefrLevel cefrLevel) {
         User user = getCurrentUser();
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = utcNow();
         Pageable pageable = PageRequest.of(page, size);
 
         long dueCount = studentVocabularyProgressRepository
@@ -273,7 +301,7 @@ public class GameficationService {
 
     public VocabularySummaryResponse getVocabularySummary() {
         User user = getCurrentUser();
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = utcNow();
         Long studentId = user.getId();
 
         // Đếm theo status trong 1 query
@@ -312,7 +340,7 @@ public class GameficationService {
     public PageResponse<StudentVocabularyProgressResponse> getVocabularyProgresses(
             LearningStatus status, boolean dueOnly, Pageable pageable) {
         User user = getCurrentUser();
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = utcNow();
 
         Page<StudentVocabularyProgress> page = studentVocabularyProgressRepository
                 .findByStudentIdWithFilters(user.getId(), status, dueOnly, now, pageable);
@@ -432,7 +460,7 @@ public class GameficationService {
         // 1. Lấy danh sách ÔN TẬP
         Pageable reviewPage = PageRequest.of(0, reviewWordsLimit);
         List<Vocabulary> reviewVocabs = studentVocabularyProgressRepository
-               .findVocabulariesToReview(studentId, LocalDateTime.now(), reviewPage).getContent();
+               .findVocabulariesToReview(studentId, utcNow(), reviewPage).getContent();
 
         // 2. Tính toán Tuần học hiện tại để tìm TỪ MỚI
         List<Course> activeCourses = courseStudentRepository.findActiveCoursesByStudentId(studentId);
@@ -468,6 +496,10 @@ public class GameficationService {
     // ═══════════════════════════════════════════════════════════════════════
     // Private helpers
     // ═══════════════════════════════════════════════════════════════════════
+
+    private LocalDateTime utcNow() {
+        return LocalDateTime.now(ZoneOffset.UTC);
+    }
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -528,7 +560,7 @@ public class GameficationService {
                 progress.setStatus(LearningStatus.REVIEWING);
             }
         }
-        progress.setLastPracticedAt(LocalDateTime.now());
+        progress.setLastPracticedAt(utcNow());
 
         // SM-2 với quality map đơn giản (mini-game chỉ có đúng/sai)
         applySmTwoAlgorithm(progress, isCorrect ? ReviewRating.GOOD : ReviewRating.AGAIN);
@@ -570,8 +602,8 @@ public class GameficationService {
         progress.setEasinessFactor(ef);
         progress.setRepetitions(rep);
         progress.setIntervalDays(interval);
-        progress.setNextReviewAt(LocalDateTime.now().plusDays(interval));
-        progress.setLastPracticedAt(LocalDateTime.now());
+        progress.setNextReviewAt(utcNow().plusDays(interval));
+        progress.setLastPracticedAt(utcNow());
 
         // Cập nhật status theo kết quả review
         if (quality == 0) {
@@ -585,15 +617,63 @@ public class GameficationService {
     }
 
     /** Cache kết quả vào idempotency_keys để retry an toàn */
-    private void cacheIdempotencyResult(Long userId, String attemptId, Object responseObj) {
+    private <T> void claimOrGet(Long userId, String operationType, String attemptId,
+                                 String requestHash, Class<T> responseType, Supplier<T> mutation) {
+        if (idempotencyKeyRepository.claim(userId, operationType, attemptId, requestHash) == 1) {
+            mutation.get();
+            return;
+        }
+        IdempotencyKey existing = idempotencyKeyRepository
+                .findByUserIdAndOperationTypeAndAttemptId(userId, operationType, attemptId)
+                .orElseThrow(() -> new IllegalStateException("Idempotency key disappeared after conflict"));
+        if (!requestHash.equals(existing.getRequestHash())) {
+            throw new com.example.english_app.exception.AppException(
+                    ErrorCode.DUPLICATE_ATTEMPT_CONFLICT,
+                    "attemptId đã được dùng cho payload khác");
+        }
+    }
+
+    private <T> T readCachedResult(Long userId, String operationType, String attemptId, Class<T> responseType) {
+        IdempotencyKey key = idempotencyKeyRepository
+                .findByUserIdAndOperationTypeAndAttemptId(userId, operationType, attemptId)
+                .orElseThrow(() -> new IllegalStateException("Idempotency result was not stored"));
+        try {
+            return objectMapper.readValue(key.getResultJson(), responseType);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Cannot deserialize idempotency result", e);
+        }
+    }
+
+    private String hashRequest(String operationType, Object... values) {
+        String payload = operationType + "|" + java.util.Arrays.stream(values)
+                .map(String::valueOf)
+                .collect(java.util.stream.Collectors.joining("|"));
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(payload.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder(64);
+            for (byte b : digest) hex.append(String.format("%02x", b));
+            return hex.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is unavailable", e);
+        }
+    }
+
+    private void cacheIdempotencyResult(Long userId, String operationType, String attemptId,
+                                        String requestHash, Object responseObj) {
         try {
             String resultJson = objectMapper.writeValueAsString(responseObj);
-            IdempotencyKey key = IdempotencyKey.builder()
-                    .attemptId(attemptId)
-                    .userId(userId)
-                    .resultJson(resultJson)
-                    .createdAt(LocalDateTime.now())
-                    .build();
+            IdempotencyKey key = idempotencyKeyRepository
+                    .findByUserIdAndOperationTypeAndAttemptId(userId, operationType, attemptId)
+                    .orElseGet(() -> IdempotencyKey.builder()
+                            .attemptId(attemptId)
+                            .userId(userId)
+                            .operationType(operationType)
+                            .requestHash(requestHash)
+                            .createdAt(utcNow())
+                            .build());
+            key.setRequestHash(requestHash);
+            key.setResultJson(resultJson);
             idempotencyKeyRepository.save(key);
         } catch (JsonProcessingException e) {
             // Non-critical: nếu cache lỗi thì không fail request chính

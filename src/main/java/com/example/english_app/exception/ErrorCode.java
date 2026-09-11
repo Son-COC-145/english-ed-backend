@@ -57,6 +57,7 @@ public enum ErrorCode {
     INVALID_REVIEW_RATING(8007, "Mức đánh giá không hợp lệ", HttpStatus.BAD_REQUEST),
     /** attemptId đã được xử lý – trả 200 với cached result thay vì 409 để Mobile retry an toàn */
     DUPLICATE_ATTEMPT(8008, "Attempt này đã được xử lý", HttpStatus.OK),
+    DUPLICATE_ATTEMPT_CONFLICT(8009, "AttemptId đã được dùng cho payload khác", HttpStatus.CONFLICT),
 
     // Speaking Coach
     SCENARIO_NOT_FOUND(8101, "Kịch bản giao tiếp không tồn tại", HttpStatus.NOT_FOUND),

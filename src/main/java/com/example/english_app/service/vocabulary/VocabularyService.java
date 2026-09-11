@@ -42,7 +42,9 @@ public class VocabularyService {
         Vocabulary vocabulary = vocabularyRepository.findById(id)
                 .orElseThrow(() -> ErrorCode.VOCABULARY_NOT_FOUND.toException());
         Long studentId = resolveCurrentStudentId();
-        if (studentId != null && vocabulary.getStatus() != VocabularyStatus.PUBLISHED) {
+        if (studentId != null && (vocabulary.getStatus() != VocabularyStatus.PUBLISHED
+                || vocabulary.getTopic() == null
+                || !Boolean.TRUE.equals(vocabulary.getTopic().getIsActive()))) {
             throw ErrorCode.VOCABULARY_NOT_FOUND.toException();
         }
         return toResponse(vocabulary, studentId);
@@ -67,7 +69,7 @@ public class VocabularyService {
         Long studentId = isStudent ? resolveCurrentStudentId() : null;
 
         Page<Vocabulary> vocabularies = vocabularyRepository.filterVocabularies(
-                topicId, createdById, status, cefrLevel, wordSearch, pageable);
+                topicId, createdById, status, cefrLevel, isStudent, wordSearch, pageable);
 
         return PageResponse.of(vocabularies.map(v -> toResponse(v, studentId)));
     }

@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(
     name = "idempotency_keys",
-    uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "attempt_id"})
+    uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "operation_type", "attempt_id"})
 )
 @Getter
 @Setter
@@ -33,6 +33,12 @@ public class IdempotencyKey {
 
     @Column(name = "user_id", nullable = false)
     private Long userId;
+
+    @Column(name = "operation_type", nullable = false, length = 40)
+    private String operationType;
+
+    @Column(name = "request_hash", nullable = false, length = 64)
+    private String requestHash;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "result_json", columnDefinition = "jsonb")

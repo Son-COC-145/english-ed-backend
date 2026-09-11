@@ -39,18 +39,22 @@ public interface VocabularyRepository extends JpaRepository<Vocabulary, Long> {
         "(:createdById IS NULL OR v.createdBy.id = :createdById) AND " + 
         "(:status IS NULL OR v.status = :status) AND " +
         "(:cefrLevel IS NULL OR v.cefrLevel = :cefrLevel) AND " +
+        "(:activeTopicOnly = false OR v.topic.isActive = true) AND " +
         "(:wordSearch IS NULL OR LOWER(v.word) LIKE LOWER(CONCAT('%', CAST(:wordSearch AS string), '%')))")
     Page<Vocabulary> filterVocabularies(
             @Param("topicId") Short topicId,
             @Param("createdById") Long createdById,
             @Param("status") VocabularyStatus status,
             @Param("cefrLevel") CefrLevel cefrLevel,
+            @Param("activeTopicOnly") boolean activeTopicOnly,
             @Param("wordSearch") String wordSearch,
             Pageable pageable);
 
     @Query(value = """
         SELECT v.* FROM vocabularies v
         WHERE v.topic_id IN (:topicIds)
+        AND v.status = 'PUBLISHED'
+        AND EXISTS (SELECT 1 FROM topics t WHERE t.id = v.topic_id AND t.is_active = true)
         AND NOT EXISTS (
             SELECT 1 FROM student_vocabulary_progress svp 
             WHERE svp.vocabulary_id = v.id AND svp.student_id = :studentId

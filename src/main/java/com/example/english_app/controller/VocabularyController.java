@@ -40,7 +40,7 @@ public class VocabularyController {
     @Operation(
         summary = "Lấy danh sách từ vựng (Có phân trang và lọc)",
         description = "Hỗ trợ lọc theo topicId, createdById, status, cefrLevel và tìm kiếm từ. " +
-                      "Lưu ý bảo mật: Với học viên (ROLE_STUDENT), hệ thống sẽ tự động ép buộc status = PUBLISHED bất kể tham số truyền vào."
+                      "Lưu ý bảo mật: Với học viên (ROLE_STUDENT), hệ thống chỉ trả vocabulary PUBLISHED thuộc topic active, bất kể tham số truyền vào."
     )
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<VocabularyResponse>>> getAll(
