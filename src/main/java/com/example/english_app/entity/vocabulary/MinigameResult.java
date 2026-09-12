@@ -40,7 +40,7 @@ public class MinigameResult {
     private Short xpEarned;
 
     @Column(name = "duration_seconds")
-    private Short durationSeconds;
+    private Integer durationSeconds;
 
     @CreationTimestamp
     @Column(name = "played_at", nullable = false, updatable = false)

@@ -2,11 +2,15 @@ package com.example.english_app.dto.response;
 
 import com.example.english_app.entity.enums.LearningStatus;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class MinigameSubmitResponse {
     private Short xpEarned;
     private Integer totalXp;

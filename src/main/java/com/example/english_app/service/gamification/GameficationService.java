@@ -104,19 +104,6 @@ public class GameficationService {
     private MinigameSubmitResponse processMinigameSubmit(MinigameSubmitRequest request) {
         User user = getCurrentUser();
 
-        // Idempotency check
-        if (request.getAttemptId() != null) {
-            var cached = idempotencyKeyRepository
-                    .findByUserIdAndOperationTypeAndAttemptId(user.getId(), MINIGAME_SUBMIT, request.getAttemptId());
-            if (cached.isPresent()) {
-                try {
-                    return objectMapper.readValue(cached.get().getResultJson(), MinigameSubmitResponse.class);
-                } catch (JsonProcessingException e) {
-                    // Nếu deserialize lỗi thì xử lý bình thường (edge case)
-                }
-            }
-        }
-
         Vocabulary vocabulary = vocabularyRepository.findById(request.getVocabularyId())
                 .orElseThrow(() -> ErrorCode.VOCABULARY_NOT_FOUND.toException());
 
@@ -186,19 +173,6 @@ public class GameficationService {
 
     private ReviewSubmitResponse processReviewSubmitMutation(ReviewSubmitRequest request) {
         User user = getCurrentUser();
-
-        // Idempotency check
-        if (request.getAttemptId() != null) {
-            var cached = idempotencyKeyRepository
-                    .findByUserIdAndOperationTypeAndAttemptId(user.getId(), VOCABULARY_REVIEW_SUBMIT, request.getAttemptId());
-            if (cached.isPresent()) {
-                try {
-                    return objectMapper.readValue(cached.get().getResultJson(), ReviewSubmitResponse.class);
-                } catch (JsonProcessingException e) {
-                    // fallthrough – xử lý bình thường
-                }
-            }
-        }
 
         // Load vocabulary
         Vocabulary vocab = vocabularyRepository.findById(request.getVocabularyId())
@@ -507,7 +481,7 @@ public class GameficationService {
                 .orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
     }
 
-    private short calculateXp(GameType type, short duration, boolean isCorrect) {
+    private short calculateXp(GameType type, int duration, boolean isCorrect) {
         if (!isCorrect) return 0;
 
         int baseXp = switch (type) {
