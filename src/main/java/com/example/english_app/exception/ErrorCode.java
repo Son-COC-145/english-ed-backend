@@ -26,6 +26,7 @@ public enum ErrorCode {
 
     // Validation
     INVALID_REQUEST(4001, "Dữ liệu không hợp lệ", HttpStatus.BAD_REQUEST),
+    INVALID_IMAGE_FILE(4002, "File tải lên phải là ảnh hợp lệ và không vượt quá 5 MB", HttpStatus.BAD_REQUEST),
 
     // Onboarding
     ONBOARDING_ALREADY_COMPLETED(5001, "Bạn đã hoàn thành quá trình Onboarding", HttpStatus.BAD_REQUEST),
