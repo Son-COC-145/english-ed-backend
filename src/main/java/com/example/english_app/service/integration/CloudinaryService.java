@@ -27,5 +27,16 @@ public class CloudinaryService {
             throw new RuntimeException("Failed to upload file to Cloudinary", e);
         }
     }
+
+    public void deleteFile(String publicId, String resourceType) {
+        try {
+            cloudinary.uploader().destroy(publicId, ObjectUtils.asMap(
+                    "resource_type", resourceType,
+                    "invalidate", true));
+        } catch (Exception e) {
+            log.error("Failed to delete Cloudinary file: publicId={}", publicId, e);
+            throw new RuntimeException("Failed to delete file from Cloudinary", e);
+        }
+    }
 }
 

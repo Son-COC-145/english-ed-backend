@@ -4,6 +4,7 @@ import com.example.english_app.dto.request.DeviceTokenRequest;
 import com.example.english_app.dto.response.NotificationResponse;
 import com.example.english_app.entity.enums.NotificationType;
 import com.example.english_app.entity.notification.Notification;
+import com.example.english_app.entity.notification.NotificationOutboxEvent;
 import com.example.english_app.entity.notification.UserDeviceToken;
 import com.example.english_app.entity.user.User;
 import com.example.english_app.repository.notification.NotificationRepository;
@@ -22,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,6 +35,7 @@ public class NotificationService {
     private final UserDeviceTokenRepository userDeviceTokenRepository;
     private final UserRepository userRepository;
     private final FcmService fcmService;
+    private final NotificationOutboxService notificationOutboxService;
 
     @Transactional
     public void registerDeviceToken(DeviceTokenRequest request) {
@@ -86,6 +89,10 @@ public class NotificationService {
 
     @Transactional
     public void sendToUser(Long userId, String title, String message, String type) {
+        notificationOutboxService.enqueue(userId, NotificationType.valueOf(type), title, message,
+                "notification-api:" + UUID.randomUUID());
+        return;
+        /*
         User user = userRepository.getReferenceById(userId);
         
         // 1. Lưu bản ghi vào DB
@@ -105,6 +112,28 @@ public class NotificationService {
                 .collect(Collectors.toList());
                 
         fcmService.sendMulticast(tokens, title, message);
+        */
+    }
+
+    @Transactional
+    public void sendFromOutbox(NotificationOutboxEvent event) {
+        if (notificationRepository.existsByOutboxEventId(event.getId())) {
+            return;
+        }
+        User user = userRepository.getReferenceById(event.getRecipient().getId());
+        notificationRepository.save(Notification.builder()
+                .user(user)
+                .title(event.getTitle())
+                .body(event.getBody())
+                .isRead(false)
+                .type(event.getNotificationType())
+                .outboxEventId(event.getId())
+                .build());
+        List<String> tokens = userDeviceTokenRepository.findByUserId(user.getId())
+                .stream()
+                .map(UserDeviceToken::getToken)
+                .collect(Collectors.toList());
+        fcmService.sendMulticast(tokens, event.getTitle(), event.getBody());
     }
 
     private Long getCurrentUserId() {

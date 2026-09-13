@@ -19,9 +19,10 @@ import com.example.english_app.mapper.ClassroomMapper;
 import com.example.english_app.repository.classroom.AssignmentRepository;
 import com.example.english_app.repository.classroom.CourseRepository;
 import com.example.english_app.repository.classroom.CourseStudentRepository;
-import com.example.english_app.service.notification.NotificationService;
+import com.example.english_app.service.notification.NotificationOutboxService;
 import com.example.english_app.entity.classroom.CourseStudent;
 import com.example.english_app.entity.enums.ClassStudentStatus;
+import com.example.english_app.entity.enums.NotificationType;
 
 import lombok.RequiredArgsConstructor;
 
@@ -32,7 +33,7 @@ public class AssignmentService {
     private final CourseRepository courseRepository;
     private final ClassroomMapper classroomMapper;
     private final CourseStudentRepository courseStudentRepository;
-    private final NotificationService notificationService;
+    private final NotificationOutboxService notificationOutboxService;
     private final CourseAccessService courseAccessService;
 
     @Transactional
@@ -57,10 +58,10 @@ public class AssignmentService {
 
         List<CourseStudent> students = courseStudentRepository.findByCourseIdAndStatus(courseId, ClassStudentStatus.ACTIVE);
         for (CourseStudent cs : students) {
-             notificationService.sendToUser(cs.getStudent().getId(), 
+             notificationOutboxService.enqueue(cs.getStudent().getId(), NotificationType.ASSIGNMENT,
                 "Bài tập mới", 
                 "Giáo viên vừa giao bài tập: " + savedAssignment.getTitle(), 
-                "ASSIGNMENT");
+                "assignment-created:" + savedAssignment.getId() + ":" + cs.getStudent().getId());
         }
 
         return classroomMapper.toAssignmentResponse(savedAssignment);

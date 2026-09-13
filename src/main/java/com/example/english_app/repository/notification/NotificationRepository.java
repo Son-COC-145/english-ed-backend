@@ -12,6 +12,7 @@ import com.example.english_app.entity.notification.Notification;
 
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
+    boolean existsByOutboxEventId(Long outboxEventId);
     Page<Notification> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
     @Modifying

@@ -7,6 +7,8 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.example.english_app.dto.response.classroom.TeachingMaterialResponse;
@@ -33,7 +35,7 @@ public class TeachingMaterialService {
     private final TeachingMaterialRepository teachingMaterialRepository;
     private final CourseAccessService courseAccessService;
 
-    private static final long MAX_FILE_SIZE_BYTES = 20L * 1024 * 1024;
+    private static final long MAX_FILE_SIZE_BYTES = 5L * 1024 * 1024;
     private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
             "application/pdf",
             "application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -73,6 +75,8 @@ public class TeachingMaterialService {
         TeachingMaterial material = TeachingMaterial.builder()
                 .title(title)
                 .fileUrl(fileUrl)
+                .cloudinaryPublicId(publicId)
+                .cloudinaryResourceType(resourceType)
                 .fileType(fileType)
                 .fileSizeKb(fileSizeKb)
                 .course(course)
@@ -80,7 +84,14 @@ public class TeachingMaterialService {
                 .isLivePresenting(false)
                 .build();
 
-        return classroomMapper.toTeachingMaterialResponse(teachingMaterialRepository.save(material));
+        try {
+            TeachingMaterial savedMaterial = teachingMaterialRepository.save(material);
+            deleteCloudinaryFileAfterRollback(publicId, resourceType);
+            return classroomMapper.toTeachingMaterialResponse(savedMaterial);
+        } catch (RuntimeException exception) {
+            deleteCloudinaryFileSafely(publicId, resourceType);
+            throw exception;
+        }
     }
 
     public List<TeachingMaterialResponse> getMaterialsByCourse(Long actorId, Long courseId) {
@@ -103,6 +114,7 @@ public class TeachingMaterialService {
         }
         courseAccessService.requireTeacherOrAdmin(teacherId, material.getCourse());
         teachingMaterialRepository.delete(material);
+        deleteCloudinaryFileAfterCommit(material.getCloudinaryPublicId(), material.getCloudinaryResourceType());
     }
 
     @Transactional
@@ -150,6 +162,37 @@ public class TeachingMaterialService {
         if (file == null || file.isEmpty() || file.getSize() > MAX_FILE_SIZE_BYTES
                 || file.getContentType() == null || !ALLOWED_CONTENT_TYPES.contains(file.getContentType())) {
             throw ErrorCode.INVALID_REQUEST.toException();
+        }
+    }
+
+    private void deleteCloudinaryFileAfterRollback(String publicId, String resourceType) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status == STATUS_ROLLED_BACK) {
+                    deleteCloudinaryFileSafely(publicId, resourceType);
+                }
+            }
+        });
+    }
+
+    private void deleteCloudinaryFileAfterCommit(String publicId, String resourceType) {
+        if (publicId == null || resourceType == null) {
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                deleteCloudinaryFileSafely(publicId, resourceType);
+            }
+        });
+    }
+
+    private void deleteCloudinaryFileSafely(String publicId, String resourceType) {
+        try {
+            cloudinaryService.deleteFile(publicId, resourceType);
+        } catch (RuntimeException ignored) {
+            // Durable retry is handled by the storage cleanup job/outbox introduced separately.
         }
     }
 }

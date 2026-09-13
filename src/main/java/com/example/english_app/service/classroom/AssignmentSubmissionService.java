@@ -21,9 +21,9 @@ import com.example.english_app.exception.ErrorCode;
 import com.example.english_app.mapper.ClassroomMapper;
 import com.example.english_app.repository.classroom.AssignmentRepository;
 import com.example.english_app.repository.classroom.AssignmentSubmissionRepository;
-import com.example.english_app.repository.classroom.CourseStudentRepository;
 import com.example.english_app.repository.user.UserRepository;
-import com.example.english_app.service.notification.NotificationService;
+import com.example.english_app.service.notification.NotificationOutboxService;
+import com.example.english_app.entity.enums.NotificationType;
 
 import lombok.RequiredArgsConstructor;
 
@@ -33,9 +33,8 @@ public class AssignmentSubmissionService {
     private final AssignmentRepository assignmentRepository;
     private final AssignmentSubmissionRepository submissionRepository;
     private final UserRepository userRepository;
-    private final CourseStudentRepository courseStudentRepository;
     private final ClassroomMapper classroomMapper;
-    private final NotificationService notificationService;
+    private final NotificationOutboxService notificationOutboxService;
     private final CourseAccessService courseAccessService;
 
     @Transactional
@@ -95,10 +94,10 @@ public class AssignmentSubmissionService {
 
         AssignmentSubmission savedSubmission = submissionRepository.save(submission);
 
-        notificationService.sendToUser(savedSubmission.getStudent().getId(), 
+        notificationOutboxService.enqueue(savedSubmission.getStudent().getId(), NotificationType.GRADE,
             "Đã có điểm", 
             "Bài tập " + savedSubmission.getAssignment().getTitle() + " đã được chấm điểm.", 
-            "GRADE");
+            "submission-graded:" + savedSubmission.getId());
 
         return classroomMapper.toAssignmentSubmissionResponse(savedSubmission);
     }

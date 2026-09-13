@@ -4,7 +4,6 @@ import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.lang.Nullable;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import com.google.firebase.messaging.BatchResponse;
@@ -25,7 +24,6 @@ public class FcmService {
         this.firebaseMessaging = firebaseMessaging;
     }
 
-    @Async
     public void sendMulticast(List<String> tokens, String title, String body) {
         if (firebaseMessaging == null) {
             log.debug("FirebaseMessaging is not initialized. Skipping FCM message: {}", title);
@@ -53,8 +51,10 @@ public class FcmService {
             }
         } catch (FirebaseMessagingException e) {
             log.error("Failed to send FCM multicast message: {}", e.getMessage(), e);
+            throw new IllegalStateException("Failed to send FCM notification", e);
         } catch (Exception e) {
             log.error("Unexpected error during FCM transmission", e);
+            throw new IllegalStateException("Failed to send FCM notification", e);
         }
     }
 }
