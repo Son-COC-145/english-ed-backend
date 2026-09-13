@@ -4,6 +4,7 @@ import com.example.english_app.entity.enums.SpeakerRole;
 import com.example.english_app.entity.speaking.*;
 import com.example.english_app.entity.user.User;
 import com.example.english_app.exception.ErrorCode;
+import com.example.english_app.exception.AppException;
 import com.example.english_app.repository.speaking.*;
 import com.example.english_app.repository.user.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -40,7 +41,7 @@ class SpeakingStoreTest {
     }
 
     @Test void otherStudentCannotReadOrMutate() {
-        assertThatThrownBy(() -> store.owned(1L, 8L)).isInstanceOf(com.example.english_app.exception.AppException.class);
+        assertThatThrownBy(() -> store.owned(1L, 8L)).isInstanceOf(AppException.class);
         assertThatThrownBy(() -> store.end(1L, 8L)).isInstanceOf(RuntimeException.class);
         assertThatThrownBy(() -> store.submit(1L, 8L, "request01", "hash", null, null, "Hi"))
                 .isInstanceOf(RuntimeException.class);
@@ -93,13 +94,26 @@ class SpeakingStoreTest {
     @Test void noSpeechStopsAutomaticRetryBeforeBudgetIsExhausted() {
         var job = new SpeakingStore.Job(11L, 1L, 3L, "INPUT", 1, "lease-token");
         var turn = SpeakingTurn.builder().id(3L).speaker(SpeakerRole.STUDENT).build();
-        when(jobs.lockCurrent(11L, "lease-token")).thenReturn(true);
+        when(jobs.findCurrentForUpdate(11L, "lease-token")).thenReturn(Optional.of(11L));
         when(jobs.maxAttempts(11L)).thenReturn(3);
         when(turns.findById(3L)).thenReturn(Optional.of(turn));
         store.failed(job, ErrorCode.SPEAKING_AUDIO_NO_SPEECH.toException());
         assertThat(turn.getStatus()).isEqualTo("FAILED");
         assertThat(turn.getErrorCode()).isEqualTo("SPEAKING_AUDIO_NO_SPEECH");
-        verify(jobs).fail(eq(11L), eq(true), eq("SPEAKING_AUDIO_NO_SPEECH"), anyString(), anyInt());
+        verify(jobs).updateFailure(eq(11L), eq("FAILED"), eq(true), eq("SPEAKING_AUDIO_NO_SPEECH"), anyString(), anyInt());
         verify(jobs).finishAttempt(eq(11L), eq("lease-token"), eq("FAILED"), eq("SPEAKING_AUDIO_NO_SPEECH"), anyString(), eq(false));
+    }
+
+    @Test void completingReportDoesNotAddXpWhenRewardAlreadyExists() {
+        var job = new SpeakingStore.Job(11L, 1L, null, "SESSION_EVALUATION", 1, "lease-token");
+        session.setStatus("EVALUATING");
+        when(jobs.findCurrentForUpdate(11L, "lease-token")).thenReturn(Optional.of(11L));
+        when(rewards.insertOnce(1L, 7L, (short) 30)).thenReturn(0);
+        store.reportDone(job, new ObjectMapper().createObjectNode().put("task_completion_score", 100), null, null);
+        assertThat(session.getStatus()).isEqualTo("COMPLETED");
+        assertThat(session.getTaskCompletionScore()).isEqualTo((short) 100);
+        assertThat(session.getXpEarned()).isEqualTo((short) 30);
+        verify(rewards, never()).incrementXp(anyLong(), anyShort());
+        verify(jobs).complete(11L);
     }
 }

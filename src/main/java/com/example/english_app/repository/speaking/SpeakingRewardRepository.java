@@ -24,7 +24,4 @@ public interface SpeakingRewardRepository extends JpaRepository<SpeakingRewardLe
             """, nativeQuery = true)
     void incrementXp(@Param("studentId") Long studentId, @Param("xp") short xp);
 
-    default void awardOnce(Long sessionId, Long studentId, short xp) {
-        if (insertOnce(sessionId, studentId, xp) > 0) incrementXp(studentId, xp);
-    }
 }

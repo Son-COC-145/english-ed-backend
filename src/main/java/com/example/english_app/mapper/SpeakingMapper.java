@@ -11,14 +11,12 @@ import com.example.english_app.dto.response.SpeakingTurnResponse;
 import com.example.english_app.entity.speaking.SpeakingScenario;
 import com.example.english_app.entity.speaking.SpeakingSession;
 import com.example.english_app.entity.speaking.SpeakingTurn;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -81,8 +79,8 @@ public class SpeakingMapper {
     public SpeakingTurnResponse toTurnResponse(SpeakingTurn entity) {
         if (entity == null) return null;
 
-        var grammarErrors = corrections(entity.getGrammarErrorsJson(), true);
-        var vocabularySuggestions = corrections(entity.getVocabularySuggestionsJson(), false);
+        var grammarErrors = parseCorrectionArray(entity.getGrammarErrorsJson());
+        var vocabularySuggestions = parseCorrectionArray(entity.getVocabularySuggestionsJson());
 
         return SpeakingTurnResponse.builder()
                 .id(entity.getId())
@@ -111,25 +109,27 @@ public class SpeakingMapper {
             return null;
         }
         try {
-            return objectMapper.readValue(jsonString, new TypeReference<Map<String, Object>>() {});
-        } catch (Exception e) {
-            try {
-                return objectMapper.readValue(jsonString, new TypeReference<List<Object>>() {});
-            } catch (Exception ex) {
-                log.warn("Failed to parse legacy speaking JSON");
-                return jsonString; // Fallback to raw string
+            JsonNode node = objectMapper.readTree(jsonString);
+            if (node.isNull()) return null;
+            if (node.isObject() || node.isArray()) {
+                return objectMapper.convertValue(node, Object.class);
             }
+        } catch (Exception e) {
+            log.warn("Failed to parse legacy speaking JSON");
+            return jsonString;
         }
+        log.warn("Failed to parse legacy speaking JSON");
+        return jsonString; // Preserve legacy scalar/malformed JSON fallback.
     }
 
-    private List<JsonNode> corrections(String value, boolean grammar) {
+    private List<JsonNode> parseCorrectionArray(String value) {
         if (value == null || value.isBlank()) return List.of();
         try {
             var node = objectMapper.readTree(value);
             if (!node.isArray()) throw new IllegalArgumentException("Expected correction array");
             return StreamSupport.stream(node.spliterator(), false).toList();
         } catch (Exception e) {
-            log.warn("Cannot parse legacy {} corrections", grammar ? "grammar" : "vocabulary");
+            log.warn("Cannot parse legacy speaking corrections");
             return List.of();
         }
     }

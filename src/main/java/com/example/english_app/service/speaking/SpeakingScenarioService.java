@@ -17,6 +17,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.HashSet;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -147,13 +149,12 @@ public class SpeakingScenarioService {
             var hints = json.read(request.getHintPhrasesJson());
             if (!hints.isArray() || hints.size() < 3 || hints.size() > 5)
                 throw ErrorCode.INVALID_REQUEST.toException();
-            for (var hint : hints)
-                if (!hint.isTextual() || hint.asText().isBlank() || hint.asText().length() > 250)
+            var uniqueHints = new HashSet<String>();
+            for (var hint : hints) {
+                if (!hint.isTextual() || hint.asText().isBlank() || hint.asText().length() > 250
+                        || !uniqueHints.add(hint.asText().strip().toLowerCase(Locale.ROOT)))
                     throw ErrorCode.INVALID_REQUEST.toException();
-            var uniqueHints = new java.util.HashSet<String>();
-            for (var hint : hints)
-                if (!uniqueHints.add(hint.asText().strip().toLowerCase(java.util.Locale.ROOT)))
-                    throw ErrorCode.INVALID_REQUEST.toException();
+            }
             if (request.getContextDescription().length() > 2000
                     || request.getAiRoleName().length() > 200
                     || request.getAiSystemPrompt().length() > 8000

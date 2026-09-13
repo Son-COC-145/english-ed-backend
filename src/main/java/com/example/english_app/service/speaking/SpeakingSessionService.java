@@ -37,7 +37,6 @@ public class SpeakingSessionService {
     private final SpeakingMapper mapper;
     private final SpeakingJson json;
     private final CloudinaryService cloudinary;
-    private final SpeakingAudioValidator audioValidator;
 
     @Transactional
     public SpeakingSessionResponse startSession(StartSessionRequest request, String requestKey) {
@@ -65,7 +64,6 @@ public class SpeakingSessionService {
 
         try {
             byte[] data = file.getBytes();
-            audioValidator.validate(data);
             String mime = AudioMetricsService.detectMime(data);
             String inputHash = hash(data);
             SpeakingTurn turn = store.submit(id, userId, requestKey, inputHash, data, mime, null);
@@ -120,6 +118,11 @@ public class SpeakingSessionService {
     @Transactional(readOnly = true)
     public SessionEvaluationResponse reportFor(Long id, Long userId) {
         return streamingSnapshot(id, userId).report();
+    }
+
+    @Transactional(readOnly = true)
+    public void checkOwnership(Long id, Long userId) {
+        store.owned(id, userId);
     }
 
     public record StreamingSnapshot(SessionEvaluationResponse report, Set<Long> finalizedAiTurnIds) {}
@@ -180,7 +183,8 @@ public class SpeakingSessionService {
     @Transactional(readOnly = true)
     public SessionEvaluationResponse recover(String startKey) {
         validateKey(startKey);
-        return reportFor(store.recover(access.userId(), startKey).getId(), access.userId());
+        Long userId = access.userId();
+        return reportFor(store.recover(userId, startKey).getId(), userId);
     }
 
     @Transactional(readOnly = true)

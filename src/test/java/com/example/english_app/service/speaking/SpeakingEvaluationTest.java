@@ -7,11 +7,28 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
 import java.util.List;
+import java.util.Map;
 import static org.assertj.core.api.Assertions.*;
 
 class SpeakingEvaluationTest {
     final ObjectMapper mapper = new ObjectMapper();
     final SpeakingJson json = new SpeakingJson(mapper);
+
+    @Test void mapperPreservesMetricsObjectsArraysAndLegacyFallbacks() {
+        var speakingMapper = new SpeakingMapper(mapper);
+        var turn = SpeakingTurn.builder().build();
+        turn.setAudioMetricsJson("{\"wordCount\":6}");
+        assertThat(speakingMapper.toTurnResponse(turn).getAudioMetrics())
+                .isEqualTo(Map.of("wordCount", 6));
+        turn.setAudioMetricsJson("[1,2]");
+        assertThat(speakingMapper.toTurnResponse(turn).getAudioMetrics()).isEqualTo(List.of(1, 2));
+        turn.setAudioMetricsJson("null");
+        assertThat(speakingMapper.toTurnResponse(turn).getAudioMetrics()).isNull();
+        for (String legacy : List.of("malformed JSON", "123", "\"legacy text\"")) {
+            turn.setAudioMetricsJson(legacy);
+            assertThat(speakingMapper.toTurnResponse(turn).getAudioMetrics()).isEqualTo(legacy);
+        }
+    }
 
     @Test void correctNaturalSentenceAcceptsEmptyCorrections() {
         assertThatCode(() -> SpeakingAiClient.validateCorrections(json.read(

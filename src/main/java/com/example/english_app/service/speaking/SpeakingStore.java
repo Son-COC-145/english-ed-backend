@@ -24,6 +24,7 @@ import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.StreamSupport;
 
 /**
@@ -273,15 +274,21 @@ public class SpeakingStore {
     ) {}
 
     public Job claim() {
-        var claim = jobs.claim();
-        return claim == null ? null : new Job(claim.id(), claim.sessionId(), claim.turnId(),
-                claim.kind(), claim.attempts(), claim.token());
+        var candidate = jobs.findEligibleForUpdate();
+        if (candidate.isEmpty()) return null;
+        var job = candidate.get();
+        int attempt = job.getAttempts() + 1;
+        String token = UUID.randomUUID().toString();
+        if ("RUNNING".equals(job.getStatus())) jobs.expireAttempts(job.getId());
+        jobs.acquireLease(job.getId(), token);
+        jobs.recordAttempt(job.getId(), attempt, token);
+        return new Job(job.getId(), job.getSessionId(), job.getTurnId(), job.getKind(), attempt, token);
     }
 
     private boolean current(Job j) {
         // Every mutation locks session before job, including /end and /retry.
         sessions.lockById(j.sessionId()).orElseThrow(ErrorCode.SESSION_NOT_FOUND::toException);
-        return jobs.lockCurrent(j.id(), j.token());
+        return jobs.findCurrentForUpdate(j.id(), j.token()).isPresent();
     }
 
     public boolean exhausted(Job j) {
@@ -398,7 +405,9 @@ public class SpeakingStore {
         s.setTaskCompletionScore((short) report.path("task_completion_score").asInt());
 
         short xp = (short) (20 + Math.max(0, 10 - s.getHintUsedCount() * 2));
-        rewards.awardOnce(s.getId(), s.getStudent().getId(), xp);
+        if (rewards.insertOnce(s.getId(), s.getStudent().getId(), xp) > 0) {
+            rewards.incrementXp(s.getStudent().getId(), xp);
+        }
 
         s.setXpEarned(xp);
         s.setStatus("COMPLETED");
@@ -426,7 +435,7 @@ public class SpeakingStore {
         // Exception messages may contain provider payloads or credentials. Store only the class.
         String message = failure.getClass().getSimpleName();
         int delay = Math.min(300, 10 * (1 << Math.min(j.attempts() - 1, 5)));
-        jobs.fail(j.id(), terminal, code, message, delay);
+        jobs.updateFailure(j.id(), terminal ? "FAILED" : "PENDING", terminal, code, message, delay);
         finishAttempt(j, "FAILED", code, message, !terminal);
         if (terminal) {
             if (j.turnId() == null) {
@@ -459,7 +468,4 @@ public class SpeakingStore {
         jobs.finishAttempt(j.id(), j.token(), status, code, message, retryable);
     }
 
-    public List<Map<String, Object>> jobProgress(Long sessionId) {
-        return jobs.progress(sessionId);
-    }
 }

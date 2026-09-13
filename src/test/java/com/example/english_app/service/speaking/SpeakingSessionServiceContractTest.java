@@ -21,7 +21,7 @@ class SpeakingSessionServiceContractTest {
     final SpeakingAccess access = mock(SpeakingAccess.class);
     final ObjectMapper mapper = new ObjectMapper();
     final SpeakingSessionService service = new SpeakingSessionService(store, access,
-            new SpeakingMapper(mapper), new SpeakingJson(mapper), mock(CloudinaryService.class), new SpeakingAudioValidator());
+            new SpeakingMapper(mapper), new SpeakingJson(mapper), mock(CloudinaryService.class));
     SpeakingSession session;
 
     @BeforeEach void setup() {
@@ -52,11 +52,23 @@ class SpeakingSessionServiceContractTest {
         audioError(SpeakingTurn.builder().session(otherSession).speaker(SpeakerRole.AI).build(), ErrorCode.SESSION_NOT_FOUND);
     }
 
-    @Test void silenceDoesNotCreateTurnOrUpload() {
-        var file = new MockMultipartFile("file", "recording.wav", "audio/wav", SpeakingAudioValidatorTest.wav(1, false));
+    @Test void unknownAudioDoesNotCreateTurnOrUpload() {
+        var file = new MockMultipartFile("file", "recording.wav", "audio/wav", new byte[64]);
         assertThatThrownBy(() -> service.processUserAudio(1L, "logical-key", file)).isInstanceOfSatisfying(AppException.class,
-                ex -> assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.SPEAKING_AUDIO_NO_SPEECH));
+                ex -> assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.UNSUPPORTED_AUDIO_FORMAT));
         verify(store, never()).submit(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test void mp3InputReachesStoreWithDetectedMimeAndOriginalBytes() {
+        byte[] audio = new byte[64];
+        audio[0] = 'I'; audio[1] = 'D'; audio[2] = '3';
+        var turn = SpeakingTurn.builder().id(2L).session(session).speaker(SpeakerRole.STUDENT)
+                .audioUrl("https://example.test/recording.mp3").build();
+        when(store.submit(eq(1L), eq(7L), eq("logical-key"), anyString(), eq(audio), eq("audio/mpeg"), isNull()))
+                .thenReturn(turn);
+        var file = new MockMultipartFile("file", "recording.mp3", "application/octet-stream", audio);
+        assertThat(service.processUserAudio(1L, "logical-key", file).turnId()).isEqualTo(2L);
+        verify(store).submit(eq(1L), eq(7L), eq("logical-key"), anyString(), eq(audio), eq("audio/mpeg"), isNull());
     }
 
     @Test void finalTextSnapshotIsConsistentAndHasDbAudioFallback() {

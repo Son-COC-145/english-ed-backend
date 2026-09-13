@@ -11,7 +11,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
@@ -36,7 +38,7 @@ public class AiStreamingService {
 
     public SseEmitter streamResponse(Long id) {
         Long userId = access.userId();
-        sessions.reportFor(id, userId);
+        sessions.checkOwnership(id, userId);
 
         if (!clients.tryAcquire()) {
             throw ErrorCode.SPEAKING_UNAVAILABLE.toException();
@@ -52,7 +54,7 @@ public class AiStreamingService {
         executor.submit(() -> {
             try {
                 Map<Long, String> sent = new HashMap<>();
-                Map<Long, Boolean> textFinalSent = new HashMap<>();
+                Set<Long> textFinalSent = new HashSet<>();
                 Map<Long, String> audioSent = new HashMap<>();
                 String sessionSignature = null;
                 long nextHeartbeat = System.nanoTime() + TimeUnit.SECONDS.toNanos(15);
@@ -76,7 +78,7 @@ public class AiStreamingService {
                             emitter.send(SseEmitter.event().name(event).data(turn));
                         }
                         if (turn.getSpeaker() == SpeakerRole.AI && finalizedAiTurns.contains(turn.getId())
-                                && !Boolean.TRUE.equals(textFinalSent.put(turn.getId(), true))) {
+                                && textFinalSent.add(turn.getId())) {
                             emitter.send(SseEmitter.event().name("text-final").data(turn));
                         }
                         if ("COMPLETED".equals(turn.getStatus()) && turn.getAudioUrl() != null
@@ -87,12 +89,12 @@ public class AiStreamingService {
                         }
                     }
 
-                    boolean failed = report.getTurns().stream().anyMatch(t -> "FAILED".equals(t.getStatus()));
+                    var failedTurn = report.getTurns().stream().filter(t -> "FAILED".equals(t.getStatus()))
+                            .findFirst().orElse(null);
                     var last = report.getTurns().isEmpty() ? null : report.getTurns().getLast();
 
-                    if (failed || (last != null && last.getSpeaker() == SpeakerRole.AI && "COMPLETED".equals(last.getStatus()))) {
-                        if (failed) {
-                            var failedTurn = report.getTurns().stream().filter(t -> "FAILED".equals(t.getStatus())).findFirst().orElseThrow();
+                    if (failedTurn != null || (last != null && last.getSpeaker() == SpeakerRole.AI && "COMPLETED".equals(last.getStatus()))) {
+                        if (failedTurn != null) {
                             emitter.send(SseEmitter.event().name("error").data(Map.of(
                                     "sessionId", id, "turnId", failedTurn.getId(),
                                     "errorCode", failedTurn.getErrorCode() == null ? "PROCESSING_FAILED" : failedTurn.getErrorCode())));

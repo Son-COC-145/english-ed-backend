@@ -28,6 +28,7 @@ public class TtsGenerationService {
     private String apiKey;
 
     private final CloudinaryService cloudinaryService;
+    private final ObjectMapper objectMapper;
     private final RestClient restClient = RestClient.create();
     private final HttpClient audioHttpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10)).build();
@@ -78,7 +79,7 @@ public class TtsGenerationService {
                     .header("xi-api-key", apiKey)
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(
-                        new ObjectMapper().writeValueAsString(Map.of(
+                        objectMapper.writeValueAsString(Map.of(
                             "text", text, "model_id", "eleven_multilingual_v2",
                             "voice_settings", Map.of("stability", 0.5, "similarity_boost", 0.75)))))
                     .build();

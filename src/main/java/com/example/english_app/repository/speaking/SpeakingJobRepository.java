@@ -1,9 +1,6 @@
 package com.example.english_app.repository.speaking;
 
-import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import com.example.english_app.entity.speaking.SpeakingJob;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -11,8 +8,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface SpeakingJobRepository extends JpaRepository<SpeakingJob, Long> {
-    record Claim(long id, long sessionId, Long turnId, String kind, int attempts, String token) {}
-
     @Modifying(flushAutomatically = true)
     @Query(value = "insert into speaking_jobs(session_id, turn_id, kind) values (:sessionId,:turnId,:kind) on conflict do nothing", nativeQuery = true)
     void enqueue(@Param("sessionId") Long sessionId, @Param("turnId") Long turnId, @Param("kind") String kind);
@@ -60,25 +55,11 @@ public interface SpeakingJobRepository extends JpaRepository<SpeakingJob, Long> 
     @Query(value = "insert into speaking_job_attempts(job_id, attempt_no, status, lease_token) values (:id,:attempt,'RUNNING',:token)", nativeQuery = true)
     void recordAttempt(@Param("id") long id, @Param("attempt") int attempt, @Param("token") String token);
 
-    default Claim claim() {
-        var candidate = findEligibleForUpdate();
-        if (candidate.isEmpty()) return null;
-        var job = candidate.get();
-        int attempt = job.getAttempts() + 1;
-        String token = UUID.randomUUID().toString();
-        if ("RUNNING".equals(job.getStatus())) expireAttempts(job.getId());
-        acquireLease(job.getId(), token);
-        recordAttempt(job.getId(), attempt, token);
-        return new Claim(job.getId(), job.getSessionId(), job.getTurnId(), job.getKind(), attempt, token);
-    }
-
     @Query(value = """
             select id from speaking_jobs where id=:id and lease_token=:token and status='RUNNING'
             and lease_expires_at > CURRENT_TIMESTAMP for update
             """, nativeQuery = true)
     Optional<Long> findCurrentForUpdate(@Param("id") long id, @Param("token") String token);
-
-    default boolean lockCurrent(long id, String token) { return findCurrentForUpdate(id, token).isPresent(); }
 
     @Query(value = "select max_attempts from speaking_jobs where id=:id", nativeQuery = true)
     int maxAttempts(@Param("id") long id);
@@ -114,10 +95,6 @@ public interface SpeakingJobRepository extends JpaRepository<SpeakingJob, Long> 
     void updateFailure(@Param("id") long id, @Param("status") String status, @Param("terminal") boolean terminal,
                        @Param("code") String code, @Param("message") String message, @Param("delay") int delaySeconds);
 
-    default void fail(long id, boolean terminal, String code, String message, int delaySeconds) {
-        updateFailure(id, terminal ? "FAILED" : "PENDING", terminal, code, message, delaySeconds);
-    }
-
     @Modifying(flushAutomatically = true)
     @Query(value = """
             update speaking_job_attempts set status=:status, finished_at=CURRENT_TIMESTAMP,
@@ -127,9 +104,4 @@ public interface SpeakingJobRepository extends JpaRepository<SpeakingJob, Long> 
     void finishAttempt(@Param("id") long id, @Param("token") String token, @Param("status") String status,
                        @Param("code") String code, @Param("message") String message, @Param("retryable") boolean retryable);
 
-    @Query(value = """
-            select id, turn_id, kind, status, attempts, max_attempts, available_at, error_code
-            from speaking_jobs where session_id=:sessionId order by id
-            """, nativeQuery = true)
-    List<Map<String, Object>> progress(@Param("sessionId") Long sessionId);
 }
