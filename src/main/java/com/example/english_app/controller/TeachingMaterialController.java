@@ -48,7 +48,7 @@ public class TeachingMaterialController {
     @GetMapping
     public ResponseEntity<ApiResponse<List<TeachingMaterialResponse>>> getMaterials(@PathVariable Long courseId) {
         return ResponseEntity.ok(
-                ApiResponse.success(teachingMaterialService.getMaterialsByCourse(courseId)));
+                ApiResponse.success(teachingMaterialService.getMaterialsByCourse(getCurrentTeacher().getId(), courseId)));
     }
 
     @Operation(summary = "Upload tài liệu giảng dạy cho lớp học")
@@ -72,7 +72,7 @@ public class TeachingMaterialController {
             @PathVariable Long courseId,
             @PathVariable Long materialId) {
         User teacher = getCurrentTeacher();
-        teachingMaterialService.deleteMaterial(materialId, teacher.getId());
+        teachingMaterialService.deleteMaterial(courseId, materialId, teacher.getId());
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
@@ -84,9 +84,9 @@ public class TeachingMaterialController {
             @PathVariable Long materialId,
             @RequestBody UpdateTeachingMaterialRequest request) {
         User teacher = getCurrentTeacher();
-        teachingMaterialService.updateMaterialInfo(materialId, teacher.getId(), request.getTitle(),
-                courseId);
-        return ResponseEntity.ok(ApiResponse.success(null));
+        TeachingMaterialResponse response = teachingMaterialService.updateMaterialInfo(materialId, teacher.getId(),
+                request.getTitle(), courseId);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
 }

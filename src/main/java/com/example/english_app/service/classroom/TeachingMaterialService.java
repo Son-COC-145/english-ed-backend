@@ -2,6 +2,7 @@ package com.example.english_app.service.classroom;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -30,6 +31,16 @@ public class TeachingMaterialService {
     private final UserRepository userRepository;
     private final ClassroomMapper classroomMapper;
     private final TeachingMaterialRepository teachingMaterialRepository;
+    private final CourseAccessService courseAccessService;
+
+    private static final long MAX_FILE_SIZE_BYTES = 20L * 1024 * 1024;
+    private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
+            "application/pdf",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            "application/vnd.ms-powerpoint",
+            "video/mp4",
+            "audio/mpeg",
+            "audio/mp3");
 
     @Transactional
     public TeachingMaterialResponse uploadAndCreateMaterial(Long teacherId, Long courseId, MultipartFile file,
@@ -41,7 +52,10 @@ public class TeachingMaterialService {
         if (courseId != null) {
             course = courseRepository.findById(courseId)
                     .orElseThrow(() -> ErrorCode.COURSE_NOT_FOUND.toException());
+            courseAccessService.requireTeacherOrAdmin(teacherId, course);
         }
+
+        validateUpload(file);
 
         String resourceType = determineResourceType(file.getContentType());
         String publicId = "materials/" + UUID.randomUUID().toString();
@@ -54,7 +68,7 @@ public class TeachingMaterialService {
 
         FileType fileType = determineFileTypeEnum(file.getContentType());
 
-        Integer fileSizeKb = (int) (file.getSize() / 1024);
+        Integer fileSizeKb = (int) ((file.getSize() + 1023) / 1024);
 
         TeachingMaterial material = TeachingMaterial.builder()
                 .title(title)
@@ -69,7 +83,10 @@ public class TeachingMaterialService {
         return classroomMapper.toTeachingMaterialResponse(teachingMaterialRepository.save(material));
     }
 
-    public List<TeachingMaterialResponse> getMaterialsByCourse(Long courseId) {
+    public List<TeachingMaterialResponse> getMaterialsByCourse(Long actorId, Long courseId) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> ErrorCode.COURSE_NOT_FOUND.toException());
+        courseAccessService.requireCourseViewer(actorId, course);
         return teachingMaterialRepository.findAllByCourseId(courseId)
                 .stream()
                 .map(classroomMapper::toTeachingMaterialResponse)
@@ -77,13 +94,14 @@ public class TeachingMaterialService {
     }
 
     @Transactional
-    public void deleteMaterial(Long materialId, Long teacherId) {
+    public void deleteMaterial(Long courseId, Long materialId, Long teacherId) {
         TeachingMaterial material = teachingMaterialRepository.findById(materialId)
                 .orElseThrow(() -> ErrorCode.MATERIAL_NOT_FOUND.toException());
 
-        if (!material.getTeacher().getId().equals(teacherId)) {
-            throw ErrorCode.UNAUTHORIZED.toException();
+        if (material.getCourse() == null || !material.getCourse().getId().equals(courseId)) {
+            throw ErrorCode.MATERIAL_NOT_FOUND.toException();
         }
+        courseAccessService.requireTeacherOrAdmin(teacherId, material.getCourse());
         teachingMaterialRepository.delete(material);
     }
 
@@ -92,17 +110,10 @@ public class TeachingMaterialService {
         TeachingMaterial material = teachingMaterialRepository.findById(materialId)
                 .orElseThrow(() -> ErrorCode.MATERIAL_NOT_FOUND.toException());
 
-        if (!material.getTeacher().getId().equals(teacherId)) {
-            throw ErrorCode.UNAUTHORIZED.toException();
+        if (material.getCourse() == null || !material.getCourse().getId().equals(courseId)) {
+            throw ErrorCode.MATERIAL_NOT_FOUND.toException();
         }
-
-        if (courseId != null) {
-            Course course = courseRepository.findById(courseId)
-                    .orElseThrow(() -> ErrorCode.COURSE_NOT_FOUND.toException());
-            material.setCourse(course);
-        } else {
-            material.setCourse(null);
-        }
+        courseAccessService.requireTeacherOrAdmin(teacherId, material.getCourse());
 
         if (title != null && !title.trim().isEmpty()) {
             material.setTitle(title);
@@ -133,5 +144,12 @@ public class TeachingMaterialService {
         if (contentType.startsWith("image/"))
             return FileType.OTHER;
         return FileType.OTHER;
+    }
+
+    private void validateUpload(MultipartFile file) {
+        if (file == null || file.isEmpty() || file.getSize() > MAX_FILE_SIZE_BYTES
+                || file.getContentType() == null || !ALLOWED_CONTENT_TYPES.contains(file.getContentType())) {
+            throw ErrorCode.INVALID_REQUEST.toException();
+        }
     }
 }

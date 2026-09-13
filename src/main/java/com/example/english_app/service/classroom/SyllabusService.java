@@ -32,17 +32,22 @@ public class SyllabusService {
     private final TeachingMaterialRepository teachingMaterialRepository;
     private final TopicRepository topicRepository;
     private final ClassroomMapper classroomMapper;
+    private final CourseAccessService courseAccessService;
 
     @Transactional
-    public SyllabusItemResponse createSyllabusItem(Long courseId, SyllabusItemRequest request) {
+    public SyllabusItemResponse createSyllabusItem(Long actorId, Long courseId, SyllabusItemRequest request) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> ErrorCode.COURSE_NOT_FOUND.toException());
+        courseAccessService.requireTeacherOrAdmin(actorId, course);
 
         TeachingMaterial material = null;
 
         if (request.getMaterialId() != null) {
             material = teachingMaterialRepository.findById(request.getMaterialId())
                     .orElseThrow(() -> ErrorCode.MATERIAL_NOT_FOUND.toException());
+            if (material.getCourse() == null || !material.getCourse().getId().equals(courseId)) {
+                throw ErrorCode.MATERIAL_NOT_FOUND.toException();
+            }
         }
 
         SyllabusItem item = SyllabusItem.builder()
@@ -57,6 +62,9 @@ public class SyllabusService {
 
         if (request.getTopicIds() != null && !request.getTopicIds().isEmpty()) {
             List<Topic> topics = topicRepository.findAllById(request.getTopicIds());
+            if (topics.size() != request.getTopicIds().stream().distinct().count()) {
+                throw ErrorCode.TOPIC_NOT_FOUND.toException();
+            }
             item.setTopics(topics);
         }
 
@@ -64,7 +72,10 @@ public class SyllabusService {
     }
 
     public PageResponse<SyllabusItemResponse> getSyllabusByCourseWithFilters(
-            Long courseId, String keyword, Short weekNumber, Pageable pageable) {
+            Long actorId, Long courseId, String keyword, Short weekNumber, Pageable pageable) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> ErrorCode.COURSE_NOT_FOUND.toException());
+        courseAccessService.requireCourseViewer(actorId, course);
 
         Page<SyllabusItem> pageResult = syllabusItemRepository.findAllByCourseIdWithFilters(
                 courseId, keyword, weekNumber, pageable);
@@ -83,25 +94,37 @@ public class SyllabusService {
     }
 
     @Transactional
-    public void deleteSyllabusItem(Long itemId) {
-        syllabusItemRepository.deleteById(itemId);
+    public void deleteSyllabusItem(Long actorId, Long courseId, Long itemId) {
+        SyllabusItem item = syllabusItemRepository.findById(itemId)
+                .orElseThrow(() -> ErrorCode.SYLLABUS_NOT_FOUND.toException());
+        if (!item.getCourse().getId().equals(courseId)) {
+            throw ErrorCode.SYLLABUS_NOT_FOUND.toException();
+        }
+        courseAccessService.requireTeacherOrAdmin(actorId, item.getCourse());
+        syllabusItemRepository.delete(item);
     }
 
     @Transactional
-    public SyllabusItemResponse updateSyllabusItem(Long courseId, Long itemId, SyllabusItemRequest request) {
+    public SyllabusItemResponse updateSyllabusItem(Long actorId, Long courseId, Long itemId, SyllabusItemRequest request) {
         SyllabusItem item = syllabusItemRepository.findById(itemId)
                 .orElseThrow(() -> ErrorCode.SYLLABUS_NOT_FOUND.toException());
 
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> ErrorCode.COURSE_NOT_FOUND.toException());
+        if (!item.getCourse().getId().equals(courseId)) {
+            throw ErrorCode.SYLLABUS_NOT_FOUND.toException();
+        }
+        courseAccessService.requireTeacherOrAdmin(actorId, course);
 
         TeachingMaterial material = null;
         if (request.getMaterialId() != null) {
             material = teachingMaterialRepository.findById(request.getMaterialId())
                     .orElseThrow(() -> ErrorCode.MATERIAL_NOT_FOUND.toException());
+            if (material.getCourse() == null || !material.getCourse().getId().equals(courseId)) {
+                throw ErrorCode.MATERIAL_NOT_FOUND.toException();
+            }
         }
 
-        item.setCourse(course);
         item.setMaterial(material);
         item.setWeekNumber(request.getWeekNumber());
         item.setTitle(request.getTitle());
@@ -111,6 +134,9 @@ public class SyllabusService {
 
         if (request.getTopicIds() != null && !request.getTopicIds().isEmpty()) {
             List<Topic> topics = topicRepository.findAllById(request.getTopicIds());
+            if (topics.size() != request.getTopicIds().stream().distinct().count()) {
+                throw ErrorCode.TOPIC_NOT_FOUND.toException();
+            }
             item.setTopics(topics);
         } else {
             item.setTopics(null);

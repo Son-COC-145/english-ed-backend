@@ -19,11 +19,13 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/student/courses/{courseId}/assignments")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('STUDENT')")
 @Tag(name = "Student Assignment", description = "Student Assignment API")
 public class StudentAssignmentController {
 
@@ -44,7 +46,8 @@ public class StudentAssignmentController {
             @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
         // Tái sử dụng hàm của AssignmentService
         return ResponseEntity
-                .ok(ApiResponse.success(assignmentService.getAssignmentsByCourse(courseId, keyword, pageable)));
+                .ok(ApiResponse.success(assignmentService.getAssignmentsForStudent(
+                        getCurrentStudent().getId(), courseId, keyword, pageable)));
     }
 
     @Operation(summary = "Nộp kết quả bài tập")
@@ -55,6 +58,7 @@ public class StudentAssignmentController {
             @Valid @RequestBody AssignmentSubmissionRequest request) {
         User student = getCurrentStudent();
         return ResponseEntity
-                .ok(ApiResponse.success(submissionService.submitAssignment(student.getId(), assignmentId, request)));
+                .ok(ApiResponse.success(submissionService.submitAssignment(
+                        student.getId(), courseId, assignmentId, request)));
     }
 }

@@ -58,8 +58,8 @@ public class TeacherCourseController {
             @RequestParam(required = false) ClassStudentStatus status,
             @PageableDefault(sort = "id", direction = Sort.Direction.ASC) Pageable pageable) {
         return ResponseEntity.ok(
-                ApiResponse.success(
-                        courseStudentService.getStudentsByCourseWithStats(courseId, keyword, status, pageable)));
+                        ApiResponse.success(
+                        courseStudentService.getStudentsByCourseWithStats(getCurrentTeacher().getId(), courseId, keyword, status, pageable)));
     }
 
     @Operation(summary = "Thêm học viên vào khóa học")
@@ -67,7 +67,8 @@ public class TeacherCourseController {
     public ResponseEntity<ApiResponse<CourseStudentResponse>> addStudentToCourse(
             @PathVariable Long courseId,
             @Valid @RequestBody CourseStudentRequest request) {
-        return ResponseEntity.ok(ApiResponse.success(courseStudentService.addStudentToCourse(courseId, request)));
+        return ResponseEntity.ok(ApiResponse.success(courseStudentService.addStudentToCourse(
+                getCurrentTeacher().getId(), courseId, request)));
     }
 
     @Operation(summary = "Xóa học viên khỏi khóa học")
@@ -75,7 +76,7 @@ public class TeacherCourseController {
     public ResponseEntity<ApiResponse<Void>> removeStudentFromCourse(
             @PathVariable Long courseId,
             @PathVariable Long studentId) {
-        courseStudentService.removeStudentFromCourse(courseId, studentId);
+        courseStudentService.removeStudentFromCourse(getCurrentTeacher().getId(), courseId, studentId);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 }
