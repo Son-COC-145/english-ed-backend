@@ -23,12 +23,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class CourseStudentService {
 
     private final CourseStudentRepository courseStudentRepository;
@@ -38,8 +40,9 @@ public class CourseStudentService {
     private final ClassroomMapper classroomMapper;
     private final CourseAccessService courseAccessService;
 
+    @Transactional
     public CourseStudentResponse addStudentToCourse(Long actorId, Long courseId, CourseStudentRequest request) {
-        Course course = courseRepository.findById(courseId)
+        Course course = courseRepository.findByIdForUpdate(courseId)
                 .orElseThrow(() -> ErrorCode.COURSE_NOT_FOUND.toException());
         courseAccessService.requireTeacherOrAdmin(actorId, course);
         if (!Boolean.TRUE.equals(course.getIsActive())) {
@@ -64,12 +67,13 @@ public class CourseStudentService {
         return classroomMapper.toCourseStudentResponse(courseStudentRepository.save((courseStudent)));
     }
 
+    @Transactional
     public void removeStudentFromCourse(Long actorId, Long courseId, Long studentId) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> ErrorCode.COURSE_NOT_FOUND.toException());
         courseAccessService.requireTeacherOrAdmin(actorId, course);
         CourseStudent courseStudent = courseStudentRepository.findByCourseIdAndStudentId(courseId, studentId)
-                .orElseThrow(() -> new RuntimeException("Student is not enrolled in this course"));
+                .orElseThrow(() -> ErrorCode.STUDENT_NOT_IN_COURSE.toException());
         courseStudentRepository.delete(courseStudent);
     }
 

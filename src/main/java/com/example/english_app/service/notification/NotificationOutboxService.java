@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -45,32 +46,24 @@ public class NotificationOutboxService {
         events.forEach(event -> {
             event.setStatus(OutboxEventStatus.PROCESSING);
             event.setLockedAt(now);
+            event.setClaimToken(UUID.randomUUID().toString());
         });
         return events;
     }
 
     @Transactional
-    public void markSent(Long eventId) {
-        NotificationOutboxEvent event = outboxRepository.findById(eventId).orElseThrow();
-        event.setStatus(OutboxEventStatus.SENT);
-        event.setSentAt(LocalDateTime.now());
-        event.setLockedAt(null);
-        event.setLastError(null);
+    public void markSent(NotificationOutboxEvent event) {
+        outboxRepository.completeClaim(event.getId(), event.getClaimToken(), OutboxEventStatus.SENT,
+                LocalDateTime.now(), null, event.getAttemptCount(), event.getAvailableAt());
     }
 
     @Transactional
-    public void markFailure(Long eventId, Exception exception) {
-        NotificationOutboxEvent event = outboxRepository.findById(eventId).orElseThrow();
+    public void markFailure(NotificationOutboxEvent event, Exception exception) {
         int attempts = event.getAttemptCount() + 1;
-        event.setAttemptCount(attempts);
-        event.setLockedAt(null);
-        event.setLastError(exception.getMessage());
-        if (attempts >= MAX_ATTEMPTS) {
-            event.setStatus(OutboxEventStatus.FAILED);
-            return;
-        }
         long delaySeconds = Math.min(3600, 1L << Math.min(attempts, 10));
-        event.setStatus(OutboxEventStatus.PENDING);
-        event.setAvailableAt(LocalDateTime.now().plusSeconds(delaySeconds));
+        outboxRepository.completeClaim(event.getId(), event.getClaimToken(),
+                attempts >= MAX_ATTEMPTS ? OutboxEventStatus.FAILED : OutboxEventStatus.PENDING,
+                null, exception.getClass().getSimpleName(), attempts,
+                LocalDateTime.now().plusSeconds(delaySeconds));
     }
 }

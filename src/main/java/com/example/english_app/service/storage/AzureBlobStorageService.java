@@ -83,6 +83,14 @@ public class AzureBlobStorageService {
         }
     }
 
+    public void deleteBlob(String blobPath) {
+        if (blobPath == null || blobPath.isBlank()) {
+            throw new IllegalArgumentException("Blob path must not be blank");
+        }
+        ensureInitialized();
+        containerClient.getBlobClient(blobPath).deleteIfExists();
+    }
+
     private void ensureInitialized() {
         if (containerClient == null) {
             if (blobConfig.connectionString() == null || blobConfig.connectionString().isBlank()) {

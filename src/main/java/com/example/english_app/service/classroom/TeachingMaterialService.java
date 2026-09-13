@@ -27,6 +27,7 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class TeachingMaterialService {
     private final CourseRepository courseRepository;
     private final CloudinaryService cloudinaryService;

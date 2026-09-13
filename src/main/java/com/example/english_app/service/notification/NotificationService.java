@@ -19,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import com.example.english_app.repository.notification.NotificationPushDeliveryRepository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -34,7 +35,7 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final UserDeviceTokenRepository userDeviceTokenRepository;
     private final UserRepository userRepository;
-    private final FcmService fcmService;
+    private final NotificationPushDeliveryRepository pushDeliveryRepository;
     private final NotificationOutboxService notificationOutboxService;
 
     @Transactional
@@ -91,28 +92,6 @@ public class NotificationService {
     public void sendToUser(Long userId, String title, String message, String type) {
         notificationOutboxService.enqueue(userId, NotificationType.valueOf(type), title, message,
                 "notification-api:" + UUID.randomUUID());
-        return;
-        /*
-        User user = userRepository.getReferenceById(userId);
-        
-        // 1. Lưu bản ghi vào DB
-        Notification notification = Notification.builder()
-                .user(user)
-                .title(title)
-                .body(message)
-                .isRead(false)
-                .type(NotificationType.valueOf(type)) 
-                .build();
-        notificationRepository.save(notification);
-        
-        // 2. Lấy danh sách Token và Gửi Push Notification qua FCM
-        List<String> tokens = userDeviceTokenRepository.findByUserId(userId)
-                .stream()
-                .map(UserDeviceToken::getToken)
-                .collect(Collectors.toList());
-                
-        fcmService.sendMulticast(tokens, title, message);
-        */
     }
 
     @Transactional
@@ -133,7 +112,7 @@ public class NotificationService {
                 .stream()
                 .map(UserDeviceToken::getToken)
                 .collect(Collectors.toList());
-        fcmService.sendMulticast(tokens, event.getTitle(), event.getBody());
+        pushDeliveryRepository.createDeliveries(event.getId(), tokens);
     }
 
     private Long getCurrentUserId() {

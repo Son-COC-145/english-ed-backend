@@ -3,6 +3,7 @@ package com.example.english_app.exception;
 import org.springframework.http.HttpStatus;
 
 public enum ErrorCode {
+    CLASSROOM_RESOURCE_IN_USE(9009, "Resource has dependent classroom data", HttpStatus.CONFLICT),
 
     // Authentication
     INVALID_CREDENTIALS(1001, "Email hoặc mật khẩu không đúng", HttpStatus.UNAUTHORIZED),

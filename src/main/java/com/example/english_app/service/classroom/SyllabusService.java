@@ -21,11 +21,12 @@ import com.example.english_app.repository.classroom.TeachingMaterialRepository;
 import com.example.english_app.repository.vocabulary.TopicRepository;
 import com.example.english_app.entity.vocabulary.Topic;
 
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class SyllabusService {
     private final SyllabusItemRepository syllabusItemRepository;
     private final CourseRepository courseRepository;

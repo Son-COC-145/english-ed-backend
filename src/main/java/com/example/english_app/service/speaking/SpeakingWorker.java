@@ -203,6 +203,6 @@ public class SpeakingWorker {
 
     @PreDestroy
     public void close() {
-        workers.shutdownNow();
+        if (workers != null) workers.shutdownNow();
     }
 }

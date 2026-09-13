@@ -1,6 +1,7 @@
 package com.example.english_app.service.classroom;
 
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -29,6 +30,7 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class AssignmentSubmissionService {
     private final AssignmentRepository assignmentRepository;
     private final AssignmentSubmissionRepository submissionRepository;
@@ -36,11 +38,12 @@ public class AssignmentSubmissionService {
     private final ClassroomMapper classroomMapper;
     private final NotificationOutboxService notificationOutboxService;
     private final CourseAccessService courseAccessService;
+    private final AssignmentReferenceService referenceService;
 
     @Transactional
     public AssignmentSubmissionResponse submitAssignment(Long studentId, Long courseId, Long assignmentId,
             AssignmentSubmissionRequest request) {
-        Assignment assignment = assignmentRepository.findById(assignmentId)
+        Assignment assignment = assignmentRepository.findByIdForUpdate(assignmentId)
                 .orElseThrow(() -> ErrorCode.ASSIGNMENT_NOT_FOUND.toException());
         if (!assignment.getCourse().getId().equals(courseId)) {
             throw ErrorCode.ASSIGNMENT_NOT_FOUND.toException();
@@ -50,6 +53,7 @@ public class AssignmentSubmissionService {
                 .orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
 
         courseAccessService.requireActiveStudent(student.getId(), assignment.getCourse());
+        referenceService.validateResult(assignment, studentId, request.getResultRefId());
 
         AssignmentSubmission submission = submissionRepository.findByAssignmentIdAndStudentId(assignmentId, studentId)
                 .orElse(AssignmentSubmission.builder()
@@ -75,18 +79,22 @@ public class AssignmentSubmissionService {
     @Transactional
     public AssignmentSubmissionResponse gradeSubmission(Long teacherId, Long courseId, Long assignmentId,
             Long submissionId, GradeSubmissionRequest request) {
-        AssignmentSubmission submission = submissionRepository.findById(submissionId)
+        assignmentRepository.findByIdForUpdate(assignmentId)
+                .orElseThrow(() -> ErrorCode.ASSIGNMENT_NOT_FOUND.toException());
+        AssignmentSubmission submission = submissionRepository.findByIdForUpdate(submissionId)
                 .orElseThrow(() -> ErrorCode.SUBMISSION_NOT_FOUND.toException());
         if (!submission.getAssignment().getId().equals(assignmentId)
                 || !submission.getAssignment().getCourse().getId().equals(courseId)) {
             throw ErrorCode.SUBMISSION_NOT_FOUND.toException();
         }
         courseAccessService.requireTeacherOrAdmin(teacherId, submission.getAssignment().getCourse());
-        if (request.getStatus() != AssignmentSubmissionStatus.GRADED) {
+        if (request.getStatus() != AssignmentSubmissionStatus.GRADED || request.getScore() == null
+                || request.getScore().signum() < 0 || request.getScore().compareTo(BigDecimal.valueOf(100)) > 0) {
             throw ErrorCode.INVALID_REQUEST.toException();
         }
 
         submission.setScore(request.getScore());
+        submission.setGradingRevision(submission.getGradingRevision() + 1);
         submission.setTeacherCommentText(request.getTeacherCommentText());
         submission.setTeacherAudioCommentUrl(request.getTeacherAudioCommentUrl());
         submission.setStatus(request.getStatus());
@@ -97,7 +105,7 @@ public class AssignmentSubmissionService {
         notificationOutboxService.enqueue(savedSubmission.getStudent().getId(), NotificationType.GRADE,
             "Đã có điểm", 
             "Bài tập " + savedSubmission.getAssignment().getTitle() + " đã được chấm điểm.", 
-            "submission-graded:" + savedSubmission.getId());
+            "submission-graded:" + savedSubmission.getId() + ":" + savedSubmission.getGradingRevision());
 
         return classroomMapper.toAssignmentSubmissionResponse(savedSubmission);
     }

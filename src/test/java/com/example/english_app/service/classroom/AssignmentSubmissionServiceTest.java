@@ -39,12 +39,13 @@ class AssignmentSubmissionServiceTest {
     @Mock private ClassroomMapper classroomMapper;
     @Mock private NotificationOutboxService notificationOutboxService;
     @Mock private CourseAccessService courseAccessService;
+    @Mock private AssignmentReferenceService referenceService;
     @InjectMocks private AssignmentSubmissionService service;
 
     @Test
     void submitRejectsAssignmentFromAnotherCourse() {
         Assignment assignment = assignment(3L, 10L);
-        when(assignmentRepository.findById(3L)).thenReturn(Optional.of(assignment));
+        when(assignmentRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(assignment));
 
         AppException error = assertThrows(AppException.class, () -> service.submitAssignment(7L, 99L, 3L,
                 AssignmentSubmissionRequest.builder().resultRefId(1L).build()));
@@ -58,7 +59,7 @@ class AssignmentSubmissionServiceTest {
         Assignment assignment = assignment(3L, 10L);
         assignment.setDeadlineAt(LocalDateTime.now().minusMinutes(1));
         User student = User.builder().id(7L).build();
-        when(assignmentRepository.findById(3L)).thenReturn(Optional.of(assignment));
+        when(assignmentRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(assignment));
         when(userRepository.findById(7L)).thenReturn(Optional.of(student));
         when(submissionRepository.findByAssignmentIdAndStudentId(3L, 7L)).thenReturn(Optional.empty());
         when(submissionRepository.save(any(AssignmentSubmission.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -78,7 +79,8 @@ class AssignmentSubmissionServiceTest {
                 .student(User.builder().id(7L).build()).status(AssignmentSubmissionStatus.SUBMITTED).build();
         GradeSubmissionRequest request = GradeSubmissionRequest.builder().score(new BigDecimal("90"))
                 .status(AssignmentSubmissionStatus.GRADED).teacherAudioCommentUrl("https://audio.test/comment.mp3").build();
-        when(submissionRepository.findById(4L)).thenReturn(Optional.of(submission));
+        when(assignmentRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(assignment));
+        when(submissionRepository.findByIdForUpdate(4L)).thenReturn(Optional.of(submission));
         when(submissionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(classroomMapper.toAssignmentSubmissionResponse(any())).thenReturn(AssignmentSubmissionResponse.builder().build());
 
@@ -86,7 +88,7 @@ class AssignmentSubmissionServiceTest {
 
         assertEquals("https://audio.test/comment.mp3", submission.getTeacherAudioCommentUrl());
         assertEquals(AssignmentSubmissionStatus.GRADED, submission.getStatus());
-        verify(notificationOutboxService).enqueue(eq(7L), any(), any(), any(), eq("submission-graded:4"));
+        verify(notificationOutboxService).enqueue(eq(7L), any(), any(), any(), eq("submission-graded:4:1"));
     }
 
     private Assignment assignment(Long assignmentId, Long courseId) {

@@ -53,6 +53,9 @@ public class NotificationOutboxEvent {
     @Column(name = "locked_at")
     private LocalDateTime lockedAt;
 
+    @Column(name = "claim_token", length = 36)
+    private String claimToken;
+
     @Column(name = "sent_at")
     private LocalDateTime sentAt;
 
