@@ -68,6 +68,16 @@ public enum ErrorCode {
 
     SPEAKING_CONFLICT(8104, "Phiên hoặc lượt nói chưa sẵn sàng", HttpStatus.CONFLICT),
     SPEAKING_UNAVAILABLE(8105, "Dịch vụ hội thoại tạm thời không khả dụng", HttpStatus.SERVICE_UNAVAILABLE),
+    SPEAKING_AUDIO_PENDING(8106, "Âm thanh đang được tạo, vui lòng chờ", HttpStatus.CONFLICT),
+    SPEAKING_AUDIO_FAILED(8107, "Tạo âm thanh thất bại, vui lòng thử lại lượt nói", HttpStatus.CONFLICT),
+    SPEAKING_AUDIO_MISSING(8108, "Không tìm thấy dữ liệu âm thanh", HttpStatus.NOT_FOUND),
+    SPEAKING_AUDIO_FORMAT(8109, "Bản ghi phải là WAV PCM 16-bit little-endian, mono, tần số 16000 Hz", HttpStatus.UNSUPPORTED_MEDIA_TYPE),
+    SPEAKING_AUDIO_TOO_SHORT(8110, "Bản ghi phải dài ít nhất 1 giây", HttpStatus.BAD_REQUEST),
+    SPEAKING_AUDIO_TOO_LONG(8111, "Bản ghi không được dài quá 180 giây", HttpStatus.BAD_REQUEST),
+    SPEAKING_AUDIO_NO_SPEECH(8112, "Không phát hiện tiếng nói trong bản ghi", HttpStatus.BAD_REQUEST),
+    SPEAKING_TTS_INVALID_OUTPUT(8113, "Dịch vụ tạo giọng nói không trả về âm thanh MP3 hợp lệ", HttpStatus.SERVICE_UNAVAILABLE),
+    SPEAKING_TTS_UNAVAILABLE(8114, "Dịch vụ tạo giọng nói tạm thời không khả dụng", HttpStatus.SERVICE_UNAVAILABLE),
+    SPEAKING_TTS_INTERRUPTED(8115, "Quá trình tạo giọng nói bị gián đoạn", HttpStatus.SERVICE_UNAVAILABLE),
 
     // Classroom
     COURSE_NOT_FOUND(9001, "Khóa học không tồn tại", HttpStatus.NOT_FOUND),

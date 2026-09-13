@@ -1,6 +1,9 @@
 package com.example.english_app.service.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.example.english_app.exception.ErrorCode;
+import com.example.english_app.exception.AppException;
+import com.example.english_app.service.speaking.AudioMetricsService;
 import java.net.URI;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -57,7 +60,7 @@ public class TtsGenerationService {
             return cloudinaryService.uploadFile(audioBytes, "video", publicId);
         } catch (Exception e) {
             log.error("Lỗi khi gọi ElevenLabs", e);
-            throw new RuntimeException("ElevenLabs Error");
+            throw ErrorCode.SPEAKING_TTS_UNAVAILABLE.toException();
         }
     }
 
@@ -67,7 +70,7 @@ public class TtsGenerationService {
         }
 
         String voiceId = (customVoiceId != null && !customVoiceId.trim().isEmpty()) ? customVoiceId : defaultVoiceId;
-        String url = apiUrl + "/" + voiceId + "?optimize_streaming_latency=2";
+        String url = apiUrl + "/" + voiceId + "?optimize_streaming_latency=2&output_format=mp3_44100_128";
 
         try {
             var request = HttpRequest.newBuilder(URI.create(url))
@@ -81,13 +84,26 @@ public class TtsGenerationService {
                     .build();
             var response = audioHttpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
             if (response.statusCode() < 200 || response.statusCode() >= 300 || response.body().length == 0)
-                throw new IllegalStateException("TTS returned no usable audio");
+                throw ErrorCode.SPEAKING_TTS_INVALID_OUTPUT.toException();
+            validateMp3(response.body());
             return response.body();
+        } catch (AppException e) {
+            throw e;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException("TTS interrupted", e);
+            throw ErrorCode.SPEAKING_TTS_INTERRUPTED.toException();
         } catch (Exception e) {
-            throw new IllegalStateException("TTS unavailable", e);
+            throw ErrorCode.SPEAKING_TTS_UNAVAILABLE.toException();
+        }
+    }
+
+    private void validateMp3(byte[] audio) {
+        try {
+            if (!"audio/mpeg".equals(AudioMetricsService.detectMime(audio))) {
+                throw ErrorCode.SPEAKING_TTS_INVALID_OUTPUT.toException();
+            }
+        } catch (AppException invalidAudio) {
+            throw ErrorCode.SPEAKING_TTS_INVALID_OUTPUT.toException();
         }
     }
 }

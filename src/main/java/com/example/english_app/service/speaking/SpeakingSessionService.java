@@ -7,6 +7,7 @@ import com.example.english_app.dto.response.SpeakingSessionResponse;
 import com.example.english_app.dto.response.SpeakingTurnResponse;
 import com.example.english_app.entity.speaking.SpeakingSession;
 import com.example.english_app.entity.speaking.SpeakingTurn;
+import com.example.english_app.entity.enums.SpeakerRole;
 import com.example.english_app.exception.ErrorCode;
 import com.example.english_app.mapper.SpeakingMapper;
 import com.example.english_app.service.integration.CloudinaryService;
@@ -23,6 +24,8 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +37,7 @@ public class SpeakingSessionService {
     private final SpeakingMapper mapper;
     private final SpeakingJson json;
     private final CloudinaryService cloudinary;
+    private final SpeakingAudioValidator audioValidator;
 
     @Transactional
     public SpeakingSessionResponse startSession(StartSessionRequest request, String requestKey) {
@@ -61,6 +65,7 @@ public class SpeakingSessionService {
 
         try {
             byte[] data = file.getBytes();
+            audioValidator.validate(data);
             String mime = AudioMetricsService.detectMime(data);
             String inputHash = hash(data);
             SpeakingTurn turn = store.submit(id, userId, requestKey, inputHash, data, mime, null);
@@ -114,12 +119,20 @@ public class SpeakingSessionService {
 
     @Transactional(readOnly = true)
     public SessionEvaluationResponse reportFor(Long id, Long userId) {
+        return streamingSnapshot(id, userId).report();
+    }
+
+    public record StreamingSnapshot(SessionEvaluationResponse report, Set<Long> finalizedAiTurnIds) {}
+
+    @Transactional(readOnly = true)
+    public StreamingSnapshot streamingSnapshot(Long id, Long userId) {
         SpeakingSession session = store.owned(id, userId);
-        List<SpeakingTurnResponse> turns = store.history(id).stream()
+        List<SpeakingTurn> history = store.history(id);
+        List<SpeakingTurnResponse> turns = history.stream()
                 .map(this::turnResponse)
                 .toList();
 
-        return SessionEvaluationResponse.builder()
+        var report = SessionEvaluationResponse.builder()
                 .sessionId(id)
                 .status(session.getStatus())
                 .fluencyScore(session.getFluencyScore())
@@ -130,6 +143,11 @@ public class SpeakingSessionService {
                 .evaluation(json.read(session.getEvaluationJson()))
                 .turns(turns)
                 .build();
+        var finalizedIds = history.stream()
+                .filter(t -> t.getSpeaker() == SpeakerRole.AI
+                        && (t.isResponseTextReady() || "COMPLETED".equals(t.getStatus())))
+                .map(SpeakingTurn::getId).collect(Collectors.toSet());
+        return new StreamingSnapshot(report, finalizedIds);
     }
 
     private SpeakingTurnResponse turnResponse(SpeakingTurn turn) {
@@ -144,11 +162,33 @@ public class SpeakingSessionService {
     public SpeakingTurn audio(Long id, Long turnId) {
         store.owned(id, access.userId());
         SpeakingTurn turn = store.turn(turnId);
-        if (!turn.getSession().getId().equals(id) || turn.getAudioData() == null) {
+        if (!turn.getSession().getId().equals(id)) {
             throw ErrorCode.SESSION_NOT_FOUND.toException();
+        }
+        if (turn.getSpeaker() == SpeakerRole.AI) {
+            if ("FAILED".equals(turn.getAudioStatus()) || "FAILED".equals(turn.getStatus())) {
+                throw ErrorCode.SPEAKING_AUDIO_FAILED.toException();
+            }
+            if (!"READY".equals(turn.getAudioStatus())) throw ErrorCode.SPEAKING_AUDIO_PENDING.toException();
+        }
+        if (turn.getAudioData() == null || turn.getAudioData().length == 0) {
+            throw ErrorCode.SPEAKING_AUDIO_MISSING.toException();
         }
         return turn;
     }
+
+    @Transactional(readOnly = true)
+    public SessionEvaluationResponse recover(String startKey) {
+        validateKey(startKey);
+        return reportFor(store.recover(access.userId(), startKey).getId(), access.userId());
+    }
+
+    @Transactional(readOnly = true)
+    public List<SpeakingSessionResponse> activeSessions() {
+        return store.activeSessions(access.userId()).stream()
+                .map(s -> mapper.toSessionResponse(s, store.history(s.getId()))).toList();
+    }
+
 
     public JsonNode hint(Long id, String key) {
         validateKey(key);

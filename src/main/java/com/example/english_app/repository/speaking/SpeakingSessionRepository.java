@@ -8,10 +8,14 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface SpeakingSessionRepository extends JpaRepository<SpeakingSession, Long> {
+    List<SpeakingSession> findTop20ByStudentIdAndStatusInOrderByStartedAtDescIdDesc(
+            Long studentId, Collection<String> statuses);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT s FROM SpeakingSession s WHERE s.id = :id")

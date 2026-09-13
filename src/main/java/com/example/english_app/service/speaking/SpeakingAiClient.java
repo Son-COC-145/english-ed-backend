@@ -4,6 +4,7 @@ import java.util.Arrays;
 
 import com.example.english_app.entity.enums.SpeakerRole;
 import com.example.english_app.entity.speaking.SpeakingTurn;
+import com.example.english_app.exception.ErrorCode;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import jakarta.annotation.PreDestroy;
@@ -85,7 +86,8 @@ public class SpeakingAiClient {
                     "generationConfig", Map.of("responseMimeType", "application/json", "temperature", 0)));
             JsonNode result = json.read(geminiGenerate(body));
             String text = result.path("text").asText("").strip();
-            if (text.isBlank() || text.length() > 4000)
+            if (text.isBlank()) throw ErrorCode.SPEAKING_AUDIO_NO_SPEECH.toException();
+            if (text.length() > 4000)
                 throw new IOException("Invalid transcription");
             // Gemini does not return measured audio duration. AudioMetricsService measures
             // supported audio locally.
@@ -126,7 +128,8 @@ public class SpeakingAiClient {
 
         JsonNode result = json.read(response.body());
         String text = result.path("text").asText("").strip();
-        if (text.isBlank() || text.length() > 4000) {
+        if (text.isBlank()) throw ErrorCode.SPEAKING_AUDIO_NO_SPEECH.toException();
+        if (text.length() > 4000) {
             throw new IOException("Invalid transcription");
         }
 

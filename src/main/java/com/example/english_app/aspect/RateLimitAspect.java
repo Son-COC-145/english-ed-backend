@@ -22,7 +22,9 @@ import com.example.english_app.repository.subscription.SubscriptionPlanRepositor
 import com.example.english_app.repository.user.UserRepository;
 import com.example.english_app.repository.subscription.UserSubscriptionRepository;
 import com.example.english_app.service.integration.AiRateLimiterService;
+import com.example.english_app.service.speaking.SpeakingQuotaIdentity;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -35,6 +37,8 @@ public class RateLimitAspect {
     private final UserRepository userRepository;
     private final UserSubscriptionRepository userSubscriptionRepository;
     private final SubscriptionPlanRepository planRepository;
+    private final HttpServletRequest request;
+    private final SpeakingQuotaIdentity speakingQuota;
 
     @Before("@annotation(rateLimitedAi)")
     public void checkRateLimit(JoinPoint joinPoint, RateLimitedAi rateLimitedAi) {
@@ -46,6 +50,15 @@ public class RateLimitAspect {
         String email = authentication.getName();
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        String key = null;
+        if (rateLimitedAi.idempotent()) {
+            key = request.getHeader("Idempotency-Key");
+            if (key == null || !key.matches("[A-Za-z0-9_-]{8,100}")) {
+                throw ErrorCode.INVALID_REQUEST.toException();
+            }
+            if (speakingQuota.committed(user.getId(), request.getRequestURI(), key)) return;
+        }
 
         Optional<UserSubscription> activeSubscription = userSubscriptionRepository
                 .findFirstByUserAndStatusAndEndDateAfterOrderByEndDateDesc(

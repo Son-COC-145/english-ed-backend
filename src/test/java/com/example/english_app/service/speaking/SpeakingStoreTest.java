@@ -3,12 +3,12 @@ package com.example.english_app.service.speaking;
 import com.example.english_app.entity.enums.SpeakerRole;
 import com.example.english_app.entity.speaking.*;
 import com.example.english_app.entity.user.User;
+import com.example.english_app.exception.ErrorCode;
 import com.example.english_app.repository.speaking.*;
 import com.example.english_app.repository.user.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.List;
 import java.util.Optional;
@@ -22,8 +22,9 @@ class SpeakingStoreTest {
     final SpeakingScenarioRepository scenarios = mock(SpeakingScenarioRepository.class);
     final SpeakingStartRequestRepository startRequests = mock(SpeakingStartRequestRepository.class);
     final SpeakingTurnRepository turns = mock(SpeakingTurnRepository.class);
-    final JdbcTemplate jdbc = mock(JdbcTemplate.class);
-    final SpeakingStore store = new SpeakingStore(sessions, scenarios, startRequests, turns, mock(UserRepository.class), jdbc,
+    final SpeakingJobRepository jobs = mock(SpeakingJobRepository.class);
+    final SpeakingRewardRepository rewards = mock(SpeakingRewardRepository.class);
+    final SpeakingStore store = new SpeakingStore(sessions, scenarios, startRequests, turns, mock(UserRepository.class), jobs, rewards,
             new SpeakingJson(new ObjectMapper()));
     SpeakingSession session;
 
@@ -43,14 +44,14 @@ class SpeakingStoreTest {
         assertThatThrownBy(() -> store.end(1L, 8L)).isInstanceOf(RuntimeException.class);
         assertThatThrownBy(() -> store.submit(1L, 8L, "request01", "hash", null, null, "Hi"))
                 .isInstanceOf(RuntimeException.class);
-        verifyNoInteractions(jdbc, turns);
+        verifyNoInteractions(jobs, rewards, turns);
     }
 
     @Test void inactiveScenarioCannotStart() {
         when(scenarios.findById((short) 1)).thenReturn(Optional.of(SpeakingScenario.builder().isActive(false).build()));
         assertThatThrownBy(() -> store.start(7L, (short) 1, "startkey1")).isInstanceOf(RuntimeException.class);
         verify(sessions, never()).saveAndFlush(any());
-        verifyNoInteractions(jdbc);
+        verifyNoInteractions(jobs, rewards);
     }
 
     @Test void endClosesInputWhileAcceptedTurnFinishesAndIsIdempotent() {
@@ -59,7 +60,7 @@ class SpeakingStoreTest {
         store.end(1L, 7L);
         assertThat(session.getStatus()).isEqualTo("EVALUATING");
         store.end(1L, 7L);
-        verify(jdbc, times(1)).update(anyString(), eq(1L), isNull(), eq("SESSION_EVALUATION"));
+        verify(jobs, times(1)).enqueue(1L, null, "SESSION_EVALUATION");
         assertThatThrownBy(() -> store.submit(1L, 7L, "request01", "hash", null, null, "Hi"))
                 .isInstanceOf(RuntimeException.class);
     }
@@ -67,7 +68,7 @@ class SpeakingStoreTest {
     @Test void completedEndNeverEnqueuesOrAwardsAgain() {
         session.setStatus("COMPLETED");
         assertThat(store.end(1L, 7L)).isSameAs(session);
-        verifyNoInteractions(jdbc, turns);
+        verifyNoInteractions(jobs, rewards, turns);
     }
 
     @Test void duplicateKeyReturnsExistingEvenAfterEndButChangedPayloadConflicts() {
@@ -77,7 +78,7 @@ class SpeakingStoreTest {
         assertThat(store.submit(1L, 7L, "request01", "same", null, null, "Hi")).isSameAs(existing);
         assertThatThrownBy(() -> store.submit(1L, 7L, "request01", "different", null, null, "Bye"))
                 .isInstanceOf(RuntimeException.class);
-        verifyNoInteractions(jdbc);
+        verifyNoInteractions(jobs, rewards);
         verify(turns, never()).saveAndFlush(any());
     }
 
@@ -87,5 +88,18 @@ class SpeakingStoreTest {
         assertThatThrownBy(() -> store.submit(1L, 7L, "request01", "hash", null, null, "Hi"))
                 .isInstanceOf(RuntimeException.class);
         verify(turns, never()).saveAndFlush(any());
+    }
+
+    @Test void noSpeechStopsAutomaticRetryBeforeBudgetIsExhausted() {
+        var job = new SpeakingStore.Job(11L, 1L, 3L, "INPUT", 1, "lease-token");
+        var turn = SpeakingTurn.builder().id(3L).speaker(SpeakerRole.STUDENT).build();
+        when(jobs.lockCurrent(11L, "lease-token")).thenReturn(true);
+        when(jobs.maxAttempts(11L)).thenReturn(3);
+        when(turns.findById(3L)).thenReturn(Optional.of(turn));
+        store.failed(job, ErrorCode.SPEAKING_AUDIO_NO_SPEECH.toException());
+        assertThat(turn.getStatus()).isEqualTo("FAILED");
+        assertThat(turn.getErrorCode()).isEqualTo("SPEAKING_AUDIO_NO_SPEECH");
+        verify(jobs).fail(eq(11L), eq(true), eq("SPEAKING_AUDIO_NO_SPEECH"), anyString(), anyInt());
+        verify(jobs).finishAttempt(eq(11L), eq("lease-token"), eq("FAILED"), eq("SPEAKING_AUDIO_NO_SPEECH"), anyString(), eq(false));
     }
 }

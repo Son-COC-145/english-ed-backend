@@ -4,16 +4,19 @@ import com.example.english_app.entity.enums.SpeakerRole;
 import com.example.english_app.entity.speaking.SpeakingScenario;
 import com.example.english_app.entity.speaking.SpeakingSession;
 import com.example.english_app.entity.speaking.SpeakingTurn;
+import com.example.english_app.entity.speaking.SpeakingStartRequest;
+import com.example.english_app.exception.AppException;
 import com.example.english_app.exception.ErrorCode;
 import com.example.english_app.repository.speaking.SpeakingScenarioRepository;
 import com.example.english_app.repository.speaking.SpeakingSessionRepository;
 import com.example.english_app.repository.speaking.SpeakingStartRequestRepository;
 import com.example.english_app.repository.speaking.SpeakingTurnRepository;
+import com.example.english_app.repository.speaking.SpeakingJobRepository;
+import com.example.english_app.repository.speaking.SpeakingRewardRepository;
 import com.example.english_app.repository.user.UserRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,7 +24,6 @@ import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.stream.StreamSupport;
 
 /**
@@ -37,7 +39,8 @@ public class SpeakingStore {
     private final SpeakingStartRequestRepository startRequests;
     private final SpeakingTurnRepository turns;
     private final UserRepository users;
-    private final JdbcTemplate jdbc;
+    private final SpeakingJobRepository jobs;
+    private final SpeakingRewardRepository rewards;
     private final SpeakingJson json;
 
     public SpeakingSession owned(Long id, Long userId) {
@@ -64,6 +67,18 @@ public class SpeakingStore {
 
     public List<SpeakingTurn> history(Long id) {
         return turns.findBySessionIdOrderByTurnIndexAscIdAsc(id);
+    }
+
+    public SpeakingSession recover(Long userId, String key) {
+        return startRequests.findByStudentIdAndRequestKey(userId, key)
+                .map(SpeakingStartRequest::getSession)
+                .filter(s -> s.getStudent().getId().equals(userId))
+                .orElseThrow(ErrorCode.SESSION_NOT_FOUND::toException);
+    }
+
+    public List<SpeakingSession> activeSessions(Long userId) {
+        return sessions.findTop20ByStudentIdAndStatusInOrderByStartedAtDescIdDesc(userId,
+                List.of("ONGOING", "EVALUATING", "EVALUATION_FAILED"));
     }
 
     public SpeakingSession start(Long userId, Short scenarioId, String requestKey) {
@@ -156,7 +171,7 @@ public class SpeakingStore {
                 .audioUrl(audioUrl)
                 .recordedAt(audio == null ? null : LocalDateTime.now())
                 .audioAnalysisStatus(audio == null ? "INSUFFICIENT_DATA" : "PENDING")
-                .audioStatus(audio == null ? "PENDING" : "PENDING")
+                .audioStatus(audio == null ? "NOT_APPLICABLE" : "READY")
                 .transcriptText(text == null ? "" : text)
                 .build());
 
@@ -217,7 +232,7 @@ public class SpeakingStore {
             return;
         }
 
-        jdbc.update("update speaking_jobs set status='PENDING', max_attempts=attempts+3, available_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP, finished_at=null, error_code=null, error_message=null where session_id=? and status='FAILED' and (?::bigint is null or turn_id=? or kind='SESSION_EVALUATION')", id, turnId, turnId);
+        jobs.resetFailed(id, turnId);
         for (SpeakingTurn t : history(id)) {
             if (turnId != null && !turnId.equals(t.getId())) continue;
             if ("FAILED".equals(t.getStatus())) {
@@ -245,7 +260,7 @@ public class SpeakingStore {
     }
 
     private void enqueue(Long sessionId, Long turnId, String kind) {
-        jdbc.update("insert into speaking_jobs(session_id, turn_id, kind) values (?,?,?) on conflict do nothing", sessionId, turnId, kind);
+        jobs.enqueue(sessionId, turnId, kind);
     }
 
     public record Job(
@@ -258,51 +273,19 @@ public class SpeakingStore {
     ) {}
 
     public Job claim() {
-        var rows = jdbc.queryForList("""
-                select j.* from speaking_jobs j
-                where ((j.status='PENDING' and j.available_at <= CURRENT_TIMESTAMP)
-                    or (j.status='RUNNING' and j.lease_expires_at <= CURRENT_TIMESTAMP))
-                and (j.kind <> 'SESSION_EVALUATION'
-                    or exists (select 1 from speaking_turns t where t.session_id=j.session_id
-                        and (t.status='FAILED' or t.evaluation_status='FAILED'))
-                    or not exists (select 1 from speaking_turns t where t.session_id=j.session_id
-                        and (t.status <> 'COMPLETED' or (t.speaker='STUDENT' and t.evaluation_status <> 'COMPLETED'))))
-                order by j.available_at, j.id limit 1 for update of j skip locked
-                """);
-        if (rows.isEmpty()) {
-            return null;
-        }
-
-        long id = ((Number) rows.getFirst().get("id")).longValue();
-        if ("RUNNING".equals(rows.getFirst().get("status"))) {
-            jdbc.update("update speaking_job_attempts set status='TIMED_OUT', finished_at=CURRENT_TIMESTAMP, error_code='LEASE_EXPIRED', error_message='Worker lease expired', retryable=true where job_id=? and status='RUNNING'", id);
-        }
-        String token = UUID.randomUUID().toString();
-        Job job = jdbc.queryForObject(
-                "update speaking_jobs set status='RUNNING', attempts=attempts+1, lease_token=?, lease_expires_at=CURRENT_TIMESTAMP + interval '5 minutes', started_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP, finished_at=null where id=? returning *",
-                (r, n) -> new Job(
-                        r.getLong("id"),
-                        r.getLong("session_id"),
-                        (Long) r.getObject("turn_id"),
-                        r.getString("kind"),
-                        r.getInt("attempts"),
-                        token
-                ),
-                token,
-                id
-        );
-        jdbc.update("insert into speaking_job_attempts(job_id, attempt_no, status, lease_token) values (?,?,'RUNNING',?)", id, job.attempts(), token);
-        return job;
+        var claim = jobs.claim();
+        return claim == null ? null : new Job(claim.id(), claim.sessionId(), claim.turnId(),
+                claim.kind(), claim.attempts(), claim.token());
     }
 
     private boolean current(Job j) {
         // Every mutation locks session before job, including /end and /retry.
         sessions.lockById(j.sessionId()).orElseThrow(ErrorCode.SESSION_NOT_FOUND::toException);
-        return !jdbc.queryForList("select id from speaking_jobs where id=? and lease_token=? and status='RUNNING' and lease_expires_at > CURRENT_TIMESTAMP for update", j.id(), j.token()).isEmpty();
+        return jobs.lockCurrent(j.id(), j.token());
     }
 
     public boolean exhausted(Job j) {
-        return j.attempts() > jdbc.queryForObject("select max_attempts from speaking_jobs where id=?", Integer.class, j.id());
+        return j.attempts() > jobs.maxAttempts(j.id());
     }
 
     public SpeakingSession session(Long id) {
@@ -363,7 +346,7 @@ public class SpeakingStore {
         if (!current(j)) {
             return;
         }
-        jdbc.update("update speaking_jobs set status='FAILED', error_code='TURN_PROCESSING_FAILED', error_message='A required turn failed', finished_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP, lease_expires_at=null where id=?", j.id());
+        jobs.blockReport(j.id());
         finishAttempt(j, "FAILED", "TURN_PROCESSING_FAILED", "A required turn failed", true);
         sessions.lockById(j.sessionId()).orElseThrow(ErrorCode.SESSION_NOT_FOUND::toException).setStatus("EVALUATION_FAILED");
     }
@@ -415,16 +398,7 @@ public class SpeakingStore {
         s.setTaskCompletionScore((short) report.path("task_completion_score").asInt());
 
         short xp = (short) (20 + Math.max(0, 10 - s.getHintUsedCount() * 2));
-        int rewardInserted = jdbc.update("""
-                insert into speaking_reward_ledger(session_id, student_id, xp_amount)
-                values (?, ?, ?)
-                on conflict (session_id) do nothing
-                """, s.getId(), s.getStudent().getId(), xp);
-        if (rewardInserted > 0) jdbc.update("""
-                insert into student_stats(student_id, total_xp, current_streak, longest_streak, streak_freeze_count, total_study_minutes, updated_at)
-                values (?, ?, 0, 0, 0, 0, CURRENT_TIMESTAMP)
-                on conflict (student_id) do update set total_xp = student_stats.total_xp + EXCLUDED.total_xp, updated_at = CURRENT_TIMESTAMP
-                """, s.getStudent().getId(), xp);
+        rewards.awardOnce(s.getId(), s.getStudent().getId(), xp);
 
         s.setXpEarned(xp);
         s.setStatus("COMPLETED");
@@ -433,7 +407,7 @@ public class SpeakingStore {
 
     public void defer(Job j) {
         if (current(j)) {
-            jdbc.update("update speaking_jobs set status='PENDING', max_attempts=max_attempts+1, lease_expires_at=null, updated_at=CURRENT_TIMESTAMP, available_at=CURRENT_TIMESTAMP + interval '2 seconds' where id=?", j.id());
+            jobs.defer(j.id());
             finishAttempt(j, "DEFERRED", null, null, true);
         }
     }
@@ -442,13 +416,17 @@ public class SpeakingStore {
         if (!current(j)) {
             return;
         }
-        Integer limit = jdbc.queryForObject("select max_attempts from speaking_jobs where id=?", Integer.class, j.id());
-        boolean terminal = j.attempts() >= limit;
-        String code = failure instanceof IllegalArgumentException ? "INVALID_AI_OUTPUT" : "PROVIDER_OR_PROCESSING_ERROR";
+        int limit = jobs.maxAttempts(j.id());
+        boolean noSpeech = failure instanceof AppException app
+                && app.getErrorCode() == ErrorCode.SPEAKING_AUDIO_NO_SPEECH;
+        boolean terminal = noSpeech || j.attempts() >= limit;
+        String code = failure instanceof AppException app
+                ? app.getErrorCode().name()
+                : failure instanceof IllegalArgumentException ? "INVALID_AI_OUTPUT" : "PROVIDER_OR_PROCESSING_ERROR";
         // Exception messages may contain provider payloads or credentials. Store only the class.
         String message = failure.getClass().getSimpleName();
         int delay = Math.min(300, 10 * (1 << Math.min(j.attempts() - 1, 5)));
-        jdbc.update("update speaking_jobs set status=?, error_code=?, error_message=?, available_at=CURRENT_TIMESTAMP + (? * interval '1 second'), lease_expires_at=null, updated_at=CURRENT_TIMESTAMP, finished_at=case when ? then CURRENT_TIMESTAMP else null end where id=?", terminal ? "FAILED" : "PENDING", code, message, delay, terminal, j.id());
+        jobs.fail(j.id(), terminal, code, message, delay);
         finishAttempt(j, "FAILED", code, message, !terminal);
         if (terminal) {
             if (j.turnId() == null) {
@@ -473,15 +451,15 @@ public class SpeakingStore {
     }
 
     private void done(Job j) {
-        jdbc.update("update speaking_jobs set status='COMPLETED', error_code=null, error_message=null, finished_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP, lease_expires_at=null where id=?", j.id());
+        jobs.complete(j.id());
         finishAttempt(j, "SUCCEEDED", null, null, false);
     }
 
     private void finishAttempt(Job j, String status, String code, String message, boolean retryable) {
-        jdbc.update("update speaking_job_attempts set status=?, finished_at=CURRENT_TIMESTAMP, error_code=?, error_message=?, retryable=? where job_id=? and lease_token=? and status='RUNNING'", status, code, message, retryable, j.id(), j.token());
+        jobs.finishAttempt(j.id(), j.token(), status, code, message, retryable);
     }
 
     public List<Map<String, Object>> jobProgress(Long sessionId) {
-        return jdbc.queryForList("select id, turn_id, kind, status, attempts, max_attempts, available_at, error_code from speaking_jobs where session_id=? order by id", sessionId);
+        return jobs.progress(sessionId);
     }
 }

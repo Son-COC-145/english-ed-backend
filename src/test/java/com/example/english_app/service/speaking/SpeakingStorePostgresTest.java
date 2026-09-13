@@ -50,8 +50,9 @@ class SpeakingStorePostgresTest {
         @Bean SpeakingJson speakingJson() { return new SpeakingJson(new ObjectMapper()); }
         @Bean SpeakingStore store(SpeakingSessionRepository sessions, SpeakingScenarioRepository scenarios,
                                   SpeakingStartRequestRepository startRequests, SpeakingTurnRepository turns,
-                                  UserRepository users, JdbcTemplate jdbc, SpeakingJson json) {
-            return new SpeakingStore(sessions,scenarios,startRequests,turns,users,jdbc,json);
+                                  UserRepository users, SpeakingJobRepository jobs,
+                                  SpeakingRewardRepository rewards, SpeakingJson json) {
+            return new SpeakingStore(sessions,scenarios,startRequests,turns,users,jobs,rewards,json);
         }
     }
     @BeforeAll void initialize() throws Exception {
@@ -61,7 +62,7 @@ class SpeakingStorePostgresTest {
         new JdbcTemplate(admin).execute("create schema "+schema);
         source=new DriverManagerDataSource(url+"?currentSchema="+schema,"phase123","");
         try(var connection=source.getConnection()) {
-            for(String file:List.of("V1__init.sql","V33__durable_speaking_sessions.sql","V34__speaking_scenario_library.sql","V35__speaking_job_audit_and_invariants.sql","V39__speaking_start_idempotency.sql")) {
+            for(String file:List.of("V1__init.sql","V33__durable_speaking_sessions.sql","V34__speaking_scenario_library.sql","V35__speaking_job_audit_and_invariants.sql","V36__speaking_audio_and_reward_invariants.sql","V39__speaking_start_idempotency.sql","V45__normalize_speaking_input_audio_status.sql")) {
                 String sql=Files.readString(Path.of("src/main/resources/db/migration",file),StandardCharsets.UTF_8)
                     .replace("public.",schema+".").replace("SELECT pg_catalog.set_config('search_path', '', false);","SET search_path TO "+schema+";");
                 ScriptUtils.executeSqlScript(connection,new ByteArrayResource(sql.getBytes(StandardCharsets.UTF_8)));
@@ -79,7 +80,7 @@ class SpeakingStorePostgresTest {
             new JdbcTemplate(source).execute("drop schema "+schema+" cascade");
     }
     @BeforeEach void reset() {
-        jdbc.execute("truncate speaking_job_attempts,speaking_jobs,speaking_turns,speaking_sessions,student_stats restart identity");
+        jdbc.execute("truncate speaking_job_attempts,speaking_jobs,speaking_turns,speaking_start_requests,speaking_reward_ledger,speaking_sessions,student_stats restart identity");
     }
     private SpeakingSession readySession() {
         var session=store.start(1L,scenarioId,"startkey1");

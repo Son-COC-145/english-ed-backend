@@ -26,6 +26,7 @@ public class SpeakingTurnResponse {
     private String audioUrl;
     private Object audioMetrics;
     private String audioStatus;
+    private String audioErrorCode;
     private String audioAnalysisStatus;
     private Double durationSeconds;
     private List<GrammarCorrection> grammarErrors;

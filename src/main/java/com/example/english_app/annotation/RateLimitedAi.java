@@ -7,4 +7,6 @@ import java.lang.annotation.*;
 public @interface RateLimitedAi {
 
     String description() default "Check rate limit for AI usage";
+
+    boolean idempotent() default false;
 }

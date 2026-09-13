@@ -89,6 +89,7 @@ public class SpeakingMapper {
                 .turnIndex(entity.getTurnIndex())
                 .status(entity.getStatus())
                 .evaluationStatus(entity.getEvaluationStatus())
+                .audioErrorCode(entity.getAudioErrorCode())
                 .errorCode(entity.getErrorCode())
                 .audioMetrics(parseJson(entity.getAudioMetricsJson()))
                 .audioStatus(entity.getAudioStatus())
