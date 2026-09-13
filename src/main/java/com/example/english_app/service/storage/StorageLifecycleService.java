@@ -33,7 +33,11 @@ public class StorageLifecycleService {
                     else if (status == STATUS_ROLLED_BACK) store.rollbackUpload(file.id());
                 }
             });
+        } else {
+            // Standalone uploads may be linked by a later request; never auto-delete them based on age.
+            store.activate(file.id());
         }
-        // Without a business transaction, keep PENDING until reconciliation confirms a DB reference.
     }
+
+    public void failed(StoredFile file) { store.rollbackUpload(file.id()); }
 }

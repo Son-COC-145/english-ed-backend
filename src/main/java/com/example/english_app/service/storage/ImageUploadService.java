@@ -19,6 +19,7 @@ public class ImageUploadService {
     private static final long MAX_IMAGE_SIZE_BYTES = 5L * 1024 * 1024;
 
     private final CloudinaryService cloudinaryService;
+    private final FileContentValidator contentValidator;
 
     public String uploadImage(MultipartFile file) {
         if (file == null || file.isEmpty() || file.getSize() > MAX_IMAGE_SIZE_BYTES
@@ -26,6 +27,7 @@ public class ImageUploadService {
             throw ErrorCode.INVALID_IMAGE_FILE.toException();
         }
 
+        contentValidator.validate(file);
         try {
             return cloudinaryService.uploadFile(file.getBytes(), "image",
                     "english-app/images/" + UUID.randomUUID());

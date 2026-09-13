@@ -7,6 +7,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Value;
+import com.example.english_app.repository.storage.StoredFileRepository.StoredFile;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -15,10 +18,15 @@ public class StorageCleanupScheduler {
     private final StoredFileStore store;
     private final CloudinaryService cloudinary;
     private final AzureBlobStorageService azure;
+    @Value("${storage.cleanup.max-jobs-per-poll:25}")
+    private int maxJobsPerPoll;
 
     @Scheduled(fixedDelayString = "${storage.cleanup.poll-ms:30000}")
     public void cleanup() {
-        for (var file : store.claimCleanup()) {
+        for (int index = 0; index < maxJobsPerPoll; index++) {
+            List<StoredFile> claimed = store.claimCleanup();
+            if (claimed.isEmpty()) break;
+            StoredFile file = claimed.getFirst();
             try {
                 if (store.hasReferences(file.url())) {
                     store.finish(file,"ACTIVE",null);
@@ -37,6 +45,4 @@ public class StorageCleanupScheduler {
         }
     }
 
-    @Scheduled(fixedDelayString = "${storage.cleanup.reconcile-ms:3600000}")
-    public void reconcile() { store.reconcile(); }
 }

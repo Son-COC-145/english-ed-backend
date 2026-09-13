@@ -91,6 +91,21 @@ class AssignmentSubmissionServiceTest {
         verify(notificationOutboxService).enqueue(eq(7L), any(), any(), any(), eq("submission-graded:4:1"));
     }
 
+    @Test
+    void teacherCanReviseGradeAndEachRevisionHasItsOwnNotificationKey() {
+        Assignment assignment = assignment(3L,10L);
+        AssignmentSubmission submission = AssignmentSubmission.builder().id(4L).assignment(assignment)
+                .student(User.builder().id(7L).build()).status(AssignmentSubmissionStatus.GRADED).gradingRevision(1L).build();
+        when(assignmentRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(assignment));
+        when(submissionRepository.findByIdForUpdate(4L)).thenReturn(Optional.of(submission));
+        when(submissionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        service.gradeSubmission(1L,10L,3L,4L,GradeSubmissionRequest.builder()
+                .status(AssignmentSubmissionStatus.GRADED).score(new BigDecimal("95")).build());
+        assertEquals(new BigDecimal("95"),submission.getScore());
+        assertEquals(2L,submission.getGradingRevision());
+        verify(notificationOutboxService).enqueue(eq(7L),any(),any(),any(),eq("submission-graded:4:2"));
+    }
+
     private Assignment assignment(Long assignmentId, Long courseId) {
         return Assignment.builder().id(assignmentId).moduleType(ModuleType.VOCABULARY).refId(1L)
                 .title("Unit test").course(Course.builder().id(courseId).isActive(true).build()).build();

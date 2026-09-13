@@ -7,8 +7,6 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.example.english_app.dto.response.classroom.TeachingMaterialResponse;
@@ -22,6 +20,9 @@ import com.example.english_app.repository.classroom.CourseRepository;
 import com.example.english_app.repository.classroom.TeachingMaterialRepository;
 import com.example.english_app.repository.user.UserRepository;
 import com.example.english_app.service.integration.CloudinaryService;
+import com.example.english_app.service.integration.CloudinaryService.UploadedFile;
+import com.example.english_app.service.storage.StoredFileStore;
+import com.example.english_app.service.storage.FileContentValidator;
 
 import lombok.RequiredArgsConstructor;
 
@@ -35,12 +36,13 @@ public class TeachingMaterialService {
     private final ClassroomMapper classroomMapper;
     private final TeachingMaterialRepository teachingMaterialRepository;
     private final CourseAccessService courseAccessService;
+    private final StoredFileStore storedFileStore;
+    private final FileContentValidator contentValidator;
 
     private static final long MAX_FILE_SIZE_BYTES = 5L * 1024 * 1024;
     private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
             "application/pdf",
             "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-            "application/vnd.ms-powerpoint",
             "video/mp4",
             "audio/mpeg",
             "audio/mp3");
@@ -59,12 +61,14 @@ public class TeachingMaterialService {
         }
 
         validateUpload(file);
+        validateTitle(title);
+        contentValidator.validate(file);
 
         String resourceType = determineResourceType(file.getContentType());
         String publicId = "materials/" + UUID.randomUUID().toString();
-        String fileUrl;
+        UploadedFile uploaded;
         try {
-            fileUrl = cloudinaryService.uploadFile(file.getBytes(), resourceType, publicId);
+            uploaded = cloudinaryService.uploadWithMetadata(file.getBytes(), resourceType, publicId);
         } catch (Exception e) {
             throw new RuntimeException("Failed to read file bytes", e);
         }
@@ -74,10 +78,10 @@ public class TeachingMaterialService {
         Integer fileSizeKb = (int) ((file.getSize() + 1023) / 1024);
 
         TeachingMaterial material = TeachingMaterial.builder()
-                .title(title)
-                .fileUrl(fileUrl)
-                .cloudinaryPublicId(publicId)
-                .cloudinaryResourceType(resourceType)
+                .title(title.trim())
+                .fileUrl(uploaded.url())
+                .cloudinaryPublicId(uploaded.publicId())
+                .cloudinaryResourceType(uploaded.resourceType())
                 .fileType(fileType)
                 .fileSizeKb(fileSizeKb)
                 .course(course)
@@ -85,14 +89,8 @@ public class TeachingMaterialService {
                 .isLivePresenting(false)
                 .build();
 
-        try {
-            TeachingMaterial savedMaterial = teachingMaterialRepository.save(material);
-            deleteCloudinaryFileAfterRollback(publicId, resourceType);
-            return classroomMapper.toTeachingMaterialResponse(savedMaterial);
-        } catch (RuntimeException exception) {
-            deleteCloudinaryFileSafely(publicId, resourceType);
-            throw exception;
-        }
+        TeachingMaterial savedMaterial = teachingMaterialRepository.save(material);
+        return classroomMapper.toTeachingMaterialResponse(savedMaterial);
     }
 
     public List<TeachingMaterialResponse> getMaterialsByCourse(Long actorId, Long courseId) {
@@ -115,7 +113,8 @@ public class TeachingMaterialService {
         }
         courseAccessService.requireTeacherOrAdmin(teacherId, material.getCourse());
         teachingMaterialRepository.delete(material);
-        deleteCloudinaryFileAfterCommit(material.getCloudinaryPublicId(), material.getCloudinaryResourceType());
+        storedFileStore.queueMaterialDeletion(material.getId(), material.getFileUrl(),
+                material.getCloudinaryPublicId(), material.getCloudinaryResourceType());
     }
 
     @Transactional
@@ -128,8 +127,9 @@ public class TeachingMaterialService {
         }
         courseAccessService.requireTeacherOrAdmin(teacherId, material.getCourse());
 
-        if (title != null && !title.trim().isEmpty()) {
-            material.setTitle(title);
+        if (title != null) {
+            validateTitle(title);
+            material.setTitle(title.trim());
         }
 
         return classroomMapper.toTeachingMaterialResponse(teachingMaterialRepository.save(material));
@@ -166,34 +166,9 @@ public class TeachingMaterialService {
         }
     }
 
-    private void deleteCloudinaryFileAfterRollback(String publicId, String resourceType) {
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCompletion(int status) {
-                if (status == STATUS_ROLLED_BACK) {
-                    deleteCloudinaryFileSafely(publicId, resourceType);
-                }
-            }
-        });
-    }
-
-    private void deleteCloudinaryFileAfterCommit(String publicId, String resourceType) {
-        if (publicId == null || resourceType == null) {
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                deleteCloudinaryFileSafely(publicId, resourceType);
-            }
-        });
-    }
-
-    private void deleteCloudinaryFileSafely(String publicId, String resourceType) {
-        try {
-            cloudinaryService.deleteFile(publicId, resourceType);
-        } catch (RuntimeException ignored) {
-            // Durable retry is handled by the storage cleanup job/outbox introduced separately.
+    private void validateTitle(String title) {
+        if (title == null || title.trim().isEmpty() || title.trim().length() > 300) {
+            throw ErrorCode.INVALID_REQUEST.toException();
         }
     }
 }

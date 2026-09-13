@@ -15,6 +15,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
+import java.util.UUID;
+import com.example.english_app.repository.storage.StoredFileRepository.StoredFile;
 
 /**
  * Service quản lý upload và lưu trữ file tĩnh (Audio/Media) trên Azure Blob Storage.
@@ -25,6 +27,7 @@ import java.io.ByteArrayInputStream;
 public class AzureBlobStorageService {
 
     private final AzureBlobStorageConfig blobConfig;
+    private final StorageLifecycleService lifecycle;
     private BlobServiceClient blobServiceClient;
     private BlobContainerClient containerClient;
 
@@ -64,20 +67,27 @@ public class AzureBlobStorageService {
      */
     public String uploadAudio(String blobPath, byte[] audioBytes, String contentType) {
         ensureInitialized();
-
+        if (blobPath == null || blobPath.isBlank()) throw new IllegalArgumentException("Blob path is required");
+        int extensionIndex = blobPath.lastIndexOf('.');
+        String uniquePath = extensionIndex > blobPath.lastIndexOf('/')
+                ? blobPath.substring(0, extensionIndex) + "_" + UUID.randomUUID() + blobPath.substring(extensionIndex)
+                : blobPath + "_" + UUID.randomUUID();
+        StoredFile file = lifecycle.begin("AZURE", uniquePath, "blob", audioBytes);
         try {
-            BlobClient blobClient = containerClient.getBlobClient(blobPath);
+            BlobClient blobClient = containerClient.getBlobClient(uniquePath);
 
             BlobHttpHeaders headers = new BlobHttpHeaders();
             headers.setContentType(contentType != null ? contentType : "audio/mpeg");
 
-            blobClient.upload(new ByteArrayInputStream(audioBytes), audioBytes.length, true);
+            blobClient.upload(new ByteArrayInputStream(audioBytes), audioBytes.length, false);
             blobClient.setHttpHeaders(headers);
 
             String blobUrl = blobClient.getBlobUrl();
+            lifecycle.uploaded(file, blobUrl);
             log.info("Successfully uploaded audio to Azure Blob Storage: {}", blobUrl);
             return blobUrl;
         } catch (Exception e) {
+            lifecycle.failed(file);
             log.error("Failed to upload audio to Azure Blob: {}", e.getMessage(), e);
             throw new AppException(ErrorCode.AUDIO_PROCESSING_FAILED);
         }

@@ -43,11 +43,16 @@ class Module4PostgresIntegrationTest {
         try (Connection connection = dataSource.getConnection()) {
             for (String migration : List.of("V1__init.sql", "V10__update_module4_schema.sql",
                     "V29__update_notification_type_check.sql", "V30__add_syllabus_item_topics.sql",
-                    "V42__add_cloudinary_metadata_to_teaching_materials.sql")) {
+                    "V42__add_cloudinary_metadata_to_teaching_materials.sql",
+                    "V43__module4_reliability.sql", "V44__simplify_storage_cleanup.sql")) {
                 String sql = Files.readString(Path.of("src/main/resources/db/migration", migration), StandardCharsets.UTF_8)
                         .replace("public.", schema + ".")
                         .replace("SELECT pg_catalog.set_config('search_path', '', false);", "SET search_path TO " + schema + ";");
-                ScriptUtils.executeSqlScript(connection, new ByteArrayResource(sql.getBytes(StandardCharsets.UTF_8)));
+                if (migration.startsWith("V43")) {
+                    try (var statement = connection.createStatement()) { statement.execute(sql); }
+                } else {
+                    ScriptUtils.executeSqlScript(connection, new ByteArrayResource(sql.getBytes(StandardCharsets.UTF_8)));
+                }
             }
         }
         jdbc = new JdbcTemplate(dataSource);

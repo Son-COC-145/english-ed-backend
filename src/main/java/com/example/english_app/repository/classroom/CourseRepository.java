@@ -19,7 +19,13 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select c from Course c where c.id = :id")
     Optional<Course> findByIdForUpdate(@Param("id") Long id);
-    
+
+    @Query(value = "SELECT EXISTS(SELECT 1 FROM class_students WHERE class_id=:id) " +
+            "OR EXISTS(SELECT 1 FROM assignments WHERE class_id=:id) " +
+            "OR EXISTS(SELECT 1 FROM teaching_materials WHERE class_id=:id) " +
+            "OR EXISTS(SELECT 1 FROM syllabus_items WHERE class_id=:id)", nativeQuery = true)
+    boolean hasDependentData(@Param("id") Long id);
+
     Page<Course> findAllByTeacherId(Long teacherId, Pageable pageable);
 
     List<Course> findAllByIsActiveTrue();

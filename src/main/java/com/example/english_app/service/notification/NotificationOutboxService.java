@@ -57,6 +57,7 @@ public class NotificationOutboxService {
                 LocalDateTime.now(), null, event.getAttemptCount(), event.getAvailableAt());
     }
 
+
     @Transactional
     public void markFailure(NotificationOutboxEvent event, Exception exception) {
         int attempts = event.getAttemptCount() + 1;

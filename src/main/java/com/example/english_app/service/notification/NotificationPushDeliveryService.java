@@ -5,7 +5,10 @@ import lombok.RequiredArgsConstructor;
 import com.example.english_app.repository.notification.NotificationPushDeliveryRepository;
 import org.springframework.stereotype.Service;
 
-/** Runs after notification persistence commits; each successful token is recorded separately. */
+/**
+ * Runs after notification persistence commits; each successful token is
+ * recorded separately.
+ */
 @Service
 @RequiredArgsConstructor
 public class NotificationPushDeliveryService {
@@ -21,13 +24,18 @@ public class NotificationPushDeliveryService {
             }
             try {
                 boolean valid = fcmService.sendToken(token, event.getTitle(), event.getBody(), event.getId());
-                pushDeliveryRepository.markDelivered(event.getId(), token, valid);
-                if (!valid) pushDeliveryRepository.removeInvalidToken(token);
+                if (pushDeliveryRepository.markDelivered(event.getId(), token, valid, event.getClaimToken()) != 1) {
+                    throw new IllegalStateException("Outbox lease has been reclaimed");
+                }
+                if (!valid)
+                    pushDeliveryRepository.removeInvalidToken(token);
             } catch (RuntimeException exception) {
-                pushDeliveryRepository.markFailure(event.getId(), token, exception.getClass().getSimpleName());
+                pushDeliveryRepository.markFailure(event.getId(), token, exception.getClass().getSimpleName(),
+                        event.getClaimToken());
                 failure = exception;
             }
         }
-        if (failure != null) throw failure;
+        if (failure != null)
+            throw failure;
     }
 }

@@ -99,8 +99,11 @@ public class CourseService {
 
     @Transactional
     public void deleteCourse(Long id) {
-        Course course = courseRepository.findById(id)
+        Course course = courseRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> ErrorCode.COURSE_NOT_FOUND.toException());
+        if (courseRepository.hasDependentData(id)) {
+            throw ErrorCode.CLASSROOM_RESOURCE_IN_USE.toException();
+        }
         courseRepository.delete(course);
     }
 

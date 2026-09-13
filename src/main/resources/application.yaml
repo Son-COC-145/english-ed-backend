@@ -147,10 +147,10 @@ notification:
   outbox:
     # Chu kỳ xử lý thông báo đang chờ (mili giây).
     poll-ms: ${NOTIFICATION_OUTBOX_POLL_MS:5000}
+    max-events-per-poll: ${NOTIFICATION_OUTBOX_MAX_EVENTS_PER_POLL:50}
 
 storage:
   cleanup:
     # Chu kỳ xử lý các job xóa file (mili giây).
     poll-ms: ${STORAGE_CLEANUP_POLL_MS:30000}
-    # Chu kỳ đối soát file mồ côi (mili giây).
-    reconcile-ms: ${STORAGE_CLEANUP_RECONCILE_MS:3600000}
+    max-jobs-per-poll: ${STORAGE_CLEANUP_MAX_JOBS_PER_POLL:25}

@@ -30,7 +30,7 @@ public class AssignmentReferenceService {
         boolean exists = switch (moduleType) {
             case PRONUNCIATION -> wordRepository.existsById(refId);
             case VOCABULARY -> refId <= Short.MAX_VALUE && topicRepository.existsById(refId.shortValue());
-            case SPEAKING -> scenarioRepository.existsById(refId.shortValue()) && refId <= Short.MAX_VALUE;
+            case SPEAKING -> refId <= Short.MAX_VALUE && scenarioRepository.existsById(refId.shortValue());
         };
         if (!exists) throw ErrorCode.INVALID_REQUEST.toException();
     }
