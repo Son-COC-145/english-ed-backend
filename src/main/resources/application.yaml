@@ -106,7 +106,7 @@ app:
   cors:
     # Danh sách origin được phép gọi API. Thêm domain production vào đây.
     # VD: https://yourdomain.com,http://localhost:3000
-    allowed-origins: ${FRONTEND_URL:http://localhost:3000}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:${FRONTEND_URL:http://localhost:3000}}
 
 gemini:
   api-key: ${GEMINI_API_KEY:}
@@ -136,7 +136,7 @@ azure:
     container-name: ${AZURE_STORAGE_CONTAINER_NAME:english-app-media}
 firebase:
   config:
-    path: firebase-adminsdk.json
+    path: ${FIREBASE_CONFIG_PATH:firebase-adminsdk.json}
 
 gamification:
   daily-mission:
