@@ -133,40 +133,80 @@ POST /api/v1/admin/vocabularies/generate?word=itinerary&topicId=1&cefr=B1
 
 Vocabulary mới nên được review và publish trước khi mobile student nhìn thấy.
 
-## 5. Thanh toán Premium
+## 5. Thanh toán Premium (Tích hợp VNPay)
 
-### 5.1 Lấy plan
+Quy trình thanh toán gồm **2 kênh callback độc lập**:
+- **IPN (Server-to-Server)**: VNPay gọi ngầm sang Backend để cập nhật Database và cấp quyền Premium. User/Mobile **không** gọi kênh này.
+- **Return URL (Client Redirect)**: VNPay redirect trình duyệt/WebView của người dùng về Backend để hiển thị kết quả cho người dùng.
+
+### 5.1 Lấy danh sách gói cước
+Mobile gọi API để hiển thị danh sách các gói (Plan) cho người dùng chọn:
 
 ```http
 GET /api/v1/subscription-plans?page=0&size=20
 GET /api/v1/subscription-plans/{id}
 ```
 
-### 5.2 Tạo URL VNPay
+Response trả về danh sách các gói với các trường chính: `id`, `name` (BASIC, PREMIUM), `price`, `durationDays`, `aiPromptLimit`.
 
-Controller hiện nhận `planId` bằng query parameter:
+### 5.2 Tạo đơn & Lấy URL thanh toán VNPay
+Khi người dùng chọn gói và bấm "Thanh toán", Mobile gửi request:
 
 ```http
 POST /api/v1/payments/create?planId=2
+Authorization: Bearer <access-token>
 ```
 
-Response là chuỗi payment URL. Mobile mở URL trong WebView/browser.
+- **Backend xử lý**:
+  1. Tạo `UserSubscription` trạng thái `PENDING_PAYMENT`.
+  2. Tạo `PaymentTransaction` trạng thái `PENDING` kèm mã giao dịch `vnp_TxnRef`.
+  3. Ký bảo mật HMAC SHA512 và tạo mã timeout 15 phút trong Redis (`payment_timeout:{vnp_TxnRef}`).
+- **Backend response**: Trả về chuỗi `paymentUrl` (URL chuyển tiếp tới cổng VNPay).
 
-### 5.3 Callback
+### 5.3 Mở giao diện thanh toán trên Mobile
+Mobile mở một **In-App WebView** hoặc **Custom Tab** với `paymentUrl` nhận được ở bước 5.2 để người dùng quét mã VNPay-QR hoặc nhập thẻ ATM/quốc tế.
 
-VNPay gọi server:
+### 5.4 Kênh 1: IPN Webhook (Server-to-Server ngầm)
+> **Lưu ý quan trọng**: Mobile **tuyệt đối KHÔNG gọi** API này. Đây là giao tiếp ngầm giữa VNPay và Backend.
+
+Khi giao dịch phát sinh kết quả, hệ thống VNPay tự động gọi ngầm vào Backend:
 
 ```http
-GET /api/v1/payments/vnpay-ipn?...params...
+GET /api/v1/payments/vnpay-ipn?...vnp_Params...&vnp_SecureHash=...
 ```
 
-IPN xác minh chữ ký và cập nhật transaction/subscription. VNPay redirect user về:
+- **Backend xử lý**:
+  1. Kiểm tra chữ ký bảo mật `vnp_SecureHash` bằng `vnp_HashSecret`. Nếu không khớp, từ chối cập nhật (`RspCode: 97`).
+  2. Nếu hợp lệ và `vnp_ResponseCode == "00"` (thành công):
+     - Chuyển `PaymentTransaction` sang `SUCCESS`.
+     - Kích hoạt `UserSubscription` sang `ACTIVE` và tính thời hạn: `endDate = now + plan.durationDays`.
+     - Xóa key timeout trong Redis.
+  3. Phản hồi cho VNPay: `{"RspCode": "00", "Message": "Confirm Success"}`.
+
+### 5.5 Kênh 2: Return URL (Điều hướng người dùng & đóng WebView)
+Sau khi người dùng thanh toán xong trên cổng VNPay, VNPay sẽ điều hướng (redirect) WebView về:
 
 ```http
-GET /api/v1/payments/vnpay-return?...params...
+GET /api/v1/payments/vnpay-return?vnp_ResponseCode=00&vnp_TxnRef=...
 ```
 
-Mobile không coi redirect là bằng chứng duy nhất đã thanh toán; sau khi đóng WebView cần gọi API subscription/payment để đồng bộ trạng thái.
+- **Backend xử lý**: 
+  - Đọc `vnp_ResponseCode`:
+    - Nếu `"00"`: Redirect tiếp về `{frontendUrl}/payment-success`.
+    - Khác `"00"`: Redirect tiếp về `{frontendUrl}/payment-failed`.
+- **Nhiệm vụ của Mobile**:
+  - Dùng sự kiện lắng nghe URL trên WebView (ví dụ `onNavigationStateChange` trong React Native hoặc `onNavigationRequest` trong Flutter).
+  - Khi thấy URL chứa `/api/v1/payments/vnpay-return`, `/payment-success`, hoặc `/payment-failed`:
+    1. **Đóng WebView** ngay lập tức.
+    2. Lấy tham số `vnp_ResponseCode` trên URL:
+       - `vnp_ResponseCode == "00"` hoặc URL là `/payment-success`: Hiển thị thông báo thanh toán thành công, chúc mừng nâng cấp Premium.
+       - Khác `"00"` (ví dụ `24` là người dùng hủy): Hiển thị thông báo thất bại/đã hủy.
+    3. (Khuyến nghị) Gọi lại API User Profile / Subscription để cập nhật trạng thái mới nhất từ server.
+
+### 5.6 Cơ chế tự động hủy giao dịch (Timeout 15 phút)
+- Nếu người dùng tắt WebView hoặc không hoàn tất thanh toán trong 15 phút:
+  - Redis key `payment_timeout:{vnp_TxnRef}` sẽ hết hạn (Expire).
+  - Background listener (`PaymentExpirationListener`) tự động cập nhật `PaymentTransaction` thành `FAILED` và `UserSubscription` thành `CANCELLED`. Mobile không cần gọi API hủy thủ công.
 
 ## 6. Quy tắc tích hợp
 
