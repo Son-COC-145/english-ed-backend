@@ -3,7 +3,7 @@ package com.example.english_app.exception;
 import org.springframework.http.HttpStatus;
 
 public enum ErrorCode {
-    CLASSROOM_RESOURCE_IN_USE(9009, "Resource has dependent classroom data", HttpStatus.CONFLICT),
+    CLASSROOM_RESOURCE_IN_USE(9009, "Không thể xóa khóa học đang có dữ liệu liên quan (học viên, bài tập hoặc tài liệu)", HttpStatus.CONFLICT),
 
     // Authentication
     INVALID_CREDENTIALS(1001, "Email hoặc mật khẩu không đúng", HttpStatus.UNAUTHORIZED),
@@ -86,6 +86,7 @@ public enum ErrorCode {
     SUBMISSION_NOT_FOUND(9006, "Bài nộp không tồn tại", HttpStatus.NOT_FOUND),
     STUDENT_NOT_IN_COURSE(9007, "Học viên không thuộc khóa học này", HttpStatus.FORBIDDEN),
     COURSE_ACCESS_DENIED(9008, "Bạn không có quyền truy cập vào khóa học này", HttpStatus.FORBIDDEN),
+    COURSE_HAS_STUDENTS(9010, "Không thể hủy kích hoạt khóa học đang có học viên đăng ký", HttpStatus.BAD_REQUEST),
 
     // IPA Module
     PHONEME_NOT_FOUND(9101, "Không tìm thấy âm IPA với id đã cho", HttpStatus.NOT_FOUND),

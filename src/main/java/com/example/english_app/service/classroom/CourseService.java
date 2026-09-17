@@ -16,6 +16,7 @@ import com.example.english_app.mapper.ClassroomMapper;
 import com.example.english_app.exception.ErrorCode;
 import org.springframework.transaction.annotation.Transactional;
 import com.example.english_app.repository.classroom.CourseRepository;
+import com.example.english_app.repository.classroom.CourseStudentRepository;
 import com.example.english_app.repository.user.UserRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ import lombok.RequiredArgsConstructor;
 public class CourseService {
     private final UserRepository userRepository;
     private final CourseRepository courseRepository;
+    private final CourseStudentRepository courseStudentRepository;
     private final ClassroomMapper classroomMapper;
 
     @Transactional
@@ -91,6 +93,10 @@ public class CourseService {
     public CourseResponse deactivate(Long id) {
         Course course = courseRepository.findById(id)
                 .orElseThrow(() -> ErrorCode.COURSE_NOT_FOUND.toException());
+
+        if (courseStudentRepository.existsByCourseId(id)) {
+            throw ErrorCode.COURSE_HAS_STUDENTS.toException();
+        }
 
         course.setIsActive(false);
 

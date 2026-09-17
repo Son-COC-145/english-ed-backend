@@ -40,6 +40,10 @@ public interface CourseStudentRepository extends JpaRepository<CourseStudent, Lo
 
     List<CourseStudent> findByCourseId(Long courseId);
 
+    boolean existsByCourseId(Long courseId);
+
+    boolean existsByCourseIdAndStatus(Long courseId, ClassStudentStatus status);
+
     List<CourseStudent> findByCourseIdAndStatus(Long courseId, ClassStudentStatus status);
 
     @Query("SELECT cs.course FROM CourseStudent cs " +
