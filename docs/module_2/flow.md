@@ -192,21 +192,49 @@ GET /api/v1/payments/vnpay-return?vnp_ResponseCode=00&vnp_TxnRef=...
 
 - **Backend xử lý**: 
   - Đọc `vnp_ResponseCode`:
-    - Nếu `"00"`: Redirect tiếp về `{frontendUrl}/payment-success`.
-    - Khác `"00"`: Redirect tiếp về `{frontendUrl}/payment-failed`.
-- **Nhiệm vụ của Mobile**:
-  - Dùng sự kiện lắng nghe URL trên WebView (ví dụ `onNavigationStateChange` trong React Native hoặc `onNavigationRequest` trong Flutter).
-  - Khi thấy URL chứa `/api/v1/payments/vnpay-return`, `/payment-success`, hoặc `/payment-failed`:
-    1. **Đóng WebView** ngay lập tức.
-    2. Lấy tham số `vnp_ResponseCode` trên URL:
-       - `vnp_ResponseCode == "00"` hoặc URL là `/payment-success`: Hiển thị thông báo thanh toán thành công, chúc mừng nâng cấp Premium.
-       - Khác `"00"` (ví dụ `24` là người dùng hủy): Hiển thị thông báo thất bại/đã hủy.
-    3. (Khuyến nghị) Gọi lại API User Profile / Subscription để cập nhật trạng thái mới nhất từ server.
+    - Nếu `"00"`: Redirect tiếp về `{frontendUrl}/payment-success?txnRef={vnp_TxnRef}`.
+    - Khác `"00"`: Redirect tiếp về `{frontendUrl}/payment-failed?txnRef={vnp_TxnRef}`.
+- **Nhiệm vụ của Mobile/Frontend**:
+  - Dùng sự kiện lắng nghe URL trên WebView (hoặc routing phía Frontend Web).
+  - Khi thấy URL chứa `/payment-success?txnRef=...` hoặc `/payment-failed?txnRef=...`:
+    1. Đóng WebView (với Mobile).
+    2. Lấy `txnRef` từ URL param và gọi API `GET /api/v1/payments/status/{txnRef}` để lấy chi tiết đơn hàng và xác thực trạng thái từ server.
+    3. Nếu trạng thái là `PENDING` (do IPN trễ hơn redirect 1–2 giây), hiển thị trạng thái chờ và polling lại sau 1.5s (tối đa 3–5 lần).
 
 ### 5.6 Cơ chế tự động hủy giao dịch (Timeout 15 phút)
 - Nếu người dùng tắt WebView hoặc không hoàn tất thanh toán trong 15 phút:
   - Redis key `payment_timeout:{vnp_TxnRef}` sẽ hết hạn (Expire).
   - Background listener (`PaymentExpirationListener`) tự động cập nhật `PaymentTransaction` thành `FAILED` và `UserSubscription` thành `CANCELLED`. Mobile không cần gọi API hủy thủ công.
+
+### 5.7 Lấy chi tiết & trạng thái thanh toán
+Dùng cho Frontend Web và Mobile gọi xác thực trạng thái giao dịch từ hệ thống:
+
+```http
+GET /api/v1/payments/status/{txnRef}
+Authorization: Bearer <access-token>
+```
+
+- **Phân quyền**: Yêu cầu đăng nhập. Chỉ chính chủ sở hữu giao dịch (`user`) hoặc `ADMIN` mới có quyền xem.
+- **Response**:
+```json
+{
+  "success": true,
+  "message": "Thành công",
+  "data": {
+    "txnRef": "1726557891234",
+    "status": "SUCCESS",
+    "planName": "PREMIUM",
+    "planDurationDays": 30,
+    "amount": 99000,
+    "orderInfo": "Thanh toan don hang 1726557891234",
+    "vnpTransactionNo": "14682390",
+    "createdAt": "2026-09-17T14:15:30",
+    "subscriptionStartDate": "2026-09-17T14:15:30",
+    "subscriptionEndDate": "2026-10-17T14:15:30"
+  },
+  "timestamp": "2026-09-17T14:15:31"
+}
+```
 
 ## 6. Quy tắc tích hợp
 

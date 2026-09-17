@@ -12,7 +12,7 @@ public enum ErrorCode {
     TOKEN_REVOKED(1004, "Token đã bị thu hồi", HttpStatus.UNAUTHORIZED),
     ACCESS_DENIED(1005, "Bạn không có quyền thực hiện hành động này", HttpStatus.FORBIDDEN),
     INVALID_RESET_LINK(1006, "Link đặt lại mật khẩu không hợp lệ hoặc đã hết hạn", HttpStatus.BAD_REQUEST),
-    UNAUTHORIZED(1007, "Không có quyền truy cập", HttpStatus.UNAUTHORIZED), // Được dời lên từ cuối file của dev
+    UNAUTHORIZED(1007, "Không có quyền truy cập", HttpStatus.UNAUTHORIZED),
     PASSWORD_MISMATCH(1010, "Mật khẩu xác nhận không khớp", HttpStatus.BAD_REQUEST),
     INCORRECT_OLD_PASSWORD(1011, "Mật khẩu cũ không đúng", HttpStatus.BAD_REQUEST),
 
@@ -45,9 +45,10 @@ public enum ErrorCode {
     // AI Quota
     QUOTA_EXCEEDED(6001, "Bạn đã hết lượt sử dụng AI hôm nay. Vui lòng nâng cấp gói Premium!", HttpStatus.FORBIDDEN),
 
-    // Subscription Plan
+    // Subscription Plan & Payment
     PLAN_NOT_FOUND(7001, "Gói cước không tồn tại", HttpStatus.NOT_FOUND),
     PLAN_ALREADY_EXISTS(7002, "Tên gói cước đã tồn tại", HttpStatus.BAD_REQUEST),
+    PAYMENT_TRANSACTION_NOT_FOUND(7003, "Giao dịch thanh toán không tồn tại", HttpStatus.NOT_FOUND),
 
     // Vocabulary
     TOPIC_NOT_FOUND(8001, "Chủ đề không tồn tại", HttpStatus.NOT_FOUND),

@@ -1,10 +1,12 @@
 package com.example.english_app.controller;
 
+import com.example.english_app.dto.response.PaymentStatusResponse;
 import com.example.english_app.service.subscription.PaymentService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -50,10 +52,12 @@ public class PaymentController {
     @GetMapping("/vnpay-return")
     public RedirectView vnpayReturn(@Parameter(hidden = true) @RequestParam Map<String, String> params) {
         String responseCode = params.get("vnp_ResponseCode");
+        String txnRef = params.get("vnp_TxnRef");
+        String query = (txnRef != null && !txnRef.isBlank()) ? "?txnRef=" + txnRef : "";
         if ("00".equals(responseCode)) {
-            return new RedirectView(frontendUrl + "/payment-success");
+            return new RedirectView(frontendUrl + "/payment-success" + query);
         } else {
-            return new RedirectView(frontendUrl + "/payment-failed");
+            return new RedirectView(frontendUrl + "/payment-failed" + query);
         }
     }
 
@@ -68,6 +72,21 @@ public class PaymentController {
     public ResponseEntity<Map<String, String>> processVnpayIpn(@Parameter(hidden = true) @RequestParam Map<String, String> params) {
         Map<String, String> result = paymentService.processVnpayIpn(params);
         return ResponseEntity.ok(result);
+    }
+
+    @PreAuthorize("isAuthenticated()")
+    @Operation(
+        summary = "4. Lấy trạng thái thanh toán",
+        description = "Frontend gọi API này để lấy chi tiết và trạng thái giao dịch thanh toán (PENDING, SUCCESS, FAILED)."
+    )
+    @GetMapping("/status/{txnRef}")
+    public ResponseEntity<com.example.english_app.dto.response.ApiResponse<PaymentStatusResponse>> getPaymentStatus(
+            @Parameter(description = "Mã tham chiếu giao dịch VNPay (vnp_TxnRef)", required = true)
+            @PathVariable String txnRef,
+            Authentication authentication) {
+        String email = authentication.getName();
+        PaymentStatusResponse response = paymentService.getPaymentStatus(txnRef, email);
+        return ResponseEntity.ok(com.example.english_app.dto.response.ApiResponse.success(response));
     }
 }
 
