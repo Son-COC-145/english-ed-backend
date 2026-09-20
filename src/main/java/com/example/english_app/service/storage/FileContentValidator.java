@@ -24,7 +24,9 @@ public class FileContentValidator {
                         Math.max(0, bytes.length - 2048), Math.min(bytes.length, 2048), StandardCharsets.ISO_8859_1)
                         .contains("%%EOF");
                 case "application/vnd.openxmlformats-officedocument.presentationml.presentation" ->
-                    validPresentation(bytes);
+                    validOpenXml(bytes, "ppt/presentation.xml");
+                case "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ->
+                    validOpenXml(bytes, "word/document.xml");
                 case "video/mp4" ->
                     bytes.length >= 12 && new String(bytes, 4, 4, StandardCharsets.US_ASCII).equals("ftyp");
                 case "audio/mpeg", "audio/mp3" -> starts(bytes, "ID3")
@@ -44,9 +46,9 @@ public class FileContentValidator {
                 && new String(bytes, 0, signature.length(), StandardCharsets.US_ASCII).equals(signature);
     }
 
-    private boolean validPresentation(byte[] bytes) throws IOException {
+    private boolean validOpenXml(byte[] bytes, String requiredEntry) throws IOException {
         boolean types = false;
-        boolean presentation = false;
+        boolean documentPart = false;
         long expanded = 0;
         int entries = 0;
         byte[] buffer = new byte[8192];
@@ -56,7 +58,7 @@ public class FileContentValidator {
                 if (++entries > 2000 || entry.getName().contains(".."))
                     return false;
                 types |= entry.getName().equals("[Content_Types].xml");
-                presentation |= entry.getName().equals("ppt/presentation.xml");
+                documentPart |= entry.getName().equals(requiredEntry);
                 int count;
                 while ((count = zip.read(buffer)) != -1) {
                     expanded += count;
@@ -65,7 +67,7 @@ public class FileContentValidator {
                 }
             }
         }
-        return types && presentation;
+        return types && documentPart;
     }
 
     private boolean validImage(byte[] bytes, String mime) throws IOException {

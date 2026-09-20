@@ -42,6 +42,7 @@ public class TeachingMaterialService {
     private static final long MAX_FILE_SIZE_BYTES = 5L * 1024 * 1024;
     private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
             "application/pdf",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             "application/vnd.openxmlformats-officedocument.presentationml.presentation",
             "video/mp4",
             "audio/mpeg",
@@ -148,6 +149,8 @@ public class TeachingMaterialService {
             return FileType.OTHER;
         if (contentType.contains("pdf"))
             return FileType.PDF;
+        if (contentType.contains("wordprocessingml"))
+            return FileType.DOCX;
         if (contentType.contains("powerpoint") || contentType.contains("presentation"))
             return FileType.PPTX;
         if (contentType.startsWith("video/"))
