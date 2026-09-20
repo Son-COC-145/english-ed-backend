@@ -1,6 +1,10 @@
 package com.example.english_app.service.classroom;
 
 import java.util.List;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -39,6 +43,7 @@ public class TeachingMaterialService {
     private final FileContentValidator contentValidator;
 
     private static final long MAX_FILE_SIZE_BYTES = 5L * 1024 * 1024;
+    private final HttpClient httpClient = HttpClient.newHttpClient();
     private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
             "application/pdf",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -167,6 +172,61 @@ public class TeachingMaterialService {
         if (contentType.startsWith("image/"))
             return FileType.OTHER;
         return FileType.OTHER;
+    }
+
+    /** Serves legacy Cloudinary raw files through an authorized inline/download response. */
+    public MaterialContent getMaterialContent(Long actorId, Long courseId, Long materialId) {
+        TeachingMaterial material = teachingMaterialRepository.findById(materialId)
+                .orElseThrow(() -> ErrorCode.MATERIAL_NOT_FOUND.toException());
+        if (material.getCourse() == null || !material.getCourse().getId().equals(courseId)) {
+            throw ErrorCode.MATERIAL_NOT_FOUND.toException();
+        }
+        courseAccessService.requireCourseViewer(actorId, material.getCourse());
+        try {
+            HttpResponse<byte[]> response = httpClient.send(HttpRequest.newBuilder(URI.create(material.getFileUrl()))
+                    .GET().build(), HttpResponse.BodyHandlers.ofByteArray());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new IllegalStateException("Could not retrieve material content");
+            }
+            String remoteContentType = response.headers().firstValue("Content-Type")
+                    .map(value -> value.split(";", 2)[0]).orElse(null);
+            String contentType = mimeType(material.getFileType(), remoteContentType);
+            return new MaterialContent(response.body(), contentType, downloadName(material, contentType));
+        } catch (Exception exception) {
+            throw new IllegalStateException("Could not retrieve material content", exception);
+        }
+    }
+
+    public record MaterialContent(byte[] bytes, String contentType, String filename) {}
+
+    private String mimeType(FileType type, String remoteContentType) {
+        if (remoteContentType != null && remoteContentType.startsWith("image/")) return remoteContentType;
+        return switch (type) {
+            case PDF -> "application/pdf";
+            case DOCX -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            case PPTX -> "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+            case MP4 -> "video/mp4";
+            case MP3 -> "audio/mpeg";
+            default -> "application/octet-stream";
+        };
+    }
+
+    private String downloadName(TeachingMaterial material, String contentType) {
+        String extension = switch (material.getFileType()) {
+            case PDF -> ".pdf"; case DOCX -> ".docx"; case PPTX -> ".pptx";
+            case MP4 -> ".mp4"; case MP3 -> ".mp3";
+            default -> imageExtension(contentType);
+        };
+        return "/files/" + material.getId() + extension;
+    }
+
+    private String imageExtension(String contentType) {
+        return switch (contentType) {
+            case "image/jpeg" -> ".jpg";
+            case "image/png" -> ".png";
+            case "image/webp" -> ".webp";
+            default -> ".file";
+        };
     }
 
     private void validateUpload(MultipartFile file) {
