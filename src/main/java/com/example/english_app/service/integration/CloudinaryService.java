@@ -27,8 +27,16 @@ public class CloudinaryService {
     }
 
     public UploadedFile uploadWithMetadata(byte[] fileBytes, String resourceType, String keyPrefix) {
+        return uploadWithMetadata(fileBytes, resourceType, keyPrefix, null);
+    }
+
+    /**
+     * Raw files need their extension in the public id; otherwise Cloudinary delivers
+     * them as an unnamed download and browsers cannot determine how to display them.
+     */
+    public UploadedFile uploadWithMetadata(byte[] fileBytes, String resourceType, String keyPrefix, String originalFilename) {
         if (keyPrefix == null || keyPrefix.isBlank()) throw new IllegalArgumentException("Public id is required");
-        String publicId = keyPrefix + "_" + UUID.randomUUID();
+        String publicId = keyPrefix + "_" + UUID.randomUUID() + extensionForRawFile(resourceType, originalFilename);
         StoredFile file = lifecycle.begin("CLOUDINARY", publicId, resourceType, fileBytes);
         try {
             Map<?, ?> uploadResult = cloudinary.uploader().upload(fileBytes, ObjectUtils.asMap(
@@ -46,6 +54,14 @@ public class CloudinaryService {
             log.error("Failed to upload file to Cloudinary", e);
             throw new RuntimeException("Failed to upload file to Cloudinary", e);
         }
+    }
+
+    private String extensionForRawFile(String resourceType, String originalFilename) {
+        if (!"raw".equals(resourceType) || originalFilename == null) return "";
+        int extensionIndex = originalFilename.lastIndexOf('.');
+        if (extensionIndex < 0 || extensionIndex == originalFilename.length() - 1) return "";
+        String extension = originalFilename.substring(extensionIndex).toLowerCase();
+        return extension.matches("\\.[a-z0-9]{1,10}") ? extension : "";
     }
 
     public void deleteFile(String publicId, String resourceType) {

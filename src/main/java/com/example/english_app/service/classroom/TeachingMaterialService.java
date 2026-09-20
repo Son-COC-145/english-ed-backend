@@ -1,7 +1,6 @@
 package com.example.english_app.service.classroom;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -66,10 +65,9 @@ public class TeachingMaterialService {
         contentValidator.validate(file);
 
         String resourceType = determineResourceType(file.getContentType());
-        String publicId = "materials/" + UUID.randomUUID().toString();
         UploadedFile uploaded;
         try {
-            uploaded = cloudinaryService.uploadWithMetadata(file.getBytes(), resourceType, publicId);
+            uploaded = cloudinaryService.uploadWithMetadata(file.getBytes(), resourceType, "materials", file.getOriginalFilename());
         } catch (Exception e) {
             throw new RuntimeException("Failed to read file bytes", e);
         }
@@ -138,6 +136,12 @@ public class TeachingMaterialService {
 
     private String determineResourceType(String contentType) {
         if (contentType != null && contentType.startsWith("video/"))
+            return "video";
+        // Cloudinary serves PDFs uploaded as images inline in the browser.
+        if ("application/pdf".equals(contentType))
+            return "image";
+        // Cloudinary's video resource type also supports audio playback/delivery.
+        if (contentType != null && contentType.startsWith("audio/"))
             return "video";
         if (contentType != null && contentType.startsWith("image/"))
             return "image";
