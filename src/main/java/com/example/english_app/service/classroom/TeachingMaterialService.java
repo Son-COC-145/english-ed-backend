@@ -45,7 +45,10 @@ public class TeachingMaterialService {
             "application/vnd.openxmlformats-officedocument.presentationml.presentation",
             "video/mp4",
             "audio/mpeg",
-            "audio/mp3");
+            "audio/mp3",
+            "image/jpeg",
+            "image/png",
+            "image/webp");
 
     @Transactional
     public TeachingMaterialResponse uploadAndCreateMaterial(Long teacherId, Long courseId, MultipartFile file,
