@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import com.example.english_app.dto.request.classroom.CourseStudentRequest;
 import com.example.english_app.dto.response.ApiResponse;
 import com.example.english_app.dto.response.PageResponse;
+import com.example.english_app.dto.response.UserResponse;
 import com.example.english_app.dto.response.classroom.CourseResponse;
 import com.example.english_app.dto.response.classroom.CourseStudentDetailResponse;
 import com.example.english_app.dto.response.classroom.CourseStudentResponse;
@@ -60,6 +61,16 @@ public class TeacherCourseController {
         return ResponseEntity.ok(
                         ApiResponse.success(
                         courseStudentService.getStudentsByCourseWithStats(getCurrentTeacher().getId(), courseId, keyword, status, pageable)));
+    }
+
+    @Operation(summary = "Tìm học viên để ghi danh vào khóa học")
+    @GetMapping("/{courseId}/student-candidates")
+    public ResponseEntity<ApiResponse<PageResponse<UserResponse>>> findStudentCandidates(
+            @PathVariable Long courseId,
+            @RequestParam(required = false) String keyword,
+            @PageableDefault(sort = "id", direction = Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.success(
+                courseStudentService.findStudentCandidates(getCurrentTeacher().getId(), courseId, keyword, pageable)));
     }
 
     @Operation(summary = "Thêm học viên vào khóa học")

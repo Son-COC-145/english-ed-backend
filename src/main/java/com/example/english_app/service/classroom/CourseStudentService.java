@@ -117,6 +117,29 @@ public class CourseStudentService {
                 .build();
     }
 
+    public PageResponse<UserResponse> findStudentCandidates(Long actorId, Long courseId, String keyword, Pageable pageable) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> ErrorCode.COURSE_NOT_FOUND.toException());
+        courseAccessService.requireTeacherOrAdmin(actorId, course);
+        Page<User> userPage = userRepository.searchUsers(keyword, Role.STUDENT, pageable);
+        List<UserResponse> content = userPage.getContent().stream()
+                .map(student -> UserResponse.builder()
+                        .id(student.getId())
+                        .email(student.getEmail())
+                        .fullName(student.getFullName())
+                        .avatarUrl(student.getAvatarUrl())
+                        .isActive(student.getIsActive())
+                        .build())
+                .collect(Collectors.toList());
+        return PageResponse.<UserResponse>builder()
+                .content(content)
+                .pageSize(userPage.getSize())
+                .currentPage(userPage.getNumber() + 1)
+                .totalElements(userPage.getTotalElements())
+                .totalPages(userPage.getTotalPages())
+                .build();
+    }
+
     public PageResponse<CourseResponse> getCoursesByStudent(Long studentId, Pageable pageable) {
         Page<CourseStudent> coursePage = courseStudentRepository.findAllByStudentIdAndStatus(
                 studentId, ClassStudentStatus.ACTIVE, pageable);
