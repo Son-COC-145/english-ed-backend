@@ -101,7 +101,11 @@ public class CourseStudentService {
                 statInfo = StudentStatResponse.builder()
                         .totalXp(stat.getTotalXp())
                         .currentStreak(stat.getCurrentStreak())
+                        .longestStreak(stat.getLongestStreak())
+                        .streakFreezeCount(stat.getStreakFreezeCount())
+                        .lastActivityDate(stat.getLastActivityDate())
                         .totalStudyMinutes(stat.getTotalStudyMinutes())
+                        .updatedAt(stat.getUpdatedAt())
                         .build();
             }
 

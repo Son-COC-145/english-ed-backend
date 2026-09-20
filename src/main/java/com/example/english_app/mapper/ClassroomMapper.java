@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 import java.util.stream.Collectors;
 import com.example.english_app.dto.response.TopicResponse;
 import com.example.english_app.entity.vocabulary.Topic;
+import com.example.english_app.entity.user.User;
 
 @Component
 public class ClassroomMapper {
@@ -15,10 +16,22 @@ public class ClassroomMapper {
     public CourseResponse toCourseResponse(Course entity) {
         if (entity == null)
             return null;
+
+        User teacherEntity = entity.getTeacher();
+        CourseTeacherResponse teacher = null;
+        if (teacherEntity != null) {
+            teacher = CourseTeacherResponse.builder()
+                    .id(teacherEntity.getId())
+                    .fullName(teacherEntity.getFullName())
+                    .email(teacherEntity.getEmail())
+                    .avatarUrl(teacherEntity.getAvatarUrl())
+                    .build();
+        }
+
         return CourseResponse.builder()
                 .id(entity.getId())
                 .name(entity.getName())
-                .teacherId(entity.getTeacher() != null ? entity.getTeacher().getId() : null)
+                .teacher(teacher)
                 .description(entity.getDescription())
                 .cefrTarget(entity.getCefrTarget())
                 .startDate(entity.getStartDate())
