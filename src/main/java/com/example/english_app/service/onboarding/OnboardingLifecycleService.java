@@ -73,36 +73,40 @@ public class OnboardingLifecycleService {
     /**
      * Tính toán và trả về trạng thái onboarding hiện tại của user.
      *
-     * <p><b>Invariant (FE contract 3.1 & 3.2):</b>
+     * <p><b>Flow chuẩn:</b> GOAL_SURVEY (1) → PLACEMENT_TEST (2) → SETTINGS (3) → COMPLETE (4) → COMPLETED (5)
+     *
+     * <p><b>Invariant (FE contract):</b>
      * <ul>
-     *   <li>Placement chưa xong (NOT_STARTED / IN_PROGRESS) → nextStep = PLACEMENT_TEST
-     *   <li>Placement đã xong, Goal chưa xong             → nextStep = GOAL_SURVEY
-     *   <li>Placement & Goal đã xong, Settings chưa xong   → nextStep = SETTINGS
-     *   <li>Placement & Goal & Settings xong, chưa complete → nextStep = COMPLETE (KHÔNG BAO GIỜ là SETTINGS)
-     *   <li>Onboarding completed                           → nextStep = COMPLETED (Terminal)
+     *   <li>Goal survey chưa xơng (và placement chưa xơng)   → nextStep = GOAL_SURVEY
+     *   <li>Goal xong, placement IN_PROGRESS                   → nextStep = PLACEMENT_TEST
+     *   <li>Goal xong, placement chưa xử lý                   → nextStep = PLACEMENT_TEST
+     *   <li>Goal + Placement đã xong, Settings chưa xong       → nextStep = SETTINGS
+     *   <li>Goal + Placement + Settings xong, chưa complete     → nextStep = COMPLETE
+     *   <li>Onboarding completed                               → nextStep = COMPLETED (Terminal)
      * </ul>
      */
     @Transactional(readOnly = true)
     public OnboardingStatusResponse getStatus(Long userId) {
         Optional<StudentOnboarding> opt = onboardingRepository.findByStudentIdWithUser(userId);
 
+        // Tải 1 lần, dùng cho cả 2 nhánh (opt.isEmpty và !placementDone)
+        // tránh 2 DB round-trips cho cùng 1 query trong 1 request
+        var activeSessionOpt = sessionRepository
+                .findTopByStudentIdAndIsCompletedFalseOrderByStartedAtDesc(userId);
+
         if (opt.isEmpty()) {
             User user = findUser(userId);
-            String placementStatus = "NOT_STARTED";
-            Long activeSessionId = null;
 
-            var activeSessionOpt = sessionRepository
-                    .findTopByStudentIdAndIsCompletedFalseOrderByStartedAtDesc(userId);
             if (activeSessionOpt.isPresent() && !activeSessionOpt.get().isExpired()) {
-                placementStatus = "IN_PROGRESS";
-                activeSessionId = activeSessionOpt.get().getId();
+                var s = activeSessionOpt.get();
                 return OnboardingStatusResponse.builder()
                         .goalSurveyCompleted(false)
                         .placementTestCompleted(false)
+                        .isPlacementSkipped(false)
                         .settingsCompleted(false)
                         .onboardingCompleted(false)
                         .placementTestStatus("IN_PROGRESS")
-                        .activePlacementSessionId(activeSessionId)
+                        .activePlacementSessionId(s.getId())
                         .nextStep("PLACEMENT_TEST")
                         .stepNumber(STEP_PLACEMENT_TEST)
                         .totalSteps(TOTAL_STEPS)
@@ -114,6 +118,7 @@ public class OnboardingLifecycleService {
             return OnboardingStatusResponse.builder()
                     .goalSurveyCompleted(false)
                     .placementTestCompleted(false)
+                    .isPlacementSkipped(false)
                     .settingsCompleted(false)
                     .onboardingCompleted(false)
                     .placementTestStatus("NOT_STARTED")
@@ -145,8 +150,7 @@ public class OnboardingLifecycleService {
                 placementStatus = "COMPLETED";
             }
         } else {
-            var activeSessionOpt = sessionRepository
-                    .findTopByStudentIdAndIsCompletedFalseOrderByStartedAtDesc(userId);
+            // Dùng lại activeSessionOpt đã load ở trên — không query lại
             if (activeSessionOpt.isPresent()) {
                 var s = activeSessionOpt.get();
                 if (!s.isExpired()) {
@@ -184,6 +188,7 @@ public class OnboardingLifecycleService {
         return OnboardingStatusResponse.builder()
                 .goalSurveyCompleted(goalDone)
                 .placementTestCompleted(placementDone)
+                .isPlacementSkipped(Boolean.TRUE.equals(ob.getIsPlacementSkipped()))
                 .settingsCompleted(settingsDone)
                 .onboardingCompleted(isCompleted)
                 .placementTestStatus(placementStatus)
@@ -345,11 +350,21 @@ public class OnboardingLifecycleService {
             throw ErrorCode.ONBOARDING_ALREADY_COMPLETED.toException();
         }
 
+        // Pre-condition: tất cả 3 bước (goal, placement, settings) phải hoàn tất.
+        // roadmapJson cũng phải tồn tại — nếu không, Mobile sẽ vào home mà không có lộ trình.
         boolean allDone = ob.getGoalSurveyJson() != null
                 && ob.getPlacementCefrLevel() != null
-                && ob.getDailyGoalXp() != null && ob.getDailyGoalXp() > 0;
+                && ob.getDailyGoalXp() != null && ob.getDailyGoalXp() > 0
+                && ob.getRoadmapJson() != null;
 
         if (!allDone) {
+            log.warn("completeOnboarding() called with incomplete state for user {}: " +
+                            "goalSurvey={}, placement={}, dailyGoalXp={}, roadmap={}",
+                    userId,
+                    ob.getGoalSurveyJson() != null,
+                    ob.getPlacementCefrLevel() != null,
+                    ob.getDailyGoalXp(),
+                    ob.getRoadmapJson() != null);
             throw ErrorCode.INVALID_REQUEST.toException();
         }
 
@@ -360,10 +375,13 @@ public class OnboardingLifecycleService {
     }
 
     /**
-     * Reset toàn bộ kết quả placement test (chỉ ADMIN được gọi — guard ở Controller).
+     * Reset toàn bộ kết quả onboarding và placement test (chỉ ADMIN được gọi — guard ở Controller).
+     * Đảm bảo tất cả fields — kể cả dailyGoalXp và reminderTime — được reset về giá trị mặc định
+     * để tránh getStatus() trả settingsDone=true sau khi reset.
      */
     public void resetOnboarding(Long userId) {
         onboardingRepository.findByStudentId(userId).ifPresent(ob -> {
+            ob.setGoalSurveyJson(null);
             ob.setPlacementCefrLevel(null);
             ob.setPlacementVocabScore(null);
             ob.setPlacementGrammarScore(null);
@@ -371,9 +389,14 @@ public class OnboardingLifecycleService {
             ob.setPlacementListeningScore(null);
             ob.setPlacementPronunciationScore(null);
             ob.setPlacementCompletedAt(null);
+            ob.setIsPlacementSkipped(false);
             ob.setOnboardingCompleted(false);
             ob.setOnboardingCompletedAt(null);
             ob.setRoadmapJson(null);
+            // Reset settings — quan trọng: nếu không reset, getStatus() sẽ thấy
+            // settingsDone=true (dailyGoalXp vẫn còn giá trị cũ) và bỏ qua bước Settings.
+            ob.setDailyGoalXp(null);
+            ob.setReminderTime(null);
             onboardingRepository.save(ob);
             log.info("Onboarding reset for user {}", userId);
         });

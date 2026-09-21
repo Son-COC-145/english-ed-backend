@@ -141,4 +141,19 @@ class PronunciationServiceTest {
         });
         assertEquals(1005, exception.getErrorCode().getCode()); // ACCESS_DENIED
     }
+
+    @Test
+    void submitPronunciationWithProgression_ShouldThrowException_WhenAnswerAlreadySubmitted() {
+        // Arrange
+        when(sessionRepository.findById(100L)).thenReturn(Optional.of(mockSession));
+        when(answerRepository.existsBySessionIdAndQuestionId(100L, 200L)).thenReturn(true);
+        MockMultipartFile audioFile = new MockMultipartFile("audio", "audio".getBytes());
+
+        // Act & Assert
+        AppException exception = assertThrows(AppException.class, () -> {
+            pronunciationService.submitPronunciationWithProgression(1L, 100L, 200L, audioFile, "hello", 1);
+        });
+        assertEquals(5005, exception.getErrorCode().getCode()); // ANSWER_ALREADY_SUBMITTED
+        verify(audioAssessmentPort, never()).assess(any(), any());
+    }
 }

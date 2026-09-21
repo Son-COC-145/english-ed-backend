@@ -83,9 +83,30 @@ public class PlacementTestService {
         if (existing.isPresent()) {
             PlacementTestSession session = existing.get();
             if (session.isExpired()) {
-                log.warn("Session {} expired for user {}. Creating new session.", session.getId(), userId);
-                session.setIsCompleted(true);
-                sessionRepository.save(session);
+                // P1-C fix: Nếu user đã trả lời ít nhất 1 câu, tự động hoàn thành
+                // (dùng CAT state đã tính) để giữ điểm số — thay vì silently drop toàn bộ tiến trình.
+                // Nếu session rỗng (không có câu trả lời nào), chỉ đóng và tạo session mới.
+                if (session.getCurrentQuestionIndex() > 0) {
+                    log.warn("Session {} expired for user {} with {} answers. Auto-completing to preserve grade.",
+                            session.getId(), userId, session.getCurrentQuestionIndex());
+                    try {
+                        PlacementResultResponse result = completeTest(session.getId(), userId);
+                        return PlacementQuestionResponse.builder()
+                                .sessionStatus("COMPLETED")
+                                .isTestCompleted(true)
+                                .placementResult(result)
+                                .nextQuestion(null)
+                                .build();
+                    } catch (Exception e) {
+                        log.error("Auto-complete of expired session {} failed; starting new session.", session.getId(), e);
+                        session.setIsCompleted(true);
+                        sessionRepository.save(session);
+                    }
+                } else {
+                    log.warn("Session {} expired for user {} with no answers. Creating new session.", session.getId(), userId);
+                    session.setIsCompleted(true);
+                    sessionRepository.save(session);
+                }
             } else {
                 return getNextQuestion(session.getId(), userId);
             }
@@ -126,7 +147,10 @@ public class PlacementTestService {
         log.info("Placement test skipped for user {}. Assigned default CEFR: A1 with baseline scores: {}", userId,
                 baselineScore);
 
-        // Tự động sinh Roadmap
+        // Tự động sinh Roadmap.
+        // Lưu ý: generateAndPersist() chạy trong transaction REQUIRES_NEW và TỰ PERSIST roadmap_json
+        // vào DB rồi. Chúng ta chỉ cần đọc roadmapJson từ kết quả trả về để build response;
+        // KHÔNG cần gọi onboardingRepository.save() lần nữa — tránh ghi đè bằng object stale.
         String roadmapJson = null;
         boolean roadmapGenerated = false;
         try {
@@ -134,10 +158,8 @@ public class PlacementTestService {
                     onboarding.getGoalSurveyJson());
             if (roadmap != null) {
                 roadmapJson = objectMapper.writeValueAsString(roadmap);
-                onboarding.setRoadmapJson(roadmapJson);
-                onboardingRepository.save(onboarding);
+                roadmapGenerated = true;
             }
-            roadmapGenerated = true;
         } catch (Exception e) {
             log.error("Roadmap generation failed during skipTest for user {}", userId, e);
         }
@@ -287,7 +309,9 @@ public class PlacementTestService {
 
         log.info("Placement test completed for user {}. CEFR: {}", userId, finalLevel);
 
-        // Sinh lộ trình
+        // Sinh lộ trình — dùng try-catch riêng để lỗi roadmap không rollback kết quả placement.
+        // generateAndPersist() chạy trong transaction REQUIRES_NEW và TỰ PERSIST roadmap_json;
+        // chỉ cần serialize kết quả trả về để build response — KHÔNG save lại onboarding ở đây.
         String roadmapJson = null;
         boolean roadmapGenerated = false;
         try {
@@ -295,9 +319,8 @@ public class PlacementTestService {
                     onboarding.getGoalSurveyJson());
             if (roadmap != null) {
                 roadmapJson = objectMapper.writeValueAsString(roadmap);
-                onboarding.setRoadmapJson(roadmapJson);
+                roadmapGenerated = true;
             }
-            roadmapGenerated = true;
         } catch (Exception e) {
             log.error("Roadmap generation failed for user {}, placement result still saved.", userId, e);
         }
@@ -342,7 +365,10 @@ public class PlacementTestService {
     // CAT Algorithm
     public void updateCatState(PlacementTestSession session, boolean isCorrect) {
         CefrLevel[] levels = CefrLevel.values();
-        int idx = session.getCurrentCefrEstimate().ordinal();
+        // Defensive: fallback về A2 nếu currentCefrEstimate null (session cũ hoặc edge case)
+        CefrLevel current = session.getCurrentCefrEstimate() != null
+                ? session.getCurrentCefrEstimate() : CefrLevel.A2;
+        int idx = current.ordinal();
 
         if (isCorrect) {
             if (idx < levels.length - 1)
