@@ -132,6 +132,44 @@ class PlacementResultFactoryTest {
             assertThat(scores.getListening()).isEqualTo((short) 0);
             assertThat(scores.getPronunciation()).isEqualTo((short) 0);
         }
+
+        @Test
+        @DisplayName("[Bug fix] answer có question=null → không NPE, bị lọc bỏ")
+        void nullQuestion_doesNotThrowNPE() {
+            // Scenario: câu 8-9 CAT early-stop, có answer orphan (question bị xóa khỏi DB)
+            PlacementTestAnswer orphan = mock(PlacementTestAnswer.class);
+            when(orphan.getIsCorrect()).thenReturn(true);
+            when(orphan.getQuestion()).thenReturn(null); // ← orphan answer
+
+            List<PlacementTestAnswer> answers = List.of(
+                    answerWithSkill(true, Skill.VOCABULARY),
+                    orphan  // ← phải được lọc bỏ, không NPE
+            );
+
+            // Không nên throw NullPointerException
+            SkillScores scores = factory.calculateAllSkills(answers);
+            assertThat(scores.getVocab()).isEqualTo((short) 100); // orphan không ảnh hưởng
+        }
+
+        @Test
+        @DisplayName("[Bug fix] question.skill=null → không NPE, bị lọc bỏ")
+        void nullSkillInQuestion_doesNotThrowNPE() {
+            // Scenario: pronunciation question trong DB chưa set field 'skill'
+            PlacementTestAnswer badAnswer = mock(PlacementTestAnswer.class);
+            Question badQuestion = mock(Question.class);
+            when(badQuestion.getSkill()).thenReturn(null); // ← skill chưa set
+            when(badAnswer.getQuestion()).thenReturn(badQuestion);
+            when(badAnswer.getIsCorrect()).thenReturn(true);
+
+            List<PlacementTestAnswer> answers = List.of(
+                    answerWithSkill(false, Skill.GRAMMAR),
+                    badAnswer  // ← phải được lọc bỏ
+            );
+
+            SkillScores scores = factory.calculateAllSkills(answers);
+            assertThat(scores.getGrammar()).isEqualTo((short) 0);
+            // badAnswer không tính vào bất kỳ skill nào
+        }
     }
 
     // ─── buildResponse ───────────────────────────────────────────────────────

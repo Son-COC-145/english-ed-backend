@@ -51,6 +51,9 @@ public class PlacementResultFactory {
      */
     public SkillScores calculateAllSkills(List<PlacementTestAnswer> answers) {
         Map<Skill, List<PlacementTestAnswer>> bySkill = answers.stream()
+                // Lọc các answer bị orphan (question null) hoặc question thiếu skill field
+                // để tránh NullPointerException khi CAT early-stop gọi completeTest()
+                .filter(a -> a.getQuestion() != null && a.getQuestion().getSkill() != null)
                 .collect(Collectors.groupingBy(a -> a.getQuestion().getSkill()));
 
         return SkillScores.builder()

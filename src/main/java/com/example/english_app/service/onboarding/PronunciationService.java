@@ -21,14 +21,14 @@ import java.time.LocalDateTime;
 /**
  * Service xử lý toàn bộ nghiệp vụ đánh giá phát âm trong Placement Test.
  *
- * <p><b>SRP:</b> Class này chỉ biết về Pronunciation trong ngữ cảnh Placement Test.
+ * <p><b>Trách nhiệm:</b> Class này chỉ biết về Pronunciation trong ngữ cảnh Placement Test.
  * Nó KHÔNG biết về CAT algorithm, goal survey, hay settings — những thứ đó
- * thuộc về {@link OnboardingService}.
+ * thuộc về {@link OnboardingLifecycleService}.
  *
  * <p><b>Dependency flow (một chiều):</b>
  * {@code OnboardingController} → {@code PronunciationService} → {@code AudioAssessmentPort}
- * {@code OnboardingController} → {@code OnboardingService}
- * {@code OnboardingService} KHÔNG phụ thuộc vào {@code PronunciationService}.
+ * {@code OnboardingController} → {@code OnboardingLifecycleService}
+ * {@code OnboardingLifecycleService} KHÔNG phụ thuộc vào {@code PronunciationService}.
  */
 @Slf4j
 @Service
@@ -60,6 +60,14 @@ public class PronunciationService {
 
         // 1. Validate session
         PlacementTestSession session = validateSessionForPronunciation(sessionId, userId);
+
+        // Guard: duplicate submission (Flutter retry khi timeout mạng sẽ gửi lại request)
+        // Không có guard này → chấm điểm 2 lần + tăng currentQuestionIndex 2 lần → điểm lệch.
+        if (answerRepository.existsBySessionIdAndQuestionId(sessionId, questionId)) {
+            log.warn("[PronunciationService] Duplicate answer detected: sessionId={}, questionId={}, userId={}",
+                    sessionId, questionId, userId);
+            throw ErrorCode.ANSWER_ALREADY_SUBMITTED.toException();
+        }
 
         // Fetch question
         Question question = questionRepository.findById(questionId)

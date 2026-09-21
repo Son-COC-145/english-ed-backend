@@ -47,14 +47,14 @@ public class PlacementQuestionResponse {
      */
     private Map<String, Object> nextQuestion;
 
-    // ─── Completion signal ─────────────────────────────────────────────────────
-    /** true khi bài thi vừa hoàn tất trong lần submit này. */
+    // ─── Completion signal ───────────────────────────────────────────────────────────
+    /**
+     * true khi bài thi vừa hoàn tất trong lần submit này.
+     * Key JSON bắt buộc là "isTestCompleted" theo hợp đồng FE.
+     */
     @Builder.Default
+    @com.fasterxml.jackson.annotation.JsonProperty("isTestCompleted")
     private boolean isTestCompleted = false;
-
-    public boolean isCompleted() {
-        return isTestCompleted;
-    }
 
     /** Điền sẵn kết quả khi isTestCompleted=true, null nếu còn tiếp tục làm. */
     private PlacementResultResponse placementResult;

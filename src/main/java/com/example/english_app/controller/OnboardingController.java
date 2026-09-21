@@ -17,6 +17,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -28,6 +29,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/api/v1/onboarding")
 @RequiredArgsConstructor
+@Slf4j
 @PreAuthorize("isAuthenticated()")
 @Tag(name = "Onboarding", description = "Module 0: Onboarding & Placement Test")
 public class OnboardingController {
@@ -90,7 +92,15 @@ public class OnboardingController {
                 placementTestService.submitAnswer(userId(auth), request)));
     }
 
-    @Operation(summary = "Nộp câu trả lời phát âm (audio) — trả kèm điểm số và câu tiếp theo")
+    @Operation(summary = "Nộp câu trả lời phát âm (audio) — trả kèm điểm số và câu tiếp theo",
+            description = """
+                    Nhận multipart/form-data gồm các **form fields** (không phải query params):
+                    - `sessionId` (Long, bắt buộc): ID phiên làm bài
+                    - `questionId` (Long, bắt buộc): ID câu hỏi hiện tại
+                    - `word` (String, bắt buộc): Từ cần phát âm (phải khớp với câu hỏi)
+                    - `wordIndex` (Integer, mặc định 0): Vị trí từ trong câu hỏi
+                    - `audioFile` (MultipartFile, bắt buộc): File ghi âm WAV/WebM/OGG
+                    """)
     @PostMapping(value = "/placement-test/pronunciation/submit-answer", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<com.example.english_app.dto.response.PlacementPronunciationAnswerResponse>> submitPronunciationAnswer(
             Authentication auth,
@@ -100,9 +110,27 @@ public class OnboardingController {
             @RequestParam("word") String word,
             @RequestParam(value = "wordIndex", defaultValue = "0") int wordIndex) {
 
+        // Validate: word không được rỗng (MissingServletRequestParameterException
+        // đã xử lý trường hợp thiếu field, đây xử lý trường hợp field rỗng/blank)
+        String sanitizedWord = (word != null) ? word.trim() : "";
+        if (sanitizedWord.isBlank()) {
+            throw new com.example.english_app.exception.AppException(
+                    com.example.english_app.exception.ErrorCode.INVALID_REQUEST,
+                    "Tham số 'word' không được để trống");
+        }
+
+        // Validate: audioFile phải có dữ liệu
+        if (audioFile == null || audioFile.isEmpty()) {
+            throw new com.example.english_app.exception.AppException(
+                    com.example.english_app.exception.ErrorCode.AUDIO_EMPTY_OR_CORRUPT);
+        }
+
+        log.debug("[PronunciationSubmit] userId={}, sessionId={}, questionId={}, word='{}', wordIndex={}, audioSize={}B",
+                userId(auth), sessionId, questionId, sanitizedWord, wordIndex, audioFile.getSize());
+
         com.example.english_app.dto.response.PlacementPronunciationAnswerResponse result =
                 pronunciationService.submitPronunciationWithProgression(
-                        userId(auth), sessionId, questionId, audioFile, word, wordIndex);
+                        userId(auth), sessionId, questionId, audioFile, sanitizedWord, wordIndex);
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
