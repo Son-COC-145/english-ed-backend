@@ -1,5 +1,7 @@
 package com.example.english_app.service.speaking;
 
+import com.example.english_app.entity.enums.CefrLevel;
+
 import com.example.english_app.dto.request.SpeakingScenarioRequest;
 import com.example.english_app.dto.response.PageResponse;
 import com.example.english_app.dto.response.SpeakingScenarioResponse;
@@ -14,6 +16,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import java.util.HashSet;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -23,21 +28,30 @@ public class SpeakingScenarioService {
     private final SpeakingScenarioRepository speakingScenarioRepository;
     private final TopicRepository topicRepository;
     private final SpeakingMapper speakingMapper;
+    private final SpeakingJson json;
 
+    @Transactional(readOnly = true)
     public PageResponse<SpeakingScenarioResponse> filterScenarios(Short id, String title, Short topicId,
-            Boolean isActive, Pageable pageable) {
+            Boolean isActive, CefrLevel cefrLevel, Pageable pageable) {
         Page<SpeakingScenario> speakingScenarios = speakingScenarioRepository.filterScenarios(id, title, topicId,
-                isActive, pageable);
-        return PageResponse.of(speakingScenarios.map(speakingMapper::toScenarioResponse));
+                !SpeakingAccess.managesScenarios(),
+                SpeakingAccess.managesScenarios() ? isActive : Boolean.TRUE, cefrLevel, pageable);
+        return PageResponse.of(speakingScenarios.map(this::visibleResponse));
     }
 
+    @Transactional(readOnly = true)
     public SpeakingScenarioResponse getScenarioById(Short id) {
         SpeakingScenario scenario = speakingScenarioRepository.findById(id)
                 .orElseThrow(() -> ErrorCode.SCENARIO_NOT_FOUND.toException());
-        return speakingMapper.toScenarioResponse(scenario);
+        if (!SpeakingAccess.managesScenarios()
+                && (!Boolean.TRUE.equals(scenario.getIsActive())
+                        || (scenario.getTopic() != null && !Boolean.TRUE.equals(scenario.getTopic().getIsActive()))))
+            throw ErrorCode.SCENARIO_NOT_FOUND.toException();
+        return visibleResponse(scenario);
     }
 
     public SpeakingScenarioResponse create(SpeakingScenarioRequest request) {
+        validate(request);
         if (speakingScenarioRepository.existsByTitleVi(request.getTitleVi())
                 || speakingScenarioRepository.existsByTitleEn(request.getTitleEn())) {
             throw ErrorCode.SCENARIO_ALREADY_EXISTS.toException();
@@ -68,6 +82,7 @@ public class SpeakingScenarioService {
     }
 
     public SpeakingScenarioResponse update(Short id, SpeakingScenarioRequest request) {
+        validate(request);
         SpeakingScenario scenario = speakingScenarioRepository.findById(id)
                 .orElseThrow(() -> ErrorCode.SCENARIO_NOT_FOUND.toException());
 
@@ -118,5 +133,35 @@ public class SpeakingScenarioService {
                 .orElseThrow(() -> ErrorCode.SCENARIO_NOT_FOUND.toException());
         scenario.setIsActive(false);
         speakingScenarioRepository.save(scenario);
+    }
+
+    private SpeakingScenarioResponse visibleResponse(SpeakingScenario scenario) {
+        var response = speakingMapper.toScenarioResponse(scenario);
+        if (!SpeakingAccess.managesScenarios()) {
+            response.setHintPhrases(null);
+            response.setAiSystemPrompt(null);
+        }
+        return response;
+    }
+
+    private void validate(SpeakingScenarioRequest request) {
+        try {
+            var hints = json.read(request.getHintPhrasesJson());
+            if (!hints.isArray() || hints.size() < 3 || hints.size() > 5)
+                throw ErrorCode.INVALID_REQUEST.toException();
+            var uniqueHints = new HashSet<String>();
+            for (var hint : hints) {
+                if (!hint.isTextual() || hint.asText().isBlank() || hint.asText().length() > 250
+                        || !uniqueHints.add(hint.asText().strip().toLowerCase(Locale.ROOT)))
+                    throw ErrorCode.INVALID_REQUEST.toException();
+            }
+            if (request.getContextDescription().length() > 2000
+                    || request.getAiRoleName().length() > 200
+                    || request.getAiSystemPrompt().length() > 8000
+                    || request.getGoalDescription().length() > 2000)
+                throw ErrorCode.INVALID_REQUEST.toException();
+        } catch (IllegalArgumentException e) {
+            throw ErrorCode.INVALID_REQUEST.toException();
+        }
     }
 }

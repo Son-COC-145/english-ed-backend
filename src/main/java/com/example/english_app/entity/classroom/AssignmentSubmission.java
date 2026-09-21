@@ -35,6 +35,10 @@ public class AssignmentSubmission {
     @Column(name = "result_ref_id")
     private Long resultRefId;
 
+    @Column(name = "grading_revision", nullable = false)
+    @Builder.Default
+    private Long gradingRevision = 0L;
+
     @Column(precision = 5, scale = 2)
     private BigDecimal score;
 

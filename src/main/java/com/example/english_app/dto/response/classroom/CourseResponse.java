@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 public class CourseResponse {
     private Long id;
     private String name;
-    private Long teacherId;
+    private CourseTeacherResponse teacher;
     private String description;
     private CefrLevel cefrTarget;
     private LocalDate startDate;

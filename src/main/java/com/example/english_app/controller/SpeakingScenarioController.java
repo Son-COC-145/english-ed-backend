@@ -1,5 +1,7 @@
 package com.example.english_app.controller;
 
+import com.example.english_app.entity.enums.CefrLevel;
+
 import com.example.english_app.dto.request.SpeakingScenarioRequest;
 import com.example.english_app.dto.response.ApiResponse;
 import com.example.english_app.dto.response.PageResponse;
@@ -32,9 +34,10 @@ public class SpeakingScenarioController {
             @RequestParam(required = false) String title,
             @RequestParam(required = false) Short topicId,
             @RequestParam(required = false) Boolean isActive,
+            @RequestParam(required = false) CefrLevel cefrLevel,
             @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
         return ResponseEntity.ok(
-                ApiResponse.success(speakingScenarioService.filterScenarios(id, title, topicId, isActive, pageable)));
+                ApiResponse.success(speakingScenarioService.filterScenarios(id, title, topicId, isActive, cefrLevel, pageable)));
     }
 
     @Operation(summary = "Lấy thông tin chi tiết một kịch bản giao tiếp theo ID")

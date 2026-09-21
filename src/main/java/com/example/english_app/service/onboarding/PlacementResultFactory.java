@@ -51,6 +51,9 @@ public class PlacementResultFactory {
      */
     public SkillScores calculateAllSkills(List<PlacementTestAnswer> answers) {
         Map<Skill, List<PlacementTestAnswer>> bySkill = answers.stream()
+                // Lọc các answer bị orphan (question null) hoặc question thiếu skill field
+                // để tránh NullPointerException khi CAT early-stop gọi completeTest()
+                .filter(a -> a.getQuestion() != null && a.getQuestion().getSkill() != null)
                 .collect(Collectors.groupingBy(a -> a.getQuestion().getSkill()));
 
         return SkillScores.builder()
@@ -149,6 +152,7 @@ public class PlacementResultFactory {
             case B1     -> List.of("Từ vựng chủ đề", "Speaking tình huống", "Phát âm âm đuôi");
             case B2     -> List.of("Speaking nâng cao", "Từ vựng học thuật", "Phát âm ngữ điệu");
             case C1     -> List.of("Speaking đàm phán / thuyết trình", "Luyện thi chứng chỉ");
+            case C2     -> List.of("Speaking học thuật chuyên sâu", "Luyện thi chứng chỉ nâng cao");
         };
     }
 
@@ -159,6 +163,7 @@ public class PlacementResultFactory {
             case B1 -> "Bạn đang ở trình độ Trung cấp (B1). Bạn có thể giao tiếp trong các tình huống quen thuộc!";
             case B2 -> "Bạn đang ở trình độ Trung cấp cao (B2). Hãy thử thách với các chủ đề phức tạp hơn!";
             case C1 -> "Xuất sắc! Bạn đang ở trình độ Cao cấp (C1). Hãy hoàn thiện kỹ năng nâng cao!";
+            case C2 -> "Tuyệt vời! Bạn đang ở trình độ Thành thạo (C2). Hãy duy trì và phát triển năng lực học thuật chuyên sâu!";
         };
     }
 
@@ -168,6 +173,7 @@ public class PlacementResultFactory {
             case B1     -> "Giao tiếp đơn giản, hiểu ngữ cảnh quen thuộc";
             case B2     -> "Tự tin giao tiếp hầu hết tình huống thường gặp";
             case C1     -> "Thành thạo, xử lý được nội dung phức tạp";
+            case C2     -> "Thông thạo gần như người bản ngữ, xử lý linh hoạt nội dung chuyên sâu";
         };
     }
 

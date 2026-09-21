@@ -1,236 +1,223 @@
 package com.example.english_app.service.speaking;
 
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
-
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-
-import com.example.english_app.dto.redis.MessageDto;
-import com.example.english_app.dto.request.EndSessionRequest;
 import com.example.english_app.dto.request.StartSessionRequest;
 import com.example.english_app.dto.response.AudioInputResponse;
 import com.example.english_app.dto.response.SessionEvaluationResponse;
 import com.example.english_app.dto.response.SpeakingSessionResponse;
-import com.example.english_app.dto.ai.EvaluationResultDto;
-import com.example.english_app.entity.speaking.SpeakingScenario;
+import com.example.english_app.dto.response.SpeakingTurnResponse;
 import com.example.english_app.entity.speaking.SpeakingSession;
 import com.example.english_app.entity.speaking.SpeakingTurn;
 import com.example.english_app.entity.enums.SpeakerRole;
-import com.example.english_app.entity.user.User;
 import com.example.english_app.exception.ErrorCode;
 import com.example.english_app.mapper.SpeakingMapper;
-import com.example.english_app.repository.speaking.SpeakingScenarioRepository;
-import com.example.english_app.repository.speaking.SpeakingSessionRepository;
-import com.example.english_app.repository.speaking.SpeakingTurnRepository;
-import com.example.english_app.repository.user.UserRepository;
-import com.example.english_app.service.integration.AiTextService;
 import com.example.english_app.service.integration.CloudinaryService;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.time.LocalDateTime;
-
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class SpeakingSessionService {
-    private final SpeakingSessionRepository sessionRepository;
-    private final SpeakingScenarioRepository scenarioRepository;
-    private final UserRepository userRepository;
-    private final SpeakingMapper speakingMapper;
-    private final RedisTemplate<String, Object> redisTemplate;
-    private final ObjectMapper objectMapper;
-    private final SpeechToTextService speechToTextService;
-    private final SpeakingTurnRepository speakingTurnRepository;
-    private final AiTextService aiTextService;
-    private final CloudinaryService cloudinaryService;
 
-    public SpeakingSessionResponse startSession(StartSessionRequest request) {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+    private final SpeakingStore store;
+    private final SpeakingAccess access;
+    private final SpeakingMapper mapper;
+    private final SpeakingJson json;
+    private final CloudinaryService cloudinary;
 
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
-
-        SpeakingScenario scenario = scenarioRepository.findById(request.getScenarioId())
-                .orElseThrow(() -> ErrorCode.SCENARIO_NOT_FOUND.toException());
-
-        SpeakingSession session = SpeakingSession.builder()
-                .student(user)
-                .scenario(scenario)
-                .build();
-
-        session = sessionRepository.save(session);
-
-        List<MessageDto> chatHisory = new ArrayList<>();
-        chatHisory.add(new MessageDto("system", scenario.getAiSystemPrompt()));
-
-        try {
-            String historyJson = objectMapper.writeValueAsString(chatHisory);
-            String redisKey = "speaking:session:" + session.getId();
-
-            redisTemplate.opsForValue().set(redisKey, historyJson, Duration.ofHours(2));
-        } catch (Exception e) {
-            log.error("Lỗi khi lưu lịch sử chat vả Redis", e);
-            throw ErrorCode.SYSTEM_ERROR.toException();
+    @Transactional
+    public SpeakingSessionResponse startSession(StartSessionRequest request, String requestKey) {
+        validateKey(requestKey);
+        SpeakingSession session = store.start(access.userId(), request.getScenarioId(), requestKey);
+        List<SpeakingTurn> history = store.history(session.getId());
+        SpeakingSessionResponse response = mapper.toSessionResponse(session, history);
+        if (!history.isEmpty()) {
+            response.setGreetingTurnId(history.getFirst().getId());
         }
-
-        return speakingMapper.toSessionResponse(session, null);
-
+        return response;
     }
 
-    public AudioInputResponse processUserAudio(Long sessionId, MultipartFile audioFile) {
-        SpeakingSession session = sessionRepository.findById(sessionId)
-                .orElseThrow(() -> ErrorCode.SESSION_NOT_FOUND.toException());
+    public AudioInputResponse processUserAudio(Long id, String requestKey, MultipartFile file) {
+        validateKey(requestKey);
+        Long userId = access.userId();
+        store.owned(id, userId);
 
-        String redisKey = "speaking:session:" + sessionId;
-        String historyJson = (String) redisTemplate.opsForValue().get(redisKey);
+        if (file == null || file.isEmpty()) {
+            throw ErrorCode.AUDIO_EMPTY_OR_CORRUPT.toException();
+        }
+        if (file.getSize() > 5 * 1024 * 1024) {
+            throw ErrorCode.AUDIO_PAYLOAD_TOO_LARGE.toException();
+        }
 
-        if (historyJson == null) {
+        try {
+            byte[] data = file.getBytes();
+            String mime = AudioMetricsService.detectMime(data);
+            String inputHash = hash(data);
+            SpeakingTurn turn = store.submit(id, userId, requestKey, inputHash, data, mime, null);
+            if (turn.getAudioUrl() == null || turn.getAudioUrl().isBlank()) {
+                try {
+                    String audioUrl = cloudinary.uploadFile(data, "video",
+                            "speaking/session-" + id + "/student-" + requestKey);
+                    store.attachAudioUrl(id, userId, turn.getId(), audioUrl);
+                    turn.setAudioUrl(audioUrl);
+                } catch (RuntimeException uploadFailure) {
+                    // The DB copy remains the canonical fallback; worker can process it without Cloudinary.
+                    log.warn("Speaking input audio upload failed sessionId={} turnId={} error={}",
+                            id, turn.getId(), uploadFailure.getClass().getSimpleName());
+                }
+            }
+            return new AudioInputResponse(turn.getId(), turn.getStatus(), turn.getTranscriptText());
+        } catch (IOException e) {
+            throw ErrorCode.AUDIO_PROCESSING_FAILED.toException();
+        }
+    }
+
+    public AudioInputResponse processText(Long id, String requestKey, String text) {
+        validateKey(requestKey);
+        if (text == null || text.isBlank() || text.length() > 4000) {
+            throw ErrorCode.INVALID_REQUEST.toException();
+        }
+        String sanitizedText = text.strip();
+        SpeakingTurn turn = store.submit(
+                id,
+                access.userId(),
+                requestKey,
+                hash(sanitizedText.getBytes(StandardCharsets.UTF_8)),
+                null,
+                null,
+                sanitizedText
+        );
+        return new AudioInputResponse(turn.getId(), turn.getStatus(), turn.getTranscriptText());
+    }
+
+    @Transactional
+    public SessionEvaluationResponse endSession(Long id) {
+        Long userId = access.userId();
+        store.end(id, userId);
+        return reportFor(id, userId);
+    }
+
+    @Transactional(readOnly = true)
+    public SessionEvaluationResponse report(Long id) {
+        return reportFor(id, access.userId());
+    }
+
+    @Transactional(readOnly = true)
+    public SessionEvaluationResponse reportFor(Long id, Long userId) {
+        return streamingSnapshot(id, userId).report();
+    }
+
+    @Transactional(readOnly = true)
+    public void checkOwnership(Long id, Long userId) {
+        store.owned(id, userId);
+    }
+
+    public record StreamingSnapshot(SessionEvaluationResponse report, Set<Long> finalizedAiTurnIds) {}
+
+    @Transactional(readOnly = true)
+    public StreamingSnapshot streamingSnapshot(Long id, Long userId) {
+        SpeakingSession session = store.owned(id, userId);
+        List<SpeakingTurn> history = store.history(id);
+        List<SpeakingTurnResponse> turns = history.stream()
+                .map(this::turnResponse)
+                .toList();
+
+        var report = SessionEvaluationResponse.builder()
+                .sessionId(id)
+                .status(session.getStatus())
+                .fluencyScore(session.getFluencyScore())
+                .intonationScore(session.getIntonationScore())
+                .taskCompletionScore(session.getTaskCompletionScore())
+                .xpEarned(session.getXpEarned())
+                .hintUsedCount(session.getHintUsedCount())
+                .evaluation(json.read(session.getEvaluationJson()))
+                .turns(turns)
+                .build();
+        var finalizedIds = history.stream()
+                .filter(t -> t.getSpeaker() == SpeakerRole.AI
+                        && (t.isResponseTextReady() || "COMPLETED".equals(t.getStatus())))
+                .map(SpeakingTurn::getId).collect(Collectors.toSet());
+        return new StreamingSnapshot(report, finalizedIds);
+    }
+
+    private SpeakingTurnResponse turnResponse(SpeakingTurn turn) {
+        SpeakingTurnResponse response = mapper.toTurnResponse(turn);
+        if (turn.getAudioData() != null && (turn.getAudioUrl() == null || turn.getAudioUrl().isBlank())) {
+            response.setAudioUrl("/api/v1/speaking-session/" + turn.getSession().getId() + "/turns/" + turn.getId() + "/audio");
+        }
+        return response;
+    }
+
+    @Transactional(readOnly = true)
+    public SpeakingTurn audio(Long id, Long turnId) {
+        store.owned(id, access.userId());
+        SpeakingTurn turn = store.turn(turnId);
+        if (!turn.getSession().getId().equals(id)) {
             throw ErrorCode.SESSION_NOT_FOUND.toException();
         }
-
-        try {
-            String trancript = speechToTextService.trancribeAudio(audioFile);
-            
-            // Upload audio file to Cloudinary
-            String audioUrl = null;
-            try {
-                audioUrl = cloudinaryService.uploadFile(audioFile.getBytes(), "video", "speaking_session_" + sessionId + "_" + System.currentTimeMillis());
-            } catch (Exception uploadEx) {
-                log.warn("Lỗi upload audio lên Cloudinary, bỏ qua lưu audio", uploadEx);
+        if (turn.getSpeaker() == SpeakerRole.AI) {
+            if ("FAILED".equals(turn.getAudioStatus()) || "FAILED".equals(turn.getStatus())) {
+                throw ErrorCode.SPEAKING_AUDIO_FAILED.toException();
             }
+            if (!"READY".equals(turn.getAudioStatus())) throw ErrorCode.SPEAKING_AUDIO_PENDING.toException();
+        }
+        if (turn.getAudioData() == null || turn.getAudioData().length == 0) {
+            throw ErrorCode.SPEAKING_AUDIO_MISSING.toException();
+        }
+        return turn;
+    }
 
-            List<MessageDto> history = objectMapper.readValue(historyJson, new TypeReference<List<MessageDto>>() {
-            });
+    @Transactional(readOnly = true)
+    public SessionEvaluationResponse recover(String startKey) {
+        validateKey(startKey);
+        Long userId = access.userId();
+        return reportFor(store.recover(userId, startKey).getId(), userId);
+    }
 
-            history.add(new MessageDto("user", trancript, audioUrl));
+    @Transactional(readOnly = true)
+    public List<SpeakingSessionResponse> activeSessions() {
+        return store.activeSessions(access.userId()).stream()
+                .map(s -> mapper.toSessionResponse(s, store.history(s.getId()))).toList();
+    }
 
-            String updateHistoryJson = objectMapper.writeValueAsString(history);
-            redisTemplate.opsForValue().set(redisKey, updateHistoryJson, Duration.ofHours(2));
 
-            return new AudioInputResponse(trancript);
-        } catch (Exception e) {
-            log.error("Lỗi xử lý audio session {}", sessionId, e);
-            throw ErrorCode.SYSTEM_ERROR.toException();
+    public JsonNode hint(Long id, String key) {
+        validateKey(key);
+        return store.hint(id, access.userId(), key);
+    }
+
+    public void retry(Long id) {
+        store.retry(id, access.userId());
+    }
+
+    public void retryTurn(Long id, Long turnId) {
+        store.retry(id, access.userId(), turnId);
+    }
+
+    private void validateKey(String key) {
+        if (key == null || !key.matches("[A-Za-z0-9_-]{8,100}")) {
+            throw ErrorCode.INVALID_REQUEST.toException();
         }
     }
 
-    public SessionEvaluationResponse endSession(Long sessionId, EndSessionRequest request) {
-        SpeakingSession session = sessionRepository.findById(sessionId)
-                .orElseThrow(() -> ErrorCode.SESSION_NOT_FOUND.toException());
-
-        String redisKey = "speaking:session:" + sessionId;
-        String historyJson = (String) redisTemplate.opsForValue().get(redisKey);
-
-        if (historyJson == null) {
-            throw ErrorCode.SESSION_NOT_FOUND.toException(); // Không tìm thấy session trên RAM
-        }
-
+    private String hash(byte[] bytes) {
         try {
-            List<MessageDto> history = objectMapper.readValue(historyJson, new TypeReference<>() {});
-            
-            StringBuilder transcriptBuilder = new StringBuilder();
-            List<SpeakingTurn> turns = new ArrayList<>();
-            short turnIndex = 1;
-            int fillerWordsCount = 0;
-            int totalWords = 0;
-            
-            for (MessageDto msg : history) {
-                if ("system".equals(msg.getRole())) continue; // Bỏ qua system prompt
-
-                SpeakerRole role = "user".equals(msg.getRole()) ? SpeakerRole.STUDENT : SpeakerRole.AI;
-                
-                SpeakingTurn turn = SpeakingTurn.builder()
-                        .session(session)
-                        .turnIndex(turnIndex)
-                        .speaker(role)
-                        .transcriptText(msg.getContent())
-                        .audioUrl(msg.getAudioUrl())
-                        .build();
-                turns.add(turn);
-                
-                if (role == SpeakerRole.STUDENT) {
-                    transcriptBuilder.append("[Turn ").append(turnIndex).append("] Student: ").append(msg.getContent()).append("\n");
-                    
-                    // Logic tính độ trôi chảy (Fluency) cơ bản
-                    String text = msg.getContent().toLowerCase();
-                    String[] words = text.split("\\s+");
-                    totalWords += words.length;
-                    for (String word : words) {
-                        // Đếm từ thừa (filler words)
-                        if (word.matches("um|uh|like|well")) {
-                            fillerWordsCount++;
-                        }
-                    }
-                } else {
-                    transcriptBuilder.append("[Turn ").append(turnIndex).append("] AI: ").append(msg.getContent()).append("\n");
-                }
-                turnIndex++;
-            }
-            
-            // Tính điểm Fluency Score
-            short fluencyScore = 100;
-            if (request.getTotalSpeakingTimeSeconds() != null && request.getTotalSpeakingTimeSeconds() > 0) {
-                double minutes = request.getTotalSpeakingTimeSeconds() / 60.0;
-                double wpm = totalWords / minutes;
-                if (wpm < 80) fluencyScore -= (short) (80 - wpm); // Trừ điểm nếu nói chậm dưới 80 WPM
-                fluencyScore -= (short) (fillerWordsCount * 2); // Trừ 2 điểm cho mỗi từ thừa
-                if (fluencyScore < 0) fluencyScore = 0;
-                if (fluencyScore > 100) fluencyScore = 100;
-            }
-
-            // Gọi AI để chấm điểm
-            EvaluationResultDto aiEval = aiTextService.evaluateSpeakingSession(transcriptBuilder.toString(), session.getScenario().getGoalDescription());
-
-            // Gắn lại nhận xét của AI vào các Turn tương ứng của User
-            if (aiEval != null && aiEval.getTurnsEvaluation() != null) {
-                for (EvaluationResultDto.TurnEvaluation eval : aiEval.getTurnsEvaluation()) {
-                    for (SpeakingTurn turn : turns) {
-                        if (turn.getTurnIndex().equals(eval.getTurnIndex()) && turn.getSpeaker() == SpeakerRole.STUDENT) {
-                            if (eval.getGrammarErrors() != null && !eval.getGrammarErrors().isEmpty()) {
-                                turn.setGrammarErrorsJson(objectMapper.writeValueAsString(eval.getGrammarErrors()));
-                            }
-                            if (eval.getVocabularySuggestions() != null && !eval.getVocabularySuggestions().isEmpty()) {
-                                turn.setVocabularySuggestionsJson(objectMapper.writeValueAsString(eval.getVocabularySuggestions()));
-                            }
-                            break;
-                        }
-                    }
-                }
-            }
-
-            // Lưu toàn bộ Turns vào DB (Bulk Insert)
-            speakingTurnRepository.saveAll(turns);
-
-            // Cập nhật trạng thái Session
-            session.setEndedAt(LocalDateTime.now());
-            session.setFluencyScore(fluencyScore);
-            if (aiEval != null) {
-                session.setTaskCompletionScore(aiEval.getTaskCompletionScore());
-                session.setIntonationScore(aiEval.getIntonationScore());
-                session.setEvaluationJson(objectMapper.writeValueAsString(aiEval.getGeneralFeedback()));
-            }
-            sessionRepository.save(session);
-
-            // Dọn dẹp RAM
-            redisTemplate.delete(redisKey);
-
-            return SessionEvaluationResponse.builder()
-                    .fluencyScore(session.getFluencyScore())
-                    .taskCompletionScore(session.getTaskCompletionScore())
-                    .intonationScore(session.getIntonationScore())
-                    .evaluationJson(session.getEvaluationJson())
-                    .build();
-
-        } catch (Exception e) {
-            log.error("Lỗi khi kết thúc session", e);
-            throw ErrorCode.SYSTEM_ERROR.toException();
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 algorithm not found", e);
         }
     }
 }

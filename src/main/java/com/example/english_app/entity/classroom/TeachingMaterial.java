@@ -40,6 +40,12 @@ public class TeachingMaterial {
     @Column(name = "file_url", nullable = false, length = 500)
     private String fileUrl;
 
+    @Column(name = "cloudinary_public_id", length = 500)
+    private String cloudinaryPublicId;
+
+    @Column(name = "cloudinary_resource_type", length = 20)
+    private String cloudinaryResourceType;
+
     @Column(name = "file_size_kb")
     private Integer fileSizeKb;
 

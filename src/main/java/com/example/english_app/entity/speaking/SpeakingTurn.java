@@ -1,8 +1,22 @@
 package com.example.english_app.entity.speaking;
 
 import com.example.english_app.entity.enums.SpeakerRole;
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -27,17 +41,67 @@ public class SpeakingTurn {
     private SpeakingSession session;
 
     @Column(name = "turn_index", nullable = false)
-    private Short turnIndex;
+    private Integer turnIndex;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private SpeakerRole speaker;
+
+    @Column(name = "request_key", length = 100)
+    private String requestKey;
+
+    @Column(name = "input_hash", length = 64)
+    private String inputHash;
+
+    @Column(nullable = false, length = 32)
+    @Builder.Default
+    private String status = "PENDING";
+
+    @Column(name = "audio_data", columnDefinition = "bytea")
+    private byte[] audioData;
+
+    @Column(name = "audio_content_type", length = 100)
+    private String audioContentType;
+
+    @Column(name = "recorded_at")
+    private LocalDateTime recordedAt;
+
+    @Column(name = "duration_seconds")
+    private Double durationSeconds;
+
+    @Column(name = "audio_analysis_status", nullable = false, length = 32)
+    @Builder.Default
+    private String audioAnalysisStatus = "PENDING";
+
+    @Column(name = "metrics_version", length = 32)
+    private String metricsVersion;
+
+    @Column(name = "audio_status", nullable = false, length = 32)
+    @Builder.Default
+    private String audioStatus = "PENDING";
+
+    @Column(name = "audio_error_code", length = 100)
+    private String audioErrorCode;
 
     @Column(name = "transcript_text", nullable = false, columnDefinition = "TEXT")
     private String transcriptText;
 
     @Column(name = "audio_url", length = 500)
     private String audioUrl;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "audio_metrics_json", columnDefinition = "jsonb")
+    private String audioMetricsJson;
+
+    @Column(name = "evaluation_status", nullable = false, length = 32)
+    @Builder.Default
+    private String evaluationStatus = "PENDING";
+
+    @Column(name = "error_code", length = 100)
+    private String errorCode;
+
+    @Column(name = "response_text_ready", nullable = false)
+    private boolean responseTextReady;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "grammar_errors_json", columnDefinition = "jsonb")

@@ -37,30 +37,42 @@ public class GoalSurveyParser {
             return List.of(TopicCategory.DAILY_CONVERSATION); // fallback
         }
 
-        String purpose = request.getLearningPurpose().toLowerCase();
+        String purpose = request.getLearningPurpose().trim();
+
+        // Tầng 1: match theo enum key (Flutter có thể gửi "WORK", "TRAVEL", "EXAM_IELTS", v.v.)
+        try {
+            TopicCategory byKey = TopicCategory.valueOf(purpose.toUpperCase().replace(" ", "_").replace("-", "_"));
+            return List.of(byKey);
+        } catch (IllegalArgumentException ignored) {
+            // Không match enum key → thử text matching bên dưới
+        }
+
+        // Tầng 2: match bằng substring tiếng Việt / tiếng Anh (legacy / freeform)
+        String lower = purpose.toLowerCase();
         List<TopicCategory> categories = new ArrayList<>();
 
-        if (purpose.contains("công việc") || purpose.contains("đi làm") || purpose.contains("work")) {
+        if (lower.contains("công việc") || lower.contains("đi làm") || lower.contains("work")) {
             categories.add(TopicCategory.WORK);
         }
-        if (purpose.contains("du lịch") || purpose.contains("travel")) {
+        if (lower.contains("du lịch") || lower.contains("travel")) {
             categories.add(TopicCategory.TRAVEL);
         }
-        if (purpose.contains("ielts") || purpose.contains("thi") || purpose.contains("exam")) {
+        if (lower.contains("ielts") || lower.contains("thi") || lower.contains("exam")) {
             categories.add(TopicCategory.EXAM_IELTS);
         }
-        if (purpose.contains("du học") || purpose.contains("abroad") || purpose.contains("study abroad")) {
+        if (lower.contains("du học") || lower.contains("abroad") || lower.contains("study abroad")) {
             categories.add(TopicCategory.STUDY_ABROAD);
         }
-        if (purpose.contains("giao tiếp") || purpose.contains("hàng ngày") || purpose.contains("daily")) {
+        if (lower.contains("giao tiếp") || lower.contains("hàng ngày") || lower.contains("daily")) {
             categories.add(TopicCategory.DAILY_CONVERSATION);
         }
 
-        // If no match, provide a fallback
+        // Nếu không match gì → fallback
         if (categories.isEmpty()) {
+            log.debug("No category matched for learningPurpose='{}', using DAILY_CONVERSATION fallback", purpose);
             categories.add(TopicCategory.DAILY_CONVERSATION);
         }
-        
+
         return categories;
     }
 

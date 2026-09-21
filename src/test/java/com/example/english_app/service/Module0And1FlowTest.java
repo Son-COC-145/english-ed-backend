@@ -226,6 +226,7 @@ class Module0And1FlowTest {
                     .goalSurveyJson("{}")
                     .placementCefrLevel(CefrLevel.A1)
                     .dailyGoalXp((short) 20)
+                    .roadmapJson("{\"cefrLevel\":\"A1\",\"milestones\":[]}") // P1-B: roadmapJson phải tồn tại
                     .onboardingCompleted(false)
                     .build();
             given(onboardingRepository.findByStudentId(1L)).willReturn(Optional.of(ob));
@@ -243,6 +244,55 @@ class Module0And1FlowTest {
             lifecycleService.completeOnboarding(1L);
             assertThat(ob.getOnboardingCompleted()).isTrue();
             assertThat(ob.getOnboardingCompletedAt()).isNotNull();
+        }
+
+        @Test
+        @DisplayName("Luồng 0.6: getStatus trả về đúng isPlacementSkipped và SKIPPED status")
+        void testOnboardingStatus_WhenPlacementSkipped() {
+            StudentOnboarding ob = StudentOnboarding.builder()
+                    .student(mockUser)
+                    .goalSurveyJson("{\"learningPurpose\":\"WORK\"}")
+                    .placementCefrLevel(CefrLevel.A1)
+                    .isPlacementSkipped(true)
+                    .dailyGoalXp((short) 20)
+                    .onboardingCompleted(false)
+                    .build();
+
+            given(onboardingRepository.findByStudentIdWithUser(1L)).willReturn(Optional.of(ob));
+            given(sessionRepository.findTopByStudentIdAndIsCompletedFalseOrderByStartedAtDesc(1L)).willReturn(Optional.empty());
+
+            OnboardingStatusResponse status = lifecycleService.getStatus(1L);
+
+            assertThat(status.isPlacementSkipped()).isTrue();
+            assertThat(status.getPlacementTestStatus()).isEqualTo("SKIPPED");
+            assertThat(status.isPlacementTestCompleted()).isTrue();
+        }
+
+        @Test
+        @DisplayName("Luồng 0.7: resetOnboarding phải reset cả goalSurveyJson và isPlacementSkipped")
+        void testResetOnboarding_ShouldResetGoalSurveyAndSkippedState() {
+            StudentOnboarding ob = StudentOnboarding.builder()
+                    .student(mockUser)
+                    .goalSurveyJson("{\"learningPurpose\":\"WORK\"}")
+                    .placementCefrLevel(CefrLevel.B1)
+                    .placementVocabScore((short) 70)
+                    .isPlacementSkipped(true)
+                    .roadmapJson("{\"milestones\":[]}")
+                    .onboardingCompleted(true)
+                    .build();
+
+            given(onboardingRepository.findByStudentId(1L)).willReturn(Optional.of(ob));
+            given(sessionRepository.findTopByStudentIdAndIsCompletedFalseOrderByStartedAtDesc(1L)).willReturn(Optional.empty());
+
+            lifecycleService.resetOnboarding(1L);
+
+            assertThat(ob.getGoalSurveyJson()).isNull();
+            assertThat(ob.getIsPlacementSkipped()).isFalse();
+            assertThat(ob.getPlacementCefrLevel()).isNull();
+            assertThat(ob.getPlacementVocabScore()).isNull();
+            assertThat(ob.getRoadmapJson()).isNull();
+            assertThat(ob.getOnboardingCompleted()).isFalse();
+            verify(onboardingRepository).save(ob);
         }
     }
 

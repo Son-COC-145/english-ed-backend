@@ -1,5 +1,7 @@
 package com.example.english_app.dto.request;
 
+import jakarta.validation.constraints.Size;
+
 import com.example.english_app.entity.enums.CefrLevel;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -19,6 +21,8 @@ public class SpeakingScenarioRequest {
     @NotBlank(message = "Không được để trống tên nhân vật AI")
     private String aiRoleName;
     
+    @NotBlank
+    @Size(max=500)
     private String aiRoleAvatarUrl;
     
     @NotBlank(message = "Không được để trống prompt hệ thống cho AI")
@@ -27,6 +31,7 @@ public class SpeakingScenarioRequest {
     @NotBlank(message = "Không được để trống mô tả mục tiêu")
     private String goalDescription;
     
+    @NotBlank
     private String hintPhrasesJson;
     
     @NotNull(message = "Không được để trống độ khó CEFR")

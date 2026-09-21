@@ -15,4 +15,6 @@ public class TopicResponse {
     private String nameVi;
     private String iconUrl;
     private Boolean isActive;
+    private Long vocabularyCount;
+    private Long masteredCount;
 }

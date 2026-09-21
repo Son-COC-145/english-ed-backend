@@ -1,7 +1,11 @@
 package com.example.english_app.service.classroom;
 
 import java.util.List;
-import java.util.UUID;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -19,17 +23,37 @@ import com.example.english_app.repository.classroom.CourseRepository;
 import com.example.english_app.repository.classroom.TeachingMaterialRepository;
 import com.example.english_app.repository.user.UserRepository;
 import com.example.english_app.service.integration.CloudinaryService;
+import com.example.english_app.service.integration.CloudinaryService.UploadedFile;
+import com.example.english_app.service.storage.StoredFileStore;
+import com.example.english_app.service.storage.FileContentValidator;
 
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class TeachingMaterialService {
     private final CourseRepository courseRepository;
     private final CloudinaryService cloudinaryService;
     private final UserRepository userRepository;
     private final ClassroomMapper classroomMapper;
     private final TeachingMaterialRepository teachingMaterialRepository;
+    private final CourseAccessService courseAccessService;
+    private final StoredFileStore storedFileStore;
+    private final FileContentValidator contentValidator;
+
+    private static final long MAX_FILE_SIZE_BYTES = 5L * 1024 * 1024;
+    private final HttpClient httpClient = HttpClient.newHttpClient();
+    private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
+            "application/pdf",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            "video/mp4",
+            "audio/mpeg",
+            "audio/mp3",
+            "image/jpeg",
+            "image/png",
+            "image/webp");
 
     @Transactional
     public TeachingMaterialResponse uploadAndCreateMaterial(Long teacherId, Long courseId, MultipartFile file,
@@ -41,24 +65,30 @@ public class TeachingMaterialService {
         if (courseId != null) {
             course = courseRepository.findById(courseId)
                     .orElseThrow(() -> ErrorCode.COURSE_NOT_FOUND.toException());
+            courseAccessService.requireTeacherOrAdmin(teacherId, course);
         }
 
+        validateUpload(file);
+        validateTitle(title);
+        contentValidator.validate(file);
+
         String resourceType = determineResourceType(file.getContentType());
-        String publicId = "materials/" + UUID.randomUUID().toString();
-        String fileUrl;
+        UploadedFile uploaded;
         try {
-            fileUrl = cloudinaryService.uploadFile(file.getBytes(), resourceType, publicId);
+            uploaded = cloudinaryService.uploadWithMetadata(file.getBytes(), resourceType, "materials", file.getOriginalFilename());
         } catch (Exception e) {
             throw new RuntimeException("Failed to read file bytes", e);
         }
 
         FileType fileType = determineFileTypeEnum(file.getContentType());
 
-        Integer fileSizeKb = (int) (file.getSize() / 1024);
+        Integer fileSizeKb = (int) ((file.getSize() + 1023) / 1024);
 
         TeachingMaterial material = TeachingMaterial.builder()
-                .title(title)
-                .fileUrl(fileUrl)
+                .title(title.trim())
+                .fileUrl(uploaded.url())
+                .cloudinaryPublicId(uploaded.publicId())
+                .cloudinaryResourceType(uploaded.resourceType())
                 .fileType(fileType)
                 .fileSizeKb(fileSizeKb)
                 .course(course)
@@ -66,10 +96,14 @@ public class TeachingMaterialService {
                 .isLivePresenting(false)
                 .build();
 
-        return classroomMapper.toTeachingMaterialResponse(teachingMaterialRepository.save(material));
+        TeachingMaterial savedMaterial = teachingMaterialRepository.save(material);
+        return classroomMapper.toTeachingMaterialResponse(savedMaterial);
     }
 
-    public List<TeachingMaterialResponse> getMaterialsByCourse(Long courseId) {
+    public List<TeachingMaterialResponse> getMaterialsByCourse(Long actorId, Long courseId) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> ErrorCode.COURSE_NOT_FOUND.toException());
+        courseAccessService.requireCourseViewer(actorId, course);
         return teachingMaterialRepository.findAllByCourseId(courseId)
                 .stream()
                 .map(classroomMapper::toTeachingMaterialResponse)
@@ -77,14 +111,17 @@ public class TeachingMaterialService {
     }
 
     @Transactional
-    public void deleteMaterial(Long materialId, Long teacherId) {
+    public void deleteMaterial(Long courseId, Long materialId, Long teacherId) {
         TeachingMaterial material = teachingMaterialRepository.findById(materialId)
                 .orElseThrow(() -> ErrorCode.MATERIAL_NOT_FOUND.toException());
 
-        if (!material.getTeacher().getId().equals(teacherId)) {
-            throw ErrorCode.UNAUTHORIZED.toException();
+        if (material.getCourse() == null || !material.getCourse().getId().equals(courseId)) {
+            throw ErrorCode.MATERIAL_NOT_FOUND.toException();
         }
+        courseAccessService.requireTeacherOrAdmin(teacherId, material.getCourse());
         teachingMaterialRepository.delete(material);
+        storedFileStore.queueMaterialDeletion(material.getId(), material.getFileUrl(),
+                material.getCloudinaryPublicId(), material.getCloudinaryResourceType());
     }
 
     @Transactional
@@ -92,20 +129,14 @@ public class TeachingMaterialService {
         TeachingMaterial material = teachingMaterialRepository.findById(materialId)
                 .orElseThrow(() -> ErrorCode.MATERIAL_NOT_FOUND.toException());
 
-        if (!material.getTeacher().getId().equals(teacherId)) {
-            throw ErrorCode.UNAUTHORIZED.toException();
+        if (material.getCourse() == null || !material.getCourse().getId().equals(courseId)) {
+            throw ErrorCode.MATERIAL_NOT_FOUND.toException();
         }
+        courseAccessService.requireTeacherOrAdmin(teacherId, material.getCourse());
 
-        if (courseId != null) {
-            Course course = courseRepository.findById(courseId)
-                    .orElseThrow(() -> ErrorCode.COURSE_NOT_FOUND.toException());
-            material.setCourse(course);
-        } else {
-            material.setCourse(null);
-        }
-
-        if (title != null && !title.trim().isEmpty()) {
-            material.setTitle(title);
+        if (title != null) {
+            validateTitle(title);
+            material.setTitle(title.trim());
         }
 
         return classroomMapper.toTeachingMaterialResponse(teachingMaterialRepository.save(material));
@@ -113,6 +144,12 @@ public class TeachingMaterialService {
 
     private String determineResourceType(String contentType) {
         if (contentType != null && contentType.startsWith("video/"))
+            return "video";
+        // Cloudinary serves PDFs uploaded as images inline in the browser.
+        if ("application/pdf".equals(contentType))
+            return "image";
+        // Cloudinary's video resource type also supports audio playback/delivery.
+        if (contentType != null && contentType.startsWith("audio/"))
             return "video";
         if (contentType != null && contentType.startsWith("image/"))
             return "image";
@@ -124,6 +161,8 @@ public class TeachingMaterialService {
             return FileType.OTHER;
         if (contentType.contains("pdf"))
             return FileType.PDF;
+        if (contentType.contains("wordprocessingml"))
+            return FileType.DOCX;
         if (contentType.contains("powerpoint") || contentType.contains("presentation"))
             return FileType.PPTX;
         if (contentType.startsWith("video/"))
@@ -133,5 +172,73 @@ public class TeachingMaterialService {
         if (contentType.startsWith("image/"))
             return FileType.OTHER;
         return FileType.OTHER;
+    }
+
+    /** Serves legacy Cloudinary raw files through an authorized inline/download response. */
+    public MaterialContent getMaterialContent(Long actorId, Long courseId, Long materialId) {
+        TeachingMaterial material = teachingMaterialRepository.findById(materialId)
+                .orElseThrow(() -> ErrorCode.MATERIAL_NOT_FOUND.toException());
+        if (material.getCourse() == null || !material.getCourse().getId().equals(courseId)) {
+            throw ErrorCode.MATERIAL_NOT_FOUND.toException();
+        }
+        courseAccessService.requireCourseViewer(actorId, material.getCourse());
+        try {
+            HttpResponse<byte[]> response = httpClient.send(HttpRequest.newBuilder(URI.create(material.getFileUrl()))
+                    .GET().build(), HttpResponse.BodyHandlers.ofByteArray());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new IllegalStateException("Could not retrieve material content");
+            }
+            String remoteContentType = response.headers().firstValue("Content-Type")
+                    .map(value -> value.split(";", 2)[0]).orElse(null);
+            String contentType = mimeType(material.getFileType(), remoteContentType);
+            return new MaterialContent(response.body(), contentType, downloadName(material, contentType));
+        } catch (Exception exception) {
+            throw new IllegalStateException("Could not retrieve material content", exception);
+        }
+    }
+
+    public record MaterialContent(byte[] bytes, String contentType, String filename) {}
+
+    private String mimeType(FileType type, String remoteContentType) {
+        if (remoteContentType != null && remoteContentType.startsWith("image/")) return remoteContentType;
+        return switch (type) {
+            case PDF -> "application/pdf";
+            case DOCX -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            case PPTX -> "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+            case MP4 -> "video/mp4";
+            case MP3 -> "audio/mpeg";
+            default -> "application/octet-stream";
+        };
+    }
+
+    private String downloadName(TeachingMaterial material, String contentType) {
+        String extension = switch (material.getFileType()) {
+            case PDF -> ".pdf"; case DOCX -> ".docx"; case PPTX -> ".pptx";
+            case MP4 -> ".mp4"; case MP3 -> ".mp3";
+            default -> imageExtension(contentType);
+        };
+        return "/files/" + material.getId() + extension;
+    }
+
+    private String imageExtension(String contentType) {
+        return switch (contentType) {
+            case "image/jpeg" -> ".jpg";
+            case "image/png" -> ".png";
+            case "image/webp" -> ".webp";
+            default -> ".file";
+        };
+    }
+
+    private void validateUpload(MultipartFile file) {
+        if (file == null || file.isEmpty() || file.getSize() > MAX_FILE_SIZE_BYTES
+                || file.getContentType() == null || !ALLOWED_CONTENT_TYPES.contains(file.getContentType())) {
+            throw ErrorCode.INVALID_REQUEST.toException();
+        }
+    }
+
+    private void validateTitle(String title) {
+        if (title == null || title.trim().isEmpty() || title.trim().length() > 300) {
+            throw ErrorCode.INVALID_REQUEST.toException();
+        }
     }
 }

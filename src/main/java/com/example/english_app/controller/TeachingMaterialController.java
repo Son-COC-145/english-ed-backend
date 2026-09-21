@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -48,7 +49,25 @@ public class TeachingMaterialController {
     @GetMapping
     public ResponseEntity<ApiResponse<List<TeachingMaterialResponse>>> getMaterials(@PathVariable Long courseId) {
         return ResponseEntity.ok(
-                ApiResponse.success(teachingMaterialService.getMaterialsByCourse(courseId)));
+                ApiResponse.success(teachingMaterialService.getMaterialsByCourse(getCurrentTeacher().getId(), courseId)));
+    }
+
+    @Operation(summary = "Xem trực tiếp tài liệu sau khi kiểm tra quyền truy cập")
+    @GetMapping("/{materialId}/view")
+    public ResponseEntity<byte[]> viewMaterial(@PathVariable Long courseId, @PathVariable Long materialId) {
+        var content = teachingMaterialService.getMaterialContent(getCurrentTeacher().getId(), courseId, materialId);
+        return ResponseEntity.ok().contentType(MediaType.parseMediaType(content.contentType()))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + content.filename() + "\"")
+                .body(content.bytes());
+    }
+
+    @Operation(summary = "Tải tài liệu sau khi kiểm tra quyền truy cập")
+    @GetMapping("/{materialId}/download")
+    public ResponseEntity<byte[]> downloadMaterial(@PathVariable Long courseId, @PathVariable Long materialId) {
+        var content = teachingMaterialService.getMaterialContent(getCurrentTeacher().getId(), courseId, materialId);
+        return ResponseEntity.ok().contentType(MediaType.parseMediaType(content.contentType()))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + content.filename() + "\"")
+                .body(content.bytes());
     }
 
     @Operation(summary = "Upload tài liệu giảng dạy cho lớp học")
@@ -72,7 +91,7 @@ public class TeachingMaterialController {
             @PathVariable Long courseId,
             @PathVariable Long materialId) {
         User teacher = getCurrentTeacher();
-        teachingMaterialService.deleteMaterial(materialId, teacher.getId());
+        teachingMaterialService.deleteMaterial(courseId, materialId, teacher.getId());
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
@@ -84,9 +103,9 @@ public class TeachingMaterialController {
             @PathVariable Long materialId,
             @RequestBody UpdateTeachingMaterialRequest request) {
         User teacher = getCurrentTeacher();
-        teachingMaterialService.updateMaterialInfo(materialId, teacher.getId(), request.getTitle(),
-                courseId);
-        return ResponseEntity.ok(ApiResponse.success(null));
+        TeachingMaterialResponse response = teachingMaterialService.updateMaterialInfo(materialId, teacher.getId(),
+                request.getTitle(), courseId);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
 }

@@ -4,6 +4,7 @@ import com.example.english_app.dto.request.DeviceTokenRequest;
 import com.example.english_app.dto.response.NotificationResponse;
 import com.example.english_app.entity.enums.NotificationType;
 import com.example.english_app.entity.notification.Notification;
+import com.example.english_app.entity.notification.NotificationOutboxEvent;
 import com.example.english_app.entity.notification.UserDeviceToken;
 import com.example.english_app.entity.user.User;
 import com.example.english_app.repository.notification.NotificationRepository;
@@ -18,10 +19,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import com.example.english_app.repository.notification.NotificationPushDeliveryRepository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -32,7 +35,8 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final UserDeviceTokenRepository userDeviceTokenRepository;
     private final UserRepository userRepository;
-    private final FcmService fcmService;
+    private final NotificationPushDeliveryRepository pushDeliveryRepository;
+    private final NotificationOutboxService notificationOutboxService;
 
     @Transactional
     public void registerDeviceToken(DeviceTokenRequest request) {
@@ -86,25 +90,29 @@ public class NotificationService {
 
     @Transactional
     public void sendToUser(Long userId, String title, String message, String type) {
-        User user = userRepository.getReferenceById(userId);
-        
-        // 1. Lưu bản ghi vào DB
-        Notification notification = Notification.builder()
+        notificationOutboxService.enqueue(userId, NotificationType.valueOf(type), title, message,
+                "notification-api:" + UUID.randomUUID());
+    }
+
+    @Transactional
+    public void sendFromOutbox(NotificationOutboxEvent event) {
+        if (notificationRepository.existsByOutboxEventId(event.getId())) {
+            return;
+        }
+        User user = userRepository.getReferenceById(event.getRecipient().getId());
+        notificationRepository.save(Notification.builder()
                 .user(user)
-                .title(title)
-                .body(message)
+                .title(event.getTitle())
+                .body(event.getBody())
                 .isRead(false)
-                .type(NotificationType.valueOf(type)) 
-                .build();
-        notificationRepository.save(notification);
-        
-        // 2. Lấy danh sách Token và Gửi Push Notification qua FCM
-        List<String> tokens = userDeviceTokenRepository.findByUserId(userId)
+                .type(event.getNotificationType())
+                .outboxEventId(event.getId())
+                .build());
+        List<String> tokens = userDeviceTokenRepository.findByUserId(user.getId())
                 .stream()
                 .map(UserDeviceToken::getToken)
                 .collect(Collectors.toList());
-                
-        fcmService.sendMulticast(tokens, title, message);
+        pushDeliveryRepository.createDeliveries(event.getId(), tokens);
     }
 
     private Long getCurrentUserId() {

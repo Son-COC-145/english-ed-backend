@@ -2,12 +2,16 @@ package com.example.english_app.service.subscription;
 
 import com.example.english_app.config.VnPayConfig;
 import com.example.english_app.config.VnPayUtil;
+import com.example.english_app.dto.response.PaymentStatusResponse;
 import com.example.english_app.entity.enums.PaymentStatus;
+import com.example.english_app.entity.enums.Role;
 import com.example.english_app.entity.enums.SubscriptionStatus;
 import com.example.english_app.entity.subscription.PaymentTransaction;
 import com.example.english_app.entity.subscription.SubscriptionPlan;
 import com.example.english_app.entity.subscription.UserSubscription;
 import com.example.english_app.entity.user.User;
+import com.example.english_app.exception.AppException;
+import com.example.english_app.exception.ErrorCode;
 import com.example.english_app.repository.subscription.PaymentTransactionRepository;
 import com.example.english_app.repository.subscription.SubscriptionPlanRepository;
 import com.example.english_app.repository.user.UserRepository;
@@ -45,10 +49,10 @@ public class PaymentService {
     @Transactional
     public String createPaymentUrl(Long planId, String email, HttpServletRequest request) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         SubscriptionPlan plan = planRepository.findById(planId)
-                .orElseThrow(() -> new RuntimeException("Plan not found"));
+                .orElseThrow(() -> new AppException(ErrorCode.PLAN_NOT_FOUND));
 
         String vnp_TxnRef = String.valueOf(System.currentTimeMillis());
         
@@ -243,6 +247,36 @@ public class PaymentService {
                 log.info("Đã hủy tự động giao dịch vnpTxnRef = {}", vnpTxnRef);
             }
         });
+    }
+
+    @Transactional(readOnly = true)
+    public PaymentStatusResponse getPaymentStatus(String vnpTxnRef, String email) {
+        PaymentTransaction transaction = paymentTransactionRepository.findByVnpTxnRef(vnpTxnRef)
+                .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_TRANSACTION_NOT_FOUND));
+
+        User currentUser = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        if (currentUser.getRole() != Role.ADMIN
+                && !transaction.getUser().getId().equals(currentUser.getId())) {
+            throw new AppException(ErrorCode.ACCESS_DENIED);
+        }
+
+        UserSubscription subscription = transaction.getSubscription();
+        SubscriptionPlan plan = subscription != null ? subscription.getPlan() : null;
+
+        return PaymentStatusResponse.builder()
+                .txnRef(transaction.getVnpTxnRef())
+                .status(transaction.getStatus())
+                .planName(plan != null ? plan.getName() : null)
+                .planDurationDays(plan != null ? plan.getDurationDays() : null)
+                .amount(transaction.getAmount())
+                .orderInfo(transaction.getOrderInfo())
+                .vnpTransactionNo(transaction.getVnpTransactionNo())
+                .createdAt(transaction.getCreatedAt())
+                .subscriptionStartDate(subscription != null ? subscription.getStartDate() : null)
+                .subscriptionEndDate(subscription != null ? subscription.getEndDate() : null)
+                .build();
     }
 }
 

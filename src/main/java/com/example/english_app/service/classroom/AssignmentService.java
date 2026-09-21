@@ -17,31 +17,37 @@ import com.example.english_app.entity.user.User;
 import com.example.english_app.exception.ErrorCode;
 import com.example.english_app.mapper.ClassroomMapper;
 import com.example.english_app.repository.classroom.AssignmentRepository;
+import com.example.english_app.repository.classroom.AssignmentSubmissionRepository;
 import com.example.english_app.repository.classroom.CourseRepository;
 import com.example.english_app.repository.classroom.CourseStudentRepository;
-import com.example.english_app.repository.user.UserRepository;
-import com.example.english_app.service.notification.NotificationService;
+import com.example.english_app.service.notification.NotificationOutboxService;
 import com.example.english_app.entity.classroom.CourseStudent;
+import com.example.english_app.entity.enums.ClassStudentStatus;
+import com.example.english_app.entity.enums.NotificationType;
 
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class AssignmentService {
     private final AssignmentRepository assignmentRepository;
     private final CourseRepository courseRepository;
-    private final UserRepository userRepository;
     private final ClassroomMapper classroomMapper;
     private final CourseStudentRepository courseStudentRepository;
-    private final NotificationService notificationService;
+    private final NotificationOutboxService notificationOutboxService;
+    private final CourseAccessService courseAccessService;
+    private final AssignmentSubmissionRepository submissionRepository;
+    private final AssignmentReferenceService referenceService;
 
     @Transactional
     public AssignmentResponse createAssignment(Long teacherId, Long courseId, AssignmentRequest request) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> ErrorCode.COURSE_NOT_FOUND.toException());
 
-        User teacher = userRepository.findById(teacherId)
-                .orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
+        courseAccessService.requireTeacherOrAdmin(teacherId, course);
+        referenceService.validateTarget(request.getModuleType(), request.getRefId());
+        User teacher = course.getTeacher();
 
         Assignment assignment = Assignment.builder()
                 .title(request.getTitle())
@@ -55,18 +61,34 @@ public class AssignmentService {
 
         Assignment savedAssignment = assignmentRepository.save(assignment);
 
-        List<CourseStudent> students = courseStudentRepository.findByCourseId(courseId);
+        List<CourseStudent> students = courseStudentRepository.findByCourseIdAndStatus(courseId, ClassStudentStatus.ACTIVE);
         for (CourseStudent cs : students) {
-             notificationService.sendToUser(cs.getStudent().getId(), 
+             notificationOutboxService.enqueue(cs.getStudent().getId(), NotificationType.ASSIGNMENT,
                 "Bài tập mới", 
                 "Giáo viên vừa giao bài tập: " + savedAssignment.getTitle(), 
-                "ASSIGNMENT");
+                "assignment-created:" + savedAssignment.getId() + ":" + cs.getStudent().getId());
         }
 
         return classroomMapper.toAssignmentResponse(savedAssignment);
     }
 
-    public PageResponse<AssignmentResponse> getAssignmentsByCourse(Long courseId, String keyword, Pageable pageable) {
+    public PageResponse<AssignmentResponse> getAssignmentsForTeacher(Long teacherId, Long courseId, String keyword,
+            Pageable pageable) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> ErrorCode.COURSE_NOT_FOUND.toException());
+        courseAccessService.requireTeacherOrAdmin(teacherId, course);
+        return getAssignments(courseId, keyword, pageable);
+    }
+
+    public PageResponse<AssignmentResponse> getAssignmentsForStudent(Long studentId, Long courseId, String keyword,
+            Pageable pageable) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> ErrorCode.COURSE_NOT_FOUND.toException());
+        courseAccessService.requireActiveStudent(studentId, course);
+        return getAssignments(courseId, keyword, pageable);
+    }
+
+    private PageResponse<AssignmentResponse> getAssignments(Long courseId, String keyword, Pageable pageable) {
         Page<Assignment> pageResult = assignmentRepository.findAllByCourseIdWithKeyword(courseId, keyword, pageable);
         List<AssignmentResponse> content = pageResult.getContent().stream()
                 .map(classroomMapper::toAssignmentResponse)
@@ -81,9 +103,18 @@ public class AssignmentService {
     }
 
     @Transactional
-    public AssignmentResponse updateAssignment(Long assignmentId, AssignmentRequest request) {
-        Assignment assignment = assignmentRepository.findById(assignmentId)
+    public AssignmentResponse updateAssignment(Long teacherId, Long courseId, Long assignmentId, AssignmentRequest request) {
+        Assignment assignment = assignmentRepository.findByIdForUpdate(assignmentId)
                 .orElseThrow(() -> ErrorCode.ASSIGNMENT_NOT_FOUND.toException());
+        if (!assignment.getCourse().getId().equals(courseId)) {
+            throw ErrorCode.ASSIGNMENT_NOT_FOUND.toException();
+        }
+        courseAccessService.requireTeacherOrAdmin(teacherId, assignment.getCourse());
+        referenceService.validateTarget(request.getModuleType(), request.getRefId());
+        if ((assignment.getModuleType() != request.getModuleType() || !assignment.getRefId().equals(request.getRefId()))
+                && submissionRepository.existsByAssignmentId(assignmentId)) {
+            throw ErrorCode.CLASSROOM_RESOURCE_IN_USE.toException();
+        }
         assignment.setTitle(request.getTitle());
         assignment.setDescription(request.getDescription());
         assignment.setModuleType(request.getModuleType());
@@ -93,7 +124,16 @@ public class AssignmentService {
     }
 
     @Transactional
-    public void deleteAssignment(Long assignmentId) {
-        assignmentRepository.deleteById(assignmentId);
+    public void deleteAssignment(Long teacherId, Long courseId, Long assignmentId) {
+        Assignment assignment = assignmentRepository.findByIdForUpdate(assignmentId)
+                .orElseThrow(() -> ErrorCode.ASSIGNMENT_NOT_FOUND.toException());
+        if (!assignment.getCourse().getId().equals(courseId)) {
+            throw ErrorCode.ASSIGNMENT_NOT_FOUND.toException();
+        }
+        courseAccessService.requireTeacherOrAdmin(teacherId, assignment.getCourse());
+        if (submissionRepository.existsByAssignmentId(assignmentId)) {
+            throw ErrorCode.CLASSROOM_RESOURCE_IN_USE.toException();
+        }
+        assignmentRepository.delete(assignment);
     }
 }

@@ -13,24 +13,30 @@ import com.example.english_app.entity.classroom.Course;
 import com.example.english_app.entity.enums.Role;
 import com.example.english_app.entity.user.User;
 import com.example.english_app.mapper.ClassroomMapper;
+import com.example.english_app.exception.ErrorCode;
+import org.springframework.transaction.annotation.Transactional;
 import com.example.english_app.repository.classroom.CourseRepository;
+import com.example.english_app.repository.classroom.CourseStudentRepository;
 import com.example.english_app.repository.user.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class CourseService {
     private final UserRepository userRepository;
     private final CourseRepository courseRepository;
+    private final CourseStudentRepository courseStudentRepository;
     private final ClassroomMapper classroomMapper;
 
+    @Transactional
     public CourseResponse createCourse(CourseRequest request) {
         User teacher = userRepository.findById(request.getTeacherId())
-                .orElseThrow(() -> new RuntimeException("Teacher not found"));
+                .orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
 
         if (teacher.getRole() != Role.TEACHER) {
-            throw new RuntimeException("User is not a teacher");
+            throw ErrorCode.INVALID_REQUEST.toException();
         }
 
         Course course = Course.builder()
@@ -46,9 +52,10 @@ public class CourseService {
         return classroomMapper.toCourseResponse(courseRepository.save(course));
     }
 
+    @Transactional
     public CourseResponse updateCourse(Long id, CourseRequest request) {
         Course course = courseRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Course not found"));
+                .orElseThrow(() -> ErrorCode.COURSE_NOT_FOUND.toException());
 
         if (request.getName() != null)
             course.setName(request.getName());
@@ -65,33 +72,44 @@ public class CourseService {
 
         if (request.getTeacherId() != null) {
             User teacher = userRepository.findById(request.getTeacherId())
-                    .orElseThrow(() -> new RuntimeException("Teacher not found"));
+                    .orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
+            if (teacher.getRole() != Role.TEACHER) throw ErrorCode.INVALID_REQUEST.toException();
             course.setTeacher(teacher);
         }
         return classroomMapper.toCourseResponse(courseRepository.save(course));
     }
 
+    @Transactional
     public CourseResponse activate(Long id) {
         Course course = courseRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Course not found"));
+                .orElseThrow(() -> ErrorCode.COURSE_NOT_FOUND.toException());
 
         course.setIsActive(true);
 
         return classroomMapper.toCourseResponse(courseRepository.save(course));
     }
 
+    @Transactional
     public CourseResponse deactivate(Long id) {
         Course course = courseRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Course not found"));
+                .orElseThrow(() -> ErrorCode.COURSE_NOT_FOUND.toException());
+
+        if (courseStudentRepository.existsByCourseId(id)) {
+            throw ErrorCode.COURSE_HAS_STUDENTS.toException();
+        }
 
         course.setIsActive(false);
 
         return classroomMapper.toCourseResponse(courseRepository.save(course));
     }
 
+    @Transactional
     public void deleteCourse(Long id) {
-        Course course = courseRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Course not found"));
+        Course course = courseRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> ErrorCode.COURSE_NOT_FOUND.toException());
+        if (courseRepository.hasDependentData(id)) {
+            throw ErrorCode.CLASSROOM_RESOURCE_IN_USE.toException();
+        }
         courseRepository.delete(course);
     }
 

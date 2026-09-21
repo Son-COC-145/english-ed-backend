@@ -36,6 +36,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/v1/teacher/courses/{courseId}/assignments")
 @RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
 @Tag(name = "Teacher Assignment", description = "Teacher Assignment API")
 public class TeacherAssignmentController {
     private final AssignmentService assignmentService;
@@ -55,7 +56,7 @@ public class TeacherAssignmentController {
             @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
 
         return ResponseEntity.ok(
-                ApiResponse.success(assignmentService.getAssignmentsByCourse(courseId, keyword, pageable)));
+                ApiResponse.success(assignmentService.getAssignmentsForTeacher(getCurrentTeacher().getId(), courseId, keyword, pageable)));
     }
 
     @Operation(summary = "Tạo mới bài tập")
@@ -74,7 +75,8 @@ public class TeacherAssignmentController {
             @PathVariable Long courseId,
             @PathVariable Long assignmentId,
             @Valid @RequestBody AssignmentRequest request) {
-        return ResponseEntity.ok(ApiResponse.success(assignmentService.updateAssignment(assignmentId, request)));
+        return ResponseEntity.ok(ApiResponse.success(assignmentService.updateAssignment(
+                getCurrentTeacher().getId(), courseId, assignmentId, request)));
     }
 
     @Operation(summary = "Xóa bài tập")
@@ -82,7 +84,7 @@ public class TeacherAssignmentController {
     public ResponseEntity<ApiResponse<Void>> deleteAssignment(
             @PathVariable Long courseId,
             @PathVariable Long assignmentId) {
-        assignmentService.deleteAssignment(assignmentId);
+        assignmentService.deleteAssignment(getCurrentTeacher().getId(), courseId, assignmentId);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
@@ -93,7 +95,8 @@ public class TeacherAssignmentController {
             @PathVariable Long assignmentId,
             @PageableDefault(sort = "submittedAt", direction = Sort.Direction.DESC) Pageable pageable) {
         return ResponseEntity
-                .ok(ApiResponse.success(submissionService.getSubmissionsByAssignment(assignmentId, pageable)));
+                .ok(ApiResponse.success(submissionService.getSubmissionsByAssignment(
+                        getCurrentTeacher().getId(), courseId, assignmentId, pageable)));
     }
 
     @Operation(summary = "Chấm điểm bài nộp")
@@ -103,6 +106,7 @@ public class TeacherAssignmentController {
             @PathVariable Long assignmentId,
             @PathVariable Long submissionId,
             @Valid @RequestBody GradeSubmissionRequest request) {
-        return ResponseEntity.ok(ApiResponse.success(submissionService.gradeSubmission(submissionId, request)));
+        return ResponseEntity.ok(ApiResponse.success(submissionService.gradeSubmission(
+                getCurrentTeacher().getId(), courseId, assignmentId, submissionId, request)));
     }
 }

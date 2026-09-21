@@ -90,9 +90,10 @@ server:
 
 onboarding:
   placement:
-    max-questions: 30
+    max-questions: 15
     confidence-threshold: 85.0
     max-wrong-streak: 3
+    min-questions-before-early-stop: 7
 
 vnpay:
   tmn-code: ${VNPAY_TMN_CODE:}
@@ -106,11 +107,20 @@ app:
   cors:
     # Danh sách origin được phép gọi API. Thêm domain production vào đây.
     # VD: https://yourdomain.com,http://localhost:3000
-    allowed-origins: ${FRONTEND_URL:http://localhost:3000}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
 
 gemini:
   api-key: ${GEMINI_API_KEY:}
-  api-url: ${GEMINI_API_URL:https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent}
+  api-url: ${GEMINI_API_URL:https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent}
+
+speaking:
+  provider: ${SPEAKING_PROVIDER:gemini}
+  worker:
+    pool-size: ${SPEAKING_WORKER_POOL_SIZE:4}
+  openai:
+    api-key: ${OPENAI_API_KEY:}
+    base-url: ${SPEAKING_OPENAI_BASE_URL:https://api.openai.com/v1}
+    model: ${SPEAKING_OPENAI_MODEL:gpt-4}
 
 elevenlabs:
   api-key: ${ELEVENLABS_API_KEY:}
@@ -127,9 +137,21 @@ azure:
     container-name: ${AZURE_STORAGE_CONTAINER_NAME:english-app-media}
 firebase:
   config:
-    path: firebase-adminsdk.json
+    path: ${FIREBASE_CONFIG_PATH:firebase-adminsdk.json}
 
 gamification:
   daily-mission:
     new-words-limit: 5
     review-words-limit: 15
+
+notification:
+  outbox:
+    # Chu kỳ xử lý thông báo đang chờ (mili giây).
+    poll-ms: ${NOTIFICATION_OUTBOX_POLL_MS:5000}
+    max-events-per-poll: ${NOTIFICATION_OUTBOX_MAX_EVENTS_PER_POLL:50}
+
+storage:
+  cleanup:
+    # Chu kỳ xử lý các job xóa file (mili giây).
+    poll-ms: ${STORAGE_CLEANUP_POLL_MS:30000}
+    max-jobs-per-poll: ${STORAGE_CLEANUP_MAX_JOBS_PER_POLL:25}

@@ -29,13 +29,22 @@ public interface CourseStudentRepository extends JpaRepository<CourseStudent, Lo
             Pageable pageable);
 
     @EntityGraph(attributePaths = {"course"})
-    Page<CourseStudent> findAllByStudentId(Long studentId, Pageable pageable);
+    @Query("SELECT cs FROM CourseStudent cs WHERE cs.student.id = :studentId " +
+            "AND cs.status = :status AND cs.course.isActive = true")
+    Page<CourseStudent> findAllByStudentIdAndStatus(@Param("studentId") Long studentId,
+            @Param("status") ClassStudentStatus status, Pageable pageable);
 
     Optional<CourseStudent> findByCourseIdAndStudentId(Long courseId, Long studentId);
 
     boolean existsByCourseIdAndStudentId(Long courseId, Long studentId);
 
     List<CourseStudent> findByCourseId(Long courseId);
+
+    boolean existsByCourseId(Long courseId);
+
+    boolean existsByCourseIdAndStatus(Long courseId, ClassStudentStatus status);
+
+    List<CourseStudent> findByCourseIdAndStatus(Long courseId, ClassStudentStatus status);
 
     @Query("SELECT cs.course FROM CourseStudent cs " +
            "WHERE cs.student.id = :studentId AND cs.status = 'ACTIVE'")

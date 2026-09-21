@@ -4,11 +4,15 @@ import java.time.LocalDateTime;
 
 import com.example.english_app.entity.enums.LearningStatus;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class StudentVocabularyProgressResponse {
     private Long id;
     private Long vocabularyId;
@@ -18,7 +22,4 @@ public class StudentVocabularyProgressResponse {
     private Short correctCount;
     private Short incorrectCount;
     private LocalDateTime lastPracticedAt;
-    private Float easinessFactor;
-    private Integer intervalDays;
-    private Integer repetitions;
 }

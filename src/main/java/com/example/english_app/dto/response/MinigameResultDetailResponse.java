@@ -16,6 +16,6 @@ public class MinigameResultDetailResponse {
     private String topicName;
     private Short score;
     private Short xpEarned;
-    private Short durationSeconds;
+    private Integer durationSeconds;
     private LocalDateTime playedAt;
 }

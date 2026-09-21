@@ -30,9 +30,9 @@ public interface TopicRepository extends JpaRepository<Topic, Short> {
             Pageable pageable);
 
     @Query("SELECT t FROM Topic t WHERE t.isActive = true " +
-           "AND (t.cefrLevel = :cefrLevel OR t.cefrLevel IS NULL) " +
+           "AND (:cefrLevel IS NULL OR t.cefrLevel = :cefrLevel OR t.cefrLevel IS NULL) " +
            "AND (:categories IS NULL OR t.category IN :categories) " +
-           "ORDER BY CASE WHEN t.cefrLevel = :cefrLevel THEN 0 ELSE 1 END")
+           "ORDER BY CASE WHEN :cefrLevel IS NOT NULL AND t.cefrLevel = :cefrLevel THEN 0 ELSE 1 END, t.id ASC")
     List<Topic> findForRoadmap(@Param("cefrLevel") CefrLevel cefrLevel,
                                @Param("categories") List<String> categories,
                                Pageable pageable);

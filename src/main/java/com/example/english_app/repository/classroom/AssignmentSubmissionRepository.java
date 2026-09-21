@@ -8,9 +8,19 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 @Repository
 public interface AssignmentSubmissionRepository extends JpaRepository<AssignmentSubmission, Long> {
+    boolean existsByAssignmentId(Long assignmentId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select s from AssignmentSubmission s where s.id = :id")
+    Optional<AssignmentSubmission> findByIdForUpdate(@Param("id") Long id);
+    
     Page<AssignmentSubmission> findAllByAssignmentId(Long assignmentId, Pageable pageable);
 
     Optional<AssignmentSubmission> findByAssignmentIdAndStudentId(Long assignmentId, Long studentId);

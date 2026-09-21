@@ -1,5 +1,6 @@
 package com.example.english_app.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -13,6 +14,10 @@ public class OnboardingStatusResponse {
 
     private boolean goalSurveyCompleted;
     private boolean placementTestCompleted;
+
+    @JsonProperty("isPlacementSkipped")
+    private boolean isPlacementSkipped;
+
     private boolean settingsCompleted;
     private boolean onboardingCompleted;
 

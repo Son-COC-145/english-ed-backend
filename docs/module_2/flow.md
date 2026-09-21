@@ -1,188 +1,246 @@
-# Kiến trúc Luồng Xử Lý (Flow Architecture) - Module 2
+# Module 2 – Tài liệu tích hợp Mobile và Admin
 
-*Tài liệu mô tả ĐẦY ĐỦ các luồng nghiệp vụ chuẩn và Đặc tả API (API Specification) chi tiết nhất cho hệ thống Học Từ Vựng, Minigame và Quản lý Gói cước.*
+Module 2 gồm chủ đề/từ vựng, ôn tập SRS, gamification và thanh toán Premium. Tất cả API yêu cầu:
 
----
-
-## 1. Luồng Quản trị Từ Vựng & AI Content Generation (Admin)
-Quy trình Admin cấu hình dữ liệu chủ đề và tự động hóa tạo Flashcard bằng AI.
-
-```mermaid
-sequenceDiagram
-    actor Admin
-    participant System as Backend System
-    participant AI_LLM as Text AI (Gemini/ChatGPT)
-    participant AI_TTS as Audio AI (Cloud TTS)
-    participant AI_Img as Image AI (Pollinations)
-    participant DB as Database
-
-    %% Quản lý Topic
-    Admin->>System: CRUD Chủ đề (Topic)
-    System->>DB: Cập nhật Topics
-    System-->>Admin: Thành công
-    
-    %% Sinh từ vựng AI
-    Admin->>System: Yêu cầu tạo từ vựng (Từ, Chủ đề, Level)
-    
-    par Xử lý Text & Audio
-        System->>AI_LLM: Sinh IPA, Định nghĩa, Ví dụ, Hội thoại
-        AI_LLM-->>System: Trả về JSON Data
-        System->>AI_TTS: Dịch Audio (US & UK) từ Text
-        AI_TTS-->>System: Trả về Audio URLs
-    and Xử lý Hình ảnh
-        System->>AI_Img: Tạo prompt vẽ ảnh từ Từ Vựng
-        AI_Img-->>System: Trả về Image URL
-    end
-    
-    System->>DB: Lưu bản nháp (Draft Vocabulary)
-    System-->>Admin: Hiển thị Preview
-    Admin->>System: Sửa đổi (Nếu cần) & Publish
-    System->>DB: Cập nhật trạng thái = ACTIVE
-    System-->>Admin: Hoàn tất
+```http
+Authorization: Bearer <access-token>
 ```
 
-### 📦 Đặc tả API tương ứng
+Base URL minh họa: `https://api.example.com`.
 
-#### 1.1 Quản trị Chủ đề (TopicController)
-- **`GET /api/v1/topic`**: Lấy danh sách Topic.
-  - **Query:** `page`, `size`, `sort`.
-  - **Response:** `Page<TopicResponse>` (id, name, description, image_url, status).
-- **`POST /api/v1/topic`**: Tạo mới Topic.
-  - **Body (JSON/Form-data):** `name`, `description`, `file (Image)`.
-- **`PUT /api/v1/topic/{id}`**: Cập nhật Topic.
-- **`DELETE /api/v1/topic/{id}`**: Xóa/Ẩn Topic.
+## 1. Học từ vựng trên mobile
 
-#### 1.2 Sinh nội dung AI (AdminVocabularyController)
-- **`POST /api/v1/admin/vocabularies/generate`**: Yêu cầu AI sinh nội dung.
-  - **Body (JSON):** `{"topicId": 12, "words": ["apple", "banana"], "level": "A1"}`
-  - **Response:** `200 OK` (Trả về list vocabulary preview ở trạng thái DRAFT).
+### 1.1 Lấy chủ đề
 
----
-
-## 2. Luồng Học Tập Flashcard (Student Flow)
-Quy trình học viên truy cập vào các chủ đề và luyện tập lật thẻ flashcard.
-
-```mermaid
-sequenceDiagram
-    actor Student
-    participant App as Mobile App
-    participant BE as Backend (Topic & Vocab)
-    participant DB as Database
-
-    Student->>App: Mở danh mục Từ Vựng
-    App->>BE: GET /api/v1/topic (filter active)
-    BE->>DB: Fetch danh sách Topics
-    BE-->>App: Trả về Topics
-    
-    Student->>App: Bấm vào 1 Topic
-    App->>BE: GET /api/v1/vocabulary?topicId={id}
-    BE->>DB: Lọc danh sách Vocabulary
-    BE-->>App: Trả về chi tiết (Audio, Image, IPA)
-    
-    App->>Student: Hiển thị UI lật thẻ (Flashcard)
-    Student->>App: Bấm lật thẻ & nghe Audio (App lấy Cache)
+```http
+GET /api/v1/topic?isActive=true&page=0&size=20
 ```
 
-### 📦 Đặc tả API tương ứng
-- **`GET /api/v1/vocabulary?topicId={id}`** (VocabularyController)
-  - **Query Params:** `topicId` (Long), `page` (int), `size` (int).
-  - **Response (200 OK):**
-    ```json
-    {
-      "content": [
-        {
-          "id": 1,
-          "word": "Apple",
-          "ipa": "/ˈæp.əl/",
-          "meaning": "Quả táo",
-          "audioUrlUs": "https://cdn.../apple_us.mp3",
-          "imageUrl": "https://cdn.../apple.png",
-          "examples": ["I eat an apple."]
-        }
-      ]
-    }
-    ```
+Student chỉ nhận topic active. Mỗi item gồm `id`, `nameEn`, `nameVi`, `iconUrl`, `isActive`, `vocabularyCount`, `masteredCount`.
 
----
+### 1.2 Lấy danh sách từ
 
-## 3. Luồng Chơi & Chấm điểm Minigame
-Vòng đời của mini-game, từ lúc học viên bắt đầu cho đến khi tính điểm tích lũy.
-
-```mermaid
-stateDiagram-v2
-    [*] --> StartGame: Học viên mở Minigame
-    
-    state PlayGame {
-        StartGame --> DisplayQuestion: Frontend đếm ngược
-        DisplayQuestion --> UserAnswer: Học viên chọn/ghép từ
-        UserAnswer --> DisplayQuestion: Câu tiếp theo
-    }
-    
-    PlayGame --> SubmitResult: Hoàn thành / Hết giờ
-    SubmitResult --> ValidateScore: Gửi Payload (Số câu đúng, Thời gian) về Backend
-    ValidateScore --> GainXP: Tính toán Base XP + Bonus Time
-    GainXP --> UpdateProgress: Cập nhật DB (Vocabulary Progress)
-    UpdateProgress --> [*]
+```http
+GET /api/v1/vocabulary?topicId=1&cefrLevel=B1&page=0&size=20
 ```
 
-### 📦 Đặc tả API tương ứng
+Với student, backend luôn ép `status=PUBLISHED`. Response là `PageResponse<VocabularyResponse>`.
 
-#### 3.1 Ghi nhận kết quả Game (MiniGameController / StudentGamificationController)
-- **`POST /api/v1/gamification/minigame-results`** (hoặc submit endpoint tương tự)
-  - **Request Body:** 
-    ```json
-    {
-      "gameType": "MATCHING_WORDS",
-      "topicId": 5,
-      "correctAnswers": 10,
-      "totalQuestions": 12,
-      "timeTakenSeconds": 45
-    }
-    ```
-  - **Response (200 OK):** Trả về số điểm XP đạt được và level hiện tại.
-
-#### 3.2 Lấy thống kê và tiến độ
-- **`GET /api/v1/gamification/stat`**: Lấy thông tin thống kê XP, Streak của user.
-- **`GET /api/v1/gamification/vocabulary-progress`**: Lấy % hoàn thành các Topic từ vựng.
-
----
-
-## 4. Luồng Thanh Toán VNPAY (Premium Subscription Flow)
-Kiến trúc 2 luồng phản hồi bảo mật cho cổng thanh toán bên thứ ba.
-
-```mermaid
-sequenceDiagram
-    actor User
-    participant App as Mobile App
-    participant BE as Backend (PaymentController)
-    participant VNP as VNPAY Gateway
-    participant DB as Database
-
-    User->>App: Chọn mua gói Premium
-    App->>BE: POST /api/v1/payments/create (planId)
-    BE->>DB: Tạo PaymentTransaction (PENDING)
-    BE->>BE: Ký mã Hash (HMAC SHA512)
-    BE-->>App: Trả về Payment URL
-    App->>VNP: Mở WebView chuyển hướng đến VNPAY
-    
-    User->>VNP: Thực hiện thanh toán (ATM/Visa/QR)
-    
-    par IPN Webhook (Luồng cập nhật nền - Bắt buộc)
-        VNP->>BE: GET /api/v1/payments/vnpay-ipn
-        BE->>BE: Xác thực chữ ký Hash
-        BE->>DB: Cập nhật Transaction (SUCCESS) & Nâng cấp gói User
-        BE-->>VNP: Trả mã HTTP 200 (OK)
-    and User Redirect (Luồng Giao diện)
-        VNP-->>App: Redirect về App qua vnpay-return (Deep Link)
-        App->>User: Đóng WebView, check State, báo "Thành công"
-    end
+```json
+{"success":true,"data":{"content":[{"id":101,"word":"itinerary","ipaTranscription":"/aɪˈtɪnəreri/","cefrLevel":"B1","definitionVi":"Lịch trình","imageUrl":"https://...","audioUsUrl":"https://...","audioUkUrl":"https://...","exampleSentences":[],"collocations":[],"dialogue":[],"status":"PUBLISHED","userProgress":null}],"currentPage":0,"pageSize":20,"totalElements":1,"totalPages":1}}
 ```
 
-### 📦 Đặc tả API tương ứng
-- **`GET /api/v1/subscription-plans`** (SubscriptionPlanController)
-  - Lấy danh sách gói cước (Tên, Giá tiền, Các tính năng).
-- **`POST /api/v1/payments/create`** (PaymentController)
-  - **Request Body:** `{"planId": 2, "returnUrl": "myapp://payment-return"}`
-  - **Response:** `{"paymentUrl": "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?..."}`
-- **`GET /api/v1/payments/vnpay-ipn`** (PaymentController)
-  - Do Server VNPAY gọi ẩn dưới background. Nhận các tham số `vnp_SecureHash`, `vnp_TxnRef`,... để verify chữ ký và update trạng thái đơn hàng.
+### 1.3 Lấy chi tiết từ
+
+```http
+GET /api/v1/vocabulary/101
+```
+
+Student không thể đọc vocabulary draft/inactive. `userProgress` có thể là `null` nếu chưa học.
+
+## 2. Ôn tập SRS
+
+### 2.1 Tổng quan Home
+
+```http
+GET /api/v1/gamification/vocabulary-summary
+```
+
+Trả `total`, `newCount`, `learningCount`, `reviewingCount`, `masteredCount`, `dueTodayCount`.
+
+### 2.2 Lấy từ đến hạn
+
+```http
+GET /api/v1/gamification/vocabulary-reviews/due?page=0&size=20&topicId=1&cefrLevel=B1
+```
+
+Backend tự dùng `nextReviewAt <= server time`; mobile không tự tính ngày. `dueCount` cùng áp dụng filter topic/CEFR với danh sách.
+
+### 2.3 Submit đánh giá
+
+```http
+POST /api/v1/gamification/vocabulary-reviews/submit
+Content-Type: application/json
+
+{"vocabularyId":101,"rating":"GOOD","durationSeconds":5,"attemptId":"c8b3a1a0-4f5a-4b9b-8d1e-2c3f4e5a6b7c"}
+```
+
+`rating`: `AGAIN`, `HARD`, `FAIR`, `GOOD`, `EASY`.
+
+```json
+{"success":true,"data":{"vocabularyId":101,"previousStatus":"LEARNING","newStatus":"REVIEWING","nextReviewAt":"2026-09-13T10:30:00","intervalDays":3,"xpEarned":5,"totalXp":320,"currentStreak":6}}
+```
+
+Retry mạng phải dùng lại `attemptId`; cùng `(user, attemptId)` không cộng XP lần hai.
+
+### 2.4 Xem progress
+
+```http
+GET /api/v1/gamification/vocabulary-progress?status=REVIEWING&dueOnly=true&page=0&size=20
+GET /api/v1/gamification/vocabulary-progress/{progressId}
+```
+
+## 3. Daily mission và minigame
+
+```http
+GET /api/v1/gamification/daily-mission
+```
+
+Trả `reviewWords` (từ đến hạn) và `newWords` (từ mới từ course/syllabus active). Mặc định tối đa 15 từ ôn và 5 từ mới.
+
+```http
+POST /api/v1/vocabularies/minigames/submit
+Content-Type: application/json
+
+{"vocabularyId":101,"gameType":"LISTEN_CHOOSE","isCorrect":true,"durationSeconds":3,"attemptId":"e1f2a3b4-5c6d-7e8f-9a0b-1c2d3e4f5a6b"}
+```
+
+`gameType`: `LISTEN_CHOOSE`, `WORD_SCRAMBLE`, `FILL_CONTEXT`, `MATCHING_FLASH`. Response trả `xpEarned`, `totalXp`, `currentStreak`, `newVocabularyStatus`, `resultId`.
+
+Lịch sử và stats:
+
+```http
+GET /api/v1/gamification/minigame-results?page=0&size=20
+GET /api/v1/gamification/minigame-results/{id}
+GET /api/v1/gamification/stat
+```
+
+## 4. Admin/Teacher quản lý dữ liệu
+
+Topic (chỉ ADMIN):
+
+```http
+POST   /api/v1/topic
+PUT    /api/v1/topic/{id}
+DELETE /api/v1/topic/{id}
+PATCH  /api/v1/topic/activate/{id}
+PATCH  /api/v1/topic/deactivate/{id}
+```
+
+Vocabulary (ADMIN/TEACHER):
+
+```http
+POST   /api/v1/vocabulary
+PUT    /api/v1/vocabulary/{id}
+DELETE /api/v1/vocabulary/{id}
+```
+
+Sinh vocabulary AI:
+
+```http
+POST /api/v1/admin/vocabularies/generate?word=itinerary&topicId=1&cefr=B1
+```
+
+Vocabulary mới nên được review và publish trước khi mobile student nhìn thấy.
+
+## 5. Thanh toán Premium (Tích hợp VNPay)
+
+Quy trình thanh toán gồm **2 kênh callback độc lập**:
+- **IPN (Server-to-Server)**: VNPay gọi ngầm sang Backend để cập nhật Database và cấp quyền Premium. User/Mobile **không** gọi kênh này.
+- **Return URL (Client Redirect)**: VNPay redirect trình duyệt/WebView của người dùng về Backend để hiển thị kết quả cho người dùng.
+
+### 5.1 Lấy danh sách gói cước
+Mobile gọi API để hiển thị danh sách các gói (Plan) cho người dùng chọn:
+
+```http
+GET /api/v1/subscription-plans?page=0&size=20
+GET /api/v1/subscription-plans/{id}
+```
+
+Response trả về danh sách các gói với các trường chính: `id`, `name` (BASIC, PREMIUM), `price`, `durationDays`, `aiPromptLimit`.
+
+### 5.2 Tạo đơn & Lấy URL thanh toán VNPay
+Khi người dùng chọn gói và bấm "Thanh toán", Mobile gửi request:
+
+```http
+POST /api/v1/payments/create?planId=2
+Authorization: Bearer <access-token>
+```
+
+- **Backend xử lý**:
+  1. Tạo `UserSubscription` trạng thái `PENDING_PAYMENT`.
+  2. Tạo `PaymentTransaction` trạng thái `PENDING` kèm mã giao dịch `vnp_TxnRef`.
+  3. Ký bảo mật HMAC SHA512 và tạo mã timeout 15 phút trong Redis (`payment_timeout:{vnp_TxnRef}`).
+- **Backend response**: Trả về chuỗi `paymentUrl` (URL chuyển tiếp tới cổng VNPay).
+
+### 5.3 Mở giao diện thanh toán trên Mobile
+Mobile mở một **In-App WebView** hoặc **Custom Tab** với `paymentUrl` nhận được ở bước 5.2 để người dùng quét mã VNPay-QR hoặc nhập thẻ ATM/quốc tế.
+
+### 5.4 Kênh 1: IPN Webhook (Server-to-Server ngầm)
+> **Lưu ý quan trọng**: Mobile **tuyệt đối KHÔNG gọi** API này. Đây là giao tiếp ngầm giữa VNPay và Backend.
+
+Khi giao dịch phát sinh kết quả, hệ thống VNPay tự động gọi ngầm vào Backend:
+
+```http
+GET /api/v1/payments/vnpay-ipn?...vnp_Params...&vnp_SecureHash=...
+```
+
+- **Backend xử lý**:
+  1. Kiểm tra chữ ký bảo mật `vnp_SecureHash` bằng `vnp_HashSecret`. Nếu không khớp, từ chối cập nhật (`RspCode: 97`).
+  2. Nếu hợp lệ và `vnp_ResponseCode == "00"` (thành công):
+     - Chuyển `PaymentTransaction` sang `SUCCESS`.
+     - Kích hoạt `UserSubscription` sang `ACTIVE` và tính thời hạn: `endDate = now + plan.durationDays`.
+     - Xóa key timeout trong Redis.
+  3. Phản hồi cho VNPay: `{"RspCode": "00", "Message": "Confirm Success"}`.
+
+### 5.5 Kênh 2: Return URL (Điều hướng người dùng & đóng WebView)
+Sau khi người dùng thanh toán xong trên cổng VNPay, VNPay sẽ điều hướng (redirect) WebView về:
+
+```http
+GET /api/v1/payments/vnpay-return?vnp_ResponseCode=00&vnp_TxnRef=...
+```
+
+- **Backend xử lý**: 
+  - Đọc `vnp_ResponseCode`:
+    - Nếu `"00"`: Redirect tiếp về `{frontendUrl}/payment-success?txnRef={vnp_TxnRef}`.
+    - Khác `"00"`: Redirect tiếp về `{frontendUrl}/payment-failed?txnRef={vnp_TxnRef}`.
+- **Nhiệm vụ của Mobile/Frontend**:
+  - Dùng sự kiện lắng nghe URL trên WebView (hoặc routing phía Frontend Web).
+  - Khi thấy URL chứa `/payment-success?txnRef=...` hoặc `/payment-failed?txnRef=...`:
+    1. Đóng WebView (với Mobile).
+    2. Lấy `txnRef` từ URL param và gọi API `GET /api/v1/payments/status/{txnRef}` để lấy chi tiết đơn hàng và xác thực trạng thái từ server.
+    3. Nếu trạng thái là `PENDING` (do IPN trễ hơn redirect 1–2 giây), hiển thị trạng thái chờ và polling lại sau 1.5s (tối đa 3–5 lần).
+
+### 5.6 Cơ chế tự động hủy giao dịch (Timeout 15 phút)
+- Nếu người dùng tắt WebView hoặc không hoàn tất thanh toán trong 15 phút:
+  - Redis key `payment_timeout:{vnp_TxnRef}` sẽ hết hạn (Expire).
+  - Background listener (`PaymentExpirationListener`) tự động cập nhật `PaymentTransaction` thành `FAILED` và `UserSubscription` thành `CANCELLED`. Mobile không cần gọi API hủy thủ công.
+
+### 5.7 Lấy chi tiết & trạng thái thanh toán
+Dùng cho Frontend Web và Mobile gọi xác thực trạng thái giao dịch từ hệ thống:
+
+```http
+GET /api/v1/payments/status/{txnRef}
+Authorization: Bearer <access-token>
+```
+
+- **Phân quyền**: Yêu cầu đăng nhập. Chỉ chính chủ sở hữu giao dịch (`user`) hoặc `ADMIN` mới có quyền xem.
+- **Response**:
+```json
+{
+  "success": true,
+  "message": "Thành công",
+  "data": {
+    "txnRef": "1726557891234",
+    "status": "SUCCESS",
+    "planName": "PREMIUM",
+    "planDurationDays": 30,
+    "amount": 99000,
+    "orderInfo": "Thanh toan don hang 1726557891234",
+    "vnpTransactionNo": "14682390",
+    "createdAt": "2026-09-17T14:15:30",
+    "subscriptionStartDate": "2026-09-17T14:15:30",
+    "subscriptionEndDate": "2026-10-17T14:15:30"
+  },
+  "timestamp": "2026-09-17T14:15:31"
+}
+```
+
+## 6. Quy tắc tích hợp
+
+1. `page` bắt đầu từ `0`.
+2. Không tự tính SRS, XP, streak hoặc trạng thái publish.
+3. Giữ nguyên idempotency key khi retry POST có side effect.
+4. Không đổi score `null` thành `0`; `null` nghĩa là chưa có dữ liệu.
+5. Student chỉ được xem topic active và vocabulary published.
+6. Các warning Spring Data Redis khi khởi động không ảnh hưởng JPA repository; chỉ xử lý khi ứng dụng báo startup failure.
