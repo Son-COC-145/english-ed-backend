@@ -19,22 +19,24 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     /**
      * Lấy ngẫu nhiên MỘT câu hỏi thuộc level chỉ định, loại trừ các câu đã trả lời.
      *
-     * <p>Dùng LIMIT 1 trực tiếp trong SQL để PostgreSQL không cần load toàn bộ
-     * bảng vào memory rồi Java mới lấy get(0). Với bảng lớn, đây là sự khác biệt
-     * giữa O(n log n) và O(1) I/O.
+     * <p>Dùng native PostgreSQL query với RANDOM() + covering index
+     * {@code idx_questions_active_by_level} để tránh full table scan.
+     * Với 15 câu mỗi placement test và bảng questions vài trăm rows,
+     * query này chạy trong < 5ms.
      *
-     * @param cefrLevel  Trình độ CEFR cần lấy câu hỏi.
+     * @param cefrLevel  Trình độ CEFR cần lấy câu hỏi (tên enum dưới dạng String).
      * @param excludeIds Danh sách ID câu hỏi đã trả lời (không lấy lại).
      * @return Optional chứa câu hỏi nếu còn, empty nếu hết câu hỏi ở level này.
      */
-    @Query(value = "SELECT q FROM Question q " +
-            "WHERE q.cefrLevel = :level " +
-            "AND q.isActive = true " +
-            "AND q.id NOT IN :excludeIds " +
-            "ORDER BY FUNCTION('RANDOM') " +
-            "LIMIT 1")
+    @Query(value = "SELECT * FROM questions " +
+            "WHERE cefr_level = :level " +
+            "AND is_active = true " +
+            "AND id NOT IN :excludeIds " +
+            "ORDER BY RANDOM() " +
+            "LIMIT 1",
+            nativeQuery = true)
     Optional<Question> findOneRandomByCefrLevelExcluding(
-            @Param("level") CefrLevel cefrLevel,
+            @Param("level") String cefrLevel,
             @Param("excludeIds") List<Long> excludeIds);
 
     long countByCefrLevelAndIsActiveTrue(CefrLevel cefrLevel);

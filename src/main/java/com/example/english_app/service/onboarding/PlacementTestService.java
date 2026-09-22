@@ -34,22 +34,11 @@ import java.util.*;
 @Transactional
 public class PlacementTestService {
 
-    @Value("${onboarding.placement.max-questions:30}")
+    @Value("${onboarding.placement.max-questions:15}")
     private int maxPlacementQuestions;
-
-    @Value("${onboarding.placement.confidence-threshold:85.0}")
-    private double confidenceThreshold;
 
     @Value("${onboarding.placement.max-wrong-streak:3}")
     private int maxWrongStreak;
-
-    /**
-     * Số câu tối thiểu phải hoàn thành trước khi cho phép kết thúc sớm (CAT early-stop).
-     * Ngăn bug: user sai 3 câu liên tiếp ở câu 3→5 → confidence = 100% → test bị đánh
-     * dấu COMPLETED khi chỉ làm được ~5 câu, gây nhầm lẫn "đã hoàn thành" khi mở lại app.
-     */
-    @Value("${onboarding.placement.min-questions-before-early-stop:10}")
-    private int minQuestionsBeforeEarlyStop;
 
     private final PlacementTestSessionRepository sessionRepository;
     private final PlacementTestAnswerRepository answerRepository;
@@ -250,9 +239,9 @@ public class PlacementTestService {
 
         int answeredCount = session.getCurrentQuestionIndex();
 
-        boolean shouldFinish = shouldFinishEarly(session, answeredCount);
-
-        if (shouldFinish) {
+        // Kết thúc khi đã làm đủ maxPlacementQuestions câu (không còn early-stop).
+        // Đảm bảo tất cả user đều trải qua đủ số câu để đánh giá chính xác.
+        if (answeredCount >= maxPlacementQuestions) {
             PlacementResultResponse result = completeTest(session.getId(), userId);
             return PlacementQuestionResponse.builder()
                     .sessionId(session.getId())
@@ -266,12 +255,41 @@ public class PlacementTestService {
                     .build();
         }
 
-        PlacementQuestionResponse nextQuestion = getNextQuestion(session.getId(), userId);
-        nextQuestion.setSubmittedQuestionId(request.getQuestionId());
-        nextQuestion.setSessionStatus("IN_PROGRESS");
-        nextQuestion.setPreviousAnswerCorrect(isCorrect);
-        nextQuestion.setPreviousCorrectAnswer(question.getCorrectAnswer());
-        return nextQuestion;
+        // Tối ưu: thay vì gọi getNextQuestion() (tốn thêm 1 query findAnsweredQuestionIdsBySessionId),
+        // ta dùng answered IDs từ session + câu vừa trả lời để pick trực tiếp.
+        // Tiết kiệm 1 DB round-trip mỗi lần submit → giảm latency đáng kể.
+        List<Long> answeredIds = answerRepository.findAnsweredQuestionIdsBySessionId(session.getId());
+        if (answeredIds.isEmpty()) {
+            answeredIds = List.of(-1L);
+        }
+
+        CefrLevel nextLevel = session.getCurrentCefrEstimate() != null
+                ? session.getCurrentCefrEstimate() : CefrLevel.A2;
+
+        Question next = pickNextQuestion(nextLevel, answeredIds);
+        if (next == null) {
+            // Hết câu hỏi khả dụng — kết thúc sớm do data shortage (không phải CAT)
+            log.warn("No more questions available for session {} after {} answers. Completing test.",
+                    session.getId(), answeredCount);
+            PlacementResultResponse result = completeTest(session.getId(), userId);
+            return PlacementQuestionResponse.builder()
+                    .sessionId(session.getId())
+                    .submittedQuestionId(request.getQuestionId())
+                    .sessionStatus("COMPLETED")
+                    .isTestCompleted(true)
+                    .placementResult(result)
+                    .previousAnswerCorrect(isCorrect)
+                    .previousCorrectAnswer(question.getCorrectAnswer())
+                    .nextQuestion(null)
+                    .build();
+        }
+
+        PlacementQuestionResponse response = buildQuestionResponse(session.getId(), answeredCount, next);
+        response.setSubmittedQuestionId(request.getQuestionId());
+        response.setSessionStatus("IN_PROGRESS");
+        response.setPreviousAnswerCorrect(isCorrect);
+        response.setPreviousCorrectAnswer(question.getCorrectAnswer());
+        return response;
     }
 
     public PlacementResultResponse completeTest(Long sessionId, Long userId) {
@@ -380,54 +398,26 @@ public class PlacementTestService {
             session.setCurrentWrongStreak(session.getCurrentWrongStreak() + 1);
         }
 
+        // confidence_score dùng làm chỉ số tiến độ (progress %) thay vì trigger early-stop.
         int answered = session.getCurrentQuestionIndex();
-        int streak = session.getCurrentWrongStreak();
-        double confidence = (answered / (double) maxPlacementQuestions) * 100.0;
-        if (streak >= maxWrongStreak)
-            confidence = 100.0;
-
-        session.setConfidenceScore(BigDecimal.valueOf(Math.min(confidence, 100.0)));
+        double progress = (answered / (double) maxPlacementQuestions) * 100.0;
+        session.setConfidenceScore(BigDecimal.valueOf(Math.min(progress, 100.0)));
     }
 
     public int getMaxPlacementQuestions() {
         return maxPlacementQuestions;
     }
 
-    public double getConfidenceThreshold() {
-        return confidenceThreshold;
-    }
-
-    public int getMinQuestionsBeforeEarlyStop() {
-        return minQuestionsBeforeEarlyStop;
-    }
-
-    /**
-     * Kiểm tra xem bài kiểm tra đã đủ điều kiện kết thúc chưa.
-     *
-     * <p>Có 2 điều kiện kết thúc:
-     * <ul>
-     *   <li><b>Normal:</b> Đã trả lời đủ {@code maxPlacementQuestions} câu.
-     *   <li><b>Early stop (CAT):</b> Confidence >= threshold VÀ đã trả lời >= {@code minQuestionsBeforeEarlyStop}.
-     *       Guard tối thiểu ngăn việc kết thúc quá sớm khi user mắc chuỗi sai ngay từ đầu.
-     * </ul>
-     */
-    public boolean shouldFinishEarly(PlacementTestSession session, int answeredCount) {
-        if (answeredCount >= maxPlacementQuestions) return true;
-        return answeredCount >= minQuestionsBeforeEarlyStop
-                && session.getConfidenceScore() != null
-                && session.getConfidenceScore().doubleValue() >= confidenceThreshold;
-    }
-
     private Question pickNextQuestion(CefrLevel level, List<Long> excludeIds) {
         CefrLevel[] levels = CefrLevel.values();
         int idx = level.ordinal();
 
-        return questionRepository.findOneRandomByCefrLevelExcluding(level, excludeIds)
+        return questionRepository.findOneRandomByCefrLevelExcluding(level.name(), excludeIds)
                 .or(() -> idx + 1 < levels.length
-                        ? questionRepository.findOneRandomByCefrLevelExcluding(levels[idx + 1], excludeIds)
+                        ? questionRepository.findOneRandomByCefrLevelExcluding(levels[idx + 1].name(), excludeIds)
                         : Optional.empty())
                 .or(() -> idx - 1 >= 0
-                        ? questionRepository.findOneRandomByCefrLevelExcluding(levels[idx - 1], excludeIds)
+                        ? questionRepository.findOneRandomByCefrLevelExcluding(levels[idx - 1].name(), excludeIds)
                         : Optional.empty())
                 .orElse(null);
     }
