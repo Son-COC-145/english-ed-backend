@@ -41,6 +41,7 @@ public enum ErrorCode {
     AUDIO_EMPTY_OR_CORRUPT(5012, "File audio rỗng hoặc không thể xử lý", HttpStatus.BAD_REQUEST),
     PRONUNCIATION_UNAVAILABLE(5013, "Dịch vụ chấm phát âm tạm thời không khả dụng", HttpStatus.SERVICE_UNAVAILABLE),
     ROADMAP_NOT_GENERATED(5014, "Lộ trình chưa được tạo. Vui lòng hoàn thành bài kiểm tra phân loại trước.", HttpStatus.NOT_FOUND),
+    PLACEMENT_QUESTION_EXHAUSTED(5015, "Hết câu hỏi khả dụng cho kỹ năng này", HttpStatus.SERVICE_UNAVAILABLE),
 
     // AI Quota
     QUOTA_EXCEEDED(6001, "Bạn đã hết lượt sử dụng AI hôm nay. Vui lòng nâng cấp gói Premium!", HttpStatus.FORBIDDEN),

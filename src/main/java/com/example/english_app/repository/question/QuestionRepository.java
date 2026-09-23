@@ -39,6 +39,26 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
             @Param("level") String cefrLevel,
             @Param("excludeIds") List<Long> excludeIds);
 
+    /**
+     * Lấy ngẫu nhiên MỘT câu hỏi thuộc level và skill chỉ định, loại trừ các câu đã trả lời.
+     *
+     * @param level Trình độ CEFR cần lấy câu hỏi (tên enum dưới dạng String).
+     * @param skill Kỹ năng cần lấy câu hỏi (tên enum dưới dạng String).
+     * @param excludeIds Danh sách ID câu hỏi đã trả lời (không lấy lại).
+     * @return Optional chứa câu hỏi nếu còn, empty nếu hết câu hỏi ở level và skill này.
+     */
+    @Query(value = "SELECT * FROM questions " +
+            "WHERE cefr_level = :level AND skill = :skill " +
+            "AND is_active = true " +
+            "AND id NOT IN :excludeIds " +
+            "ORDER BY RANDOM() " +
+            "LIMIT 1",
+            nativeQuery = true)
+    Optional<Question> findOneRandomByLevelAndSkillExcluding(
+            @Param("level") String level,
+            @Param("skill") String skill,
+            @Param("excludeIds") List<Long> excludeIds);
+
     long countByCefrLevelAndIsActiveTrue(CefrLevel cefrLevel);
 
     @Query("SELECT q FROM Question q WHERE " +

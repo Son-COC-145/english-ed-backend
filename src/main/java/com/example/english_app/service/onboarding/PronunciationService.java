@@ -89,14 +89,11 @@ public class PronunciationService {
         // 5. Cập nhật lastActivityAt & counter & CAT state
         session.setLastActivityAt(LocalDateTime.now());
         session.setCurrentQuestionIndex(session.getCurrentQuestionIndex() + 1);
-        placementTestService.updateCatState(session, isCorrect);
+        placementTestService.updateSkillCatState(session, question.getSkill(), isCorrect);
         sessionRepository.save(session);
 
         int answeredCount = session.getCurrentQuestionIndex();
-        // Dùng chung shouldFinishEarly() với PlacementTestService để áp dụng
-        // ngưỡng tối thiểu số câu (minQuestionsBeforeEarlyStop) — tránh bug
-        // early-stop sau vài câu sai liên tiếp ngay từ đầu bài.
-        boolean shouldFinish = placementTestService.shouldFinishEarly(session, answeredCount);
+        boolean shouldFinish = answeredCount >= placementTestService.getMaxPlacementQuestions();
 
         if (shouldFinish) {
             com.example.english_app.dto.response.PlacementResultResponse placementResult =

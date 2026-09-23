@@ -58,6 +58,35 @@ public class PlacementTestSession {
     @Builder.Default
     private Integer currentWrongStreak = 0;
 
+    // ── Per-skill adaptive CEFR estimates ─────────────────────────────────────
+    // Mỗi skill có estimate độc lập, bắt đầu từ A2, cập nhật sau mỗi câu trả lời.
+    // current_cefr_estimate (cũ) không còn được write — giữ nguyên trong DB để compat.
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "vocab_cefr_estimate")
+    @Builder.Default
+    private CefrLevel vocabCefrEstimate = CefrLevel.A2;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "grammar_cefr_estimate")
+    @Builder.Default
+    private CefrLevel grammarCefrEstimate = CefrLevel.A2;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "reading_cefr_estimate")
+    @Builder.Default
+    private CefrLevel readingCefrEstimate = CefrLevel.A2;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "listening_cefr_estimate")
+    @Builder.Default
+    private CefrLevel listeningCefrEstimate = CefrLevel.A2;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "pronunciation_cefr_estimate")
+    @Builder.Default
+    private CefrLevel pronunciationCefrEstimate = CefrLevel.A2;
+
     /**
      * Kiểm tra session có hết hạn chưa (quá SESSION_TIMEOUT_MINUTES không hoạt động).
      * Đây là single source of truth cho timeout logic — dùng ở cả OnboardingService

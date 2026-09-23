@@ -90,7 +90,7 @@ server:
 
 onboarding:
   placement:
-    max-questions: 15
+    max-questions: 20
     max-wrong-streak: 3
 
 vnpay:

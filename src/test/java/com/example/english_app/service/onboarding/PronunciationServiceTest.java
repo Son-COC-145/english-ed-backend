@@ -64,8 +64,7 @@ class PronunciationServiceTest {
                 .build();
         mockQuestion = Question.builder().id(200L).build();
 
-        lenient().when(placementTestService.getMaxPlacementQuestions()).thenReturn(15);
-        lenient().when(placementTestService.getConfidenceThreshold()).thenReturn(85.0);
+        lenient().when(placementTestService.getMaxPlacementQuestions()).thenReturn(20);
         lenient().when(placementTestService.getNextQuestion(anyLong(), anyLong()))
                 .thenReturn(com.example.english_app.dto.response.PlacementQuestionResponse.builder().build());
     }

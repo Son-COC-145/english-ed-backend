@@ -50,6 +50,26 @@ public class StudentOnboarding {
     @Column(name = "placement_pronunciation_score")
     private Short placementPronunciationScore;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "placement_vocab_cefr")
+    private CefrLevel placementVocabCefr;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "placement_grammar_cefr")
+    private CefrLevel placementGrammarCefr;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "placement_reading_cefr")
+    private CefrLevel placementReadingCefr;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "placement_listening_cefr")
+    private CefrLevel placementListeningCefr;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "placement_pronunciation_cefr")
+    private CefrLevel placementPronunciationCefr;
+
     @Column(name = "placement_completed_at")
     private LocalDateTime placementCompletedAt;
 

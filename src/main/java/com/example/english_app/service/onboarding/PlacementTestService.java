@@ -2,6 +2,7 @@ package com.example.english_app.service.onboarding;
 
 import com.example.english_app.dto.response.PlacementResultResponse;
 import com.example.english_app.entity.enums.CefrLevel;
+import com.example.english_app.entity.enums.Skill;
 import com.example.english_app.entity.onboarding.PlacementTestAnswer;
 import com.example.english_app.entity.onboarding.PlacementTestSession;
 import com.example.english_app.entity.onboarding.StudentOnboarding;
@@ -34,11 +35,15 @@ import java.util.*;
 @Transactional
 public class PlacementTestService {
 
-    @Value("${onboarding.placement.max-questions:15}")
+    @Value("${onboarding.placement.max-questions:20}")
     private int maxPlacementQuestions;
 
     @Value("${onboarding.placement.max-wrong-streak:3}")
     private int maxWrongStreak;
+
+    private static final Skill[] SKILL_BLUEPRINT = {
+            Skill.VOCABULARY, Skill.GRAMMAR, Skill.READING, Skill.LISTENING, Skill.PRONUNCIATION
+    };
 
     private final PlacementTestSessionRepository sessionRepository;
     private final PlacementTestAnswerRepository answerRepository;
@@ -130,6 +135,11 @@ public class PlacementTestService {
         onboarding.setPlacementReadingScore(baselineScore);
         onboarding.setPlacementListeningScore(baselineScore);
         onboarding.setPlacementPronunciationScore(baselineScore);
+        onboarding.setPlacementVocabCefr(CefrLevel.A1);
+        onboarding.setPlacementGrammarCefr(CefrLevel.A1);
+        onboarding.setPlacementReadingCefr(CefrLevel.A1);
+        onboarding.setPlacementListeningCefr(CefrLevel.A1);
+        onboarding.setPlacementPronunciationCefr(CefrLevel.A1);
         onboarding.setPlacementCompletedAt(LocalDateTime.now());
         onboardingRepository.save(onboarding);
 
@@ -161,7 +171,12 @@ public class PlacementTestService {
                 .pronunciation(baselineScore)
                 .build();
 
-        return resultFactory.buildResponse(CefrLevel.A1, scores, Collections.emptyList(), roadmapJson,
+        Map<Skill, CefrLevel> skillCefrs = new EnumMap<>(Skill.class);
+        for (Skill s : SKILL_BLUEPRINT) {
+            skillCefrs.put(s, CefrLevel.A1);
+        }
+
+        return resultFactory.buildResponse(CefrLevel.A1, skillCefrs, scores, Collections.emptyList(), roadmapJson,
                 roadmapGenerated);
     }
 
@@ -188,14 +203,10 @@ public class PlacementTestService {
             answeredIds = List.of(-1L);
         }
 
-        CefrLevel currentLevel = session.getCurrentCefrEstimate() != null
-                ? session.getCurrentCefrEstimate()
-                : CefrLevel.A2;
+        Skill targetSkill = getTargetSkill(answeredCount);
+        CefrLevel currentLevel = getSkillEstimate(session, targetSkill);
 
-        Question next = pickNextQuestion(currentLevel, answeredIds);
-        if (next == null) {
-            throw ErrorCode.PLACEMENT_TEST_ALREADY_COMPLETED.toException();
-        }
+        Question next = pickNextQuestion(targetSkill, currentLevel, answeredIds);
 
         return buildQuestionResponse(sessionId, answeredCount, next);
     }
@@ -234,7 +245,7 @@ public class PlacementTestService {
 
         session.setLastActivityAt(LocalDateTime.now());
         session.setCurrentQuestionIndex(session.getCurrentQuestionIndex() + 1);
-        updateCatState(session, isCorrect);
+        updateSkillCatState(session, question.getSkill(), isCorrect);
         sessionRepository.save(session);
 
         int answeredCount = session.getCurrentQuestionIndex();
@@ -257,32 +268,15 @@ public class PlacementTestService {
 
         // Tối ưu: thay vì gọi getNextQuestion() (tốn thêm 1 query findAnsweredQuestionIdsBySessionId),
         // ta dùng answered IDs từ session + câu vừa trả lời để pick trực tiếp.
-        // Tiết kiệm 1 DB round-trip mỗi lần submit → giảm latency đáng kể.
         List<Long> answeredIds = answerRepository.findAnsweredQuestionIdsBySessionId(session.getId());
         if (answeredIds.isEmpty()) {
             answeredIds = List.of(-1L);
         }
 
-        CefrLevel nextLevel = session.getCurrentCefrEstimate() != null
-                ? session.getCurrentCefrEstimate() : CefrLevel.A2;
+        Skill nextSkill = getTargetSkill(answeredCount);
+        CefrLevel nextLevel = getSkillEstimate(session, nextSkill);
 
-        Question next = pickNextQuestion(nextLevel, answeredIds);
-        if (next == null) {
-            // Hết câu hỏi khả dụng — kết thúc sớm do data shortage (không phải CAT)
-            log.warn("No more questions available for session {} after {} answers. Completing test.",
-                    session.getId(), answeredCount);
-            PlacementResultResponse result = completeTest(session.getId(), userId);
-            return PlacementQuestionResponse.builder()
-                    .sessionId(session.getId())
-                    .submittedQuestionId(request.getQuestionId())
-                    .sessionStatus("COMPLETED")
-                    .isTestCompleted(true)
-                    .placementResult(result)
-                    .previousAnswerCorrect(isCorrect)
-                    .previousCorrectAnswer(question.getCorrectAnswer())
-                    .nextQuestion(null)
-                    .build();
-        }
+        Question next = pickNextQuestion(nextSkill, nextLevel, answeredIds);
 
         PlacementQuestionResponse response = buildQuestionResponse(session.getId(), answeredCount, next);
         response.setSubmittedQuestionId(request.getQuestionId());
@@ -305,9 +299,11 @@ public class PlacementTestService {
         List<PlacementTestAnswer> answers = answerRepository.findBySessionIdOrderByAnsweredAtAsc(sessionId);
         SkillScores scores = resultFactory.calculateAllSkills(answers);
 
-        CefrLevel finalLevel = session.getCurrentCefrEstimate() != null
-                ? session.getCurrentCefrEstimate()
-                : CefrLevel.A1;
+        // 5 per-skill CEFR estimates
+        Map<Skill, CefrLevel> skillCefrs = getAllSkillEstimates(session);
+
+        // Overall CEFR = median của 5 skill estimates
+        CefrLevel finalLevel = resultFactory.calculateFinalCefrMedian(skillCefrs);
 
         // Lưu kết quả vào StudentOnboarding
         StudentOnboarding onboarding = onboardingRepository.findByStudentId(userId)
@@ -322,14 +318,21 @@ public class PlacementTestService {
         onboarding.setPlacementReadingScore(scores.getReading());
         onboarding.setPlacementListeningScore(scores.getListening());
         onboarding.setPlacementPronunciationScore(scores.getPronunciation());
+
+        // 5 per-skill CEFR columns
+        onboarding.setPlacementVocabCefr(skillCefrs.get(Skill.VOCABULARY));
+        onboarding.setPlacementGrammarCefr(skillCefrs.get(Skill.GRAMMAR));
+        onboarding.setPlacementReadingCefr(skillCefrs.get(Skill.READING));
+        onboarding.setPlacementListeningCefr(skillCefrs.get(Skill.LISTENING));
+        onboarding.setPlacementPronunciationCefr(skillCefrs.get(Skill.PRONUNCIATION));
+
         onboarding.setPlacementCompletedAt(LocalDateTime.now());
         onboardingRepository.save(onboarding);
 
-        log.info("Placement test completed for user {}. CEFR: {}", userId, finalLevel);
+        log.info("Placement test completed for user {}. Overall CEFR: {}, Skill CEFRs: {}",
+                userId, finalLevel, skillCefrs);
 
         // Sinh lộ trình — dùng try-catch riêng để lỗi roadmap không rollback kết quả placement.
-        // generateAndPersist() chạy trong transaction REQUIRES_NEW và TỰ PERSIST roadmap_json;
-        // chỉ cần serialize kết quả trả về để build response — KHÔNG save lại onboarding ở đây.
         String roadmapJson = null;
         boolean roadmapGenerated = false;
         try {
@@ -343,7 +346,7 @@ public class PlacementTestService {
             log.error("Roadmap generation failed for user {}, placement result still saved.", userId, e);
         }
 
-        return resultFactory.buildResponse(finalLevel, scores, answers, roadmapJson, roadmapGenerated);
+        return resultFactory.buildResponse(finalLevel, skillCefrs, scores, answers, roadmapJson, roadmapGenerated);
     }
 
     /**
@@ -372,33 +375,101 @@ public class PlacementTestService {
                 .pronunciation(onboarding.getPlacementPronunciationScore())
                 .build();
 
+        Map<Skill, CefrLevel> skillCefrs = new EnumMap<>(Skill.class);
+        skillCefrs.put(Skill.VOCABULARY, onboarding.getPlacementVocabCefr() != null
+                ? onboarding.getPlacementVocabCefr() : onboarding.getPlacementCefrLevel());
+        skillCefrs.put(Skill.GRAMMAR, onboarding.getPlacementGrammarCefr() != null
+                ? onboarding.getPlacementGrammarCefr() : onboarding.getPlacementCefrLevel());
+        skillCefrs.put(Skill.READING, onboarding.getPlacementReadingCefr() != null
+                ? onboarding.getPlacementReadingCefr() : onboarding.getPlacementCefrLevel());
+        skillCefrs.put(Skill.LISTENING, onboarding.getPlacementListeningCefr() != null
+                ? onboarding.getPlacementListeningCefr() : onboarding.getPlacementCefrLevel());
+        skillCefrs.put(Skill.PRONUNCIATION, onboarding.getPlacementPronunciationCefr() != null
+                ? onboarding.getPlacementPronunciationCefr() : onboarding.getPlacementCefrLevel());
+
         return resultFactory.buildResponse(
                 onboarding.getPlacementCefrLevel(),
+                skillCefrs,
                 scores,
                 answers,
                 onboarding.getRoadmapJson(),
                 onboarding.getRoadmapJson() != null);
     }
 
-    // CAT Algorithm
-    public void updateCatState(PlacementTestSession session, boolean isCorrect) {
+    // ─── Blueprint & Skill Helpers ────────────────────────────────────────────
+
+    /**
+     * Xác định skill cho câu hỏi tiếp theo (dựa trên answeredCount).
+     * Blueprint cố định: 5 skills xoay vòng round-robin.
+     */
+    public Skill getTargetSkill(int answeredCount) {
+        return SKILL_BLUEPRINT[answeredCount % SKILL_BLUEPRINT.length];
+    }
+
+    /**
+     * Lấy CEFR estimate hiện tại cho một skill cụ thể trong session.
+     */
+    public CefrLevel getSkillEstimate(PlacementTestSession session, Skill skill) {
+        CefrLevel estimate = switch (skill) {
+            case VOCABULARY -> session.getVocabCefrEstimate();
+            case GRAMMAR -> session.getGrammarCefrEstimate();
+            case READING -> session.getReadingCefrEstimate();
+            case LISTENING -> session.getListeningCefrEstimate();
+            case PRONUNCIATION -> session.getPronunciationCefrEstimate();
+        };
+        return estimate != null ? estimate : CefrLevel.A2;
+    }
+
+    /**
+     * Cập nhật CEFR estimate cho một skill cụ thể trong session.
+     */
+    public void setSkillEstimate(PlacementTestSession session, Skill skill, CefrLevel level) {
+        switch (skill) {
+            case VOCABULARY -> session.setVocabCefrEstimate(level);
+            case GRAMMAR -> session.setGrammarCefrEstimate(level);
+            case READING -> session.setReadingCefrEstimate(level);
+            case LISTENING -> session.setListeningCefrEstimate(level);
+            case PRONUNCIATION -> session.setPronunciationCefrEstimate(level);
+        }
+    }
+
+    /**
+     * Lấy tất cả 5 per-skill CEFR estimates từ session.
+     */
+    public Map<Skill, CefrLevel> getAllSkillEstimates(PlacementTestSession session) {
+        Map<Skill, CefrLevel> map = new EnumMap<>(Skill.class);
+        for (Skill s : SKILL_BLUEPRINT) {
+            map.put(s, getSkillEstimate(session, s));
+        }
+        return map;
+    }
+
+    /**
+     * Cập nhật CEFR estimate độc lập cho từng skill.
+     * Đúng: +1 bậc (tối đa C2)
+     * Sai: -1 bậc (tối thiểu A1)
+     *
+     * <p><b>Disclaimer:</b> CEFR level được tính từ placement test này là heuristic ước lượng
+     * cho mục tiêu phân loại nhanh trong app học tiếng Anh. Đây không phải chứng nhận CEFR chính thức.
+     */
+    public void updateSkillCatState(PlacementTestSession session, Skill skill, boolean isCorrect) {
         CefrLevel[] levels = CefrLevel.values();
-        // Defensive: fallback về A2 nếu currentCefrEstimate null (session cũ hoặc edge case)
-        CefrLevel current = session.getCurrentCefrEstimate() != null
-                ? session.getCurrentCefrEstimate() : CefrLevel.A2;
+        CefrLevel current = getSkillEstimate(session, skill);
         int idx = current.ordinal();
 
         if (isCorrect) {
-            if (idx < levels.length - 1)
-                session.setCurrentCefrEstimate(levels[idx + 1]);
+            if (idx < levels.length - 1) {
+                setSkillEstimate(session, skill, levels[idx + 1]);
+            }
             session.setCurrentWrongStreak(0);
         } else {
-            if (idx > 0)
-                session.setCurrentCefrEstimate(levels[idx - 1]);
+            if (idx > 0) {
+                setSkillEstimate(session, skill, levels[idx - 1]);
+            }
             session.setCurrentWrongStreak(session.getCurrentWrongStreak() + 1);
         }
 
-        // confidence_score dùng làm chỉ số tiến độ (progress %) thay vì trigger early-stop.
+        // confidence_score dùng làm chỉ số tiến độ (progress %)
         int answered = session.getCurrentQuestionIndex();
         double progress = (answered / (double) maxPlacementQuestions) * 100.0;
         session.setConfidenceScore(BigDecimal.valueOf(Math.min(progress, 100.0)));
@@ -408,18 +479,50 @@ public class PlacementTestService {
         return maxPlacementQuestions;
     }
 
-    private Question pickNextQuestion(CefrLevel level, List<Long> excludeIds) {
+    /**
+     * Chọn câu hỏi tiếp theo cho skill chỉ định theo chiến lược Nearest-Level Fallback:
+     * 1. Exact: level yêu cầu + cùng skill
+     * 2. level - 1 (nếu có)
+     * 3. level + 1 (nếu có)
+     * 4. Sweep theo khoảng cách tăng dần: level - 2, level + 2, level - 3, level + 3... cùng skill
+     * 5. Hết câu hỏi cho skill này -> ném PLACEMENT_QUESTION_EXHAUSTED (tuyệt đối KHÔNG đổi skill)
+     */
+    private Question pickNextQuestion(Skill skill, CefrLevel level, List<Long> excludeIds) {
         CefrLevel[] levels = CefrLevel.values();
         int idx = level.ordinal();
 
-        return questionRepository.findOneRandomByCefrLevelExcluding(level.name(), excludeIds)
-                .or(() -> idx + 1 < levels.length
-                        ? questionRepository.findOneRandomByCefrLevelExcluding(levels[idx + 1].name(), excludeIds)
-                        : Optional.empty())
-                .or(() -> idx - 1 >= 0
-                        ? questionRepository.findOneRandomByCefrLevelExcluding(levels[idx - 1].name(), excludeIds)
-                        : Optional.empty())
-                .orElse(null);
+        // 1. Thử level hiện tại
+        Optional<Question> exact = questionRepository.findOneRandomByLevelAndSkillExcluding(
+                level.name(), skill.name(), excludeIds);
+        if (exact.isPresent()) {
+            return exact.get();
+        }
+
+        // 2, 3, 4. Sweep theo khoảng cách tăng dần (ưu tiên level thấp hơn trước: idx - d, rồi idx + d)
+        for (int d = 1; d < levels.length; d++) {
+            if (idx - d >= 0) {
+                Optional<Question> lower = questionRepository.findOneRandomByLevelAndSkillExcluding(
+                        levels[idx - d].name(), skill.name(), excludeIds);
+                if (lower.isPresent()) {
+                    log.info("Nearest-level fallback for skill {}: requested {}, found {}",
+                            skill, level, levels[idx - d]);
+                    return lower.get();
+                }
+            }
+            if (idx + d < levels.length) {
+                Optional<Question> higher = questionRepository.findOneRandomByLevelAndSkillExcluding(
+                        levels[idx + d].name(), skill.name(), excludeIds);
+                if (higher.isPresent()) {
+                    log.info("Nearest-level fallback for skill {}: requested {}, found {}",
+                            skill, level, levels[idx + d]);
+                    return higher.get();
+                }
+            }
+        }
+
+        // 5. Hết câu hỏi cho skill này -> tuyệt đối KHÔNG đổi skill khác
+        log.error("Exhausted all questions for skill {} with excludeIds size {}", skill, excludeIds.size());
+        throw ErrorCode.PLACEMENT_QUESTION_EXHAUSTED.toException();
     }
 
     // Private Helpers
@@ -491,7 +594,6 @@ public class PlacementTestService {
                 .student(user)
                 .startedAt(LocalDateTime.now())
                 .lastActivityAt(LocalDateTime.now())
-                .currentCefrEstimate(CefrLevel.A2)
                 .build();
 
         session = sessionRepository.save(session);

@@ -279,6 +279,84 @@ class PlacementResultFactoryTest {
             Map<String, Short> radar = resp.getRadarChartData();
             assertThat(radar).containsKeys("Từ vựng", "Ngữ pháp", "Đọc hiểu", "Nghe", "Phát âm");
         }
+
+        @Test
+        @DisplayName("buildResponse với skillCefrs chứa skills map với 5 skills")
+        void buildResponseWithSkillCefrsPopulatesSkillsMap() {
+            Map<Skill, CefrLevel> skillCefrs = Map.of(
+                    Skill.VOCABULARY, CefrLevel.B2,
+                    Skill.GRAMMAR, CefrLevel.B1,
+                    Skill.READING, CefrLevel.B2,
+                    Skill.LISTENING, CefrLevel.A2,
+                    Skill.PRONUNCIATION, CefrLevel.B1
+            );
+            SkillScores scores = SkillScores.builder()
+                    .vocab((short) 75).grammar((short) 50)
+                    .reading((short) 75).listening((short) 25).pronunciation((short) 50)
+                    .build();
+
+            PlacementResultResponse resp = factory.buildResponse(
+                    CefrLevel.B1, skillCefrs, scores, List.of(), null, false);
+
+            assertThat(resp.getSkills()).hasSize(5);
+            assertThat(resp.getSkills().get("VOCABULARY").getCefr()).isEqualTo("B2");
+            assertThat(resp.getSkills().get("VOCABULARY").getScore()).isEqualTo((short) 75);
+            assertThat(resp.getSkills().get("LISTENING").getCefr()).isEqualTo("A2");
+            assertThat(resp.getSkills().get("LISTENING").getScore()).isEqualTo((short) 25);
+        }
+    }
+
+    // ─── calculateFinalCefrMedian ────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("calculateFinalCefrMedian()")
+    class CalculateFinalCefrMedian {
+
+        @Test
+        @DisplayName("Tính median đúng cho [A2, B1, B1, B2, B2] -> B1")
+        void median_A2_B1_B1_B2_B2_returnsB1() {
+            Map<Skill, CefrLevel> skillCefrs = Map.of(
+                    Skill.VOCABULARY, CefrLevel.B2,
+                    Skill.GRAMMAR, CefrLevel.B1,
+                    Skill.READING, CefrLevel.B2,
+                    Skill.LISTENING, CefrLevel.A2,
+                    Skill.PRONUNCIATION, CefrLevel.B1
+            );
+            assertThat(factory.calculateFinalCefrMedian(skillCefrs)).isEqualTo(CefrLevel.B1);
+        }
+
+        @Test
+        @DisplayName("Tính median đúng cho [A1, A1, C1, C1, C1] -> C1")
+        void median_A1_A1_C1_C1_C1_returnsC1() {
+            Map<Skill, CefrLevel> skillCefrs = Map.of(
+                    Skill.VOCABULARY, CefrLevel.C1,
+                    Skill.GRAMMAR, CefrLevel.C1,
+                    Skill.READING, CefrLevel.C1,
+                    Skill.LISTENING, CefrLevel.A1,
+                    Skill.PRONUNCIATION, CefrLevel.A1
+            );
+            assertThat(factory.calculateFinalCefrMedian(skillCefrs)).isEqualTo(CefrLevel.C1);
+        }
+
+        @Test
+        @DisplayName("Tính median đúng cho [A1, A2, B1, B2, C1] -> B1")
+        void median_A1_A2_B1_B2_C1_returnsB1() {
+            Map<Skill, CefrLevel> skillCefrs = Map.of(
+                    Skill.VOCABULARY, CefrLevel.A1,
+                    Skill.GRAMMAR, CefrLevel.A2,
+                    Skill.READING, CefrLevel.B1,
+                    Skill.LISTENING, CefrLevel.B2,
+                    Skill.PRONUNCIATION, CefrLevel.C1
+            );
+            assertThat(factory.calculateFinalCefrMedian(skillCefrs)).isEqualTo(CefrLevel.B1);
+        }
+
+        @Test
+        @DisplayName("null hoặc empty map -> fallback A2")
+        void nullOrEmpty_returnsA2() {
+            assertThat(factory.calculateFinalCefrMedian(null)).isEqualTo(CefrLevel.A2);
+            assertThat(factory.calculateFinalCefrMedian(Map.of())).isEqualTo(CefrLevel.A2);
+        }
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────

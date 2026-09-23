@@ -65,6 +65,31 @@ public class PlacementResultFactory {
                 .build();
     }
 
+    // ─── CEFR Median Calculation ─────────────────────────────────────────────
+
+    /**
+     * Tính CEFR tổng từ 5 skill CEFR theo median heuristic.
+     * Sắp xếp theo ordinal (A1=0, A2=1, B1=2, B2=3, C1=4, C2=5), lấy phần tử ở vị trí giữa (index 2).
+     *
+     * <p><b>Disclaimer:</b> CEFR level được tính từ placement test này là heuristic ước lượng
+     * cho mục tiêu phân loại nhanh trong app học tiếng Anh. Đây không phải chứng nhận CEFR chính thức.
+     */
+    public CefrLevel calculateFinalCefrMedian(Map<Skill, CefrLevel> skillCefrs) {
+        if (skillCefrs == null || skillCefrs.isEmpty()) {
+            return CefrLevel.A2;
+        }
+        List<Integer> ordinals = skillCefrs.values().stream()
+                .filter(Objects::nonNull)
+                .map(CefrLevel::ordinal)
+                .sorted()
+                .collect(Collectors.toList());
+        if (ordinals.isEmpty()) {
+            return CefrLevel.A2;
+        }
+        int medianIndex = ordinals.size() / 2; // với 5 skills: index 2
+        return CefrLevel.values()[ordinals.get(medianIndex)];
+    }
+
     // ─── Response Builder ─────────────────────────────────────────────────────
 
     /**
@@ -73,20 +98,25 @@ public class PlacementResultFactory {
      */
     public PlacementResultResponse buildResponse(
             CefrLevel cefrLevel,
+            Map<Skill, CefrLevel> skillCefrs,
             SkillScores scores,
             List<PlacementTestAnswer> answers,
             String roadmapJson,
             boolean roadmapGenerated) {
 
         Map<String, Short> radarData = buildSkillScoreMap(scores);
+        Map<String, PlacementResultResponse.SkillResult> skillsMap = buildSkillsMap(skillCefrs, scores);
         List<String> suggestedModules = extractSuggestedModules(roadmapJson, cefrLevel);
         List<String> diagnosticTips = buildDiagnosticTips(scores, cefrLevel);
 
-        int totalCorrect = (int) answers.stream().filter(PlacementTestAnswer::getIsCorrect).count();
+        int totalCorrect = answers != null
+                ? (int) answers.stream().filter(PlacementTestAnswer::getIsCorrect).count()
+                : 0;
+        int totalQuestions = answers != null ? answers.size() : 0;
 
         return PlacementResultResponse.builder()
                 .cefrLevel(cefrLevel.name())
-                .totalQuestions(answers.size())
+                .totalQuestions(totalQuestions)
                 .correctAnswers(totalCorrect)
                 .vocabScore(scores.getVocab())
                 .grammarScore(scores.getGrammar())
@@ -94,6 +124,7 @@ public class PlacementResultFactory {
                 .listeningScore(scores.getListening())
                 .pronunciationScore(scores.getPronunciation())
                 .radarChartData(radarData)
+                .skills(skillsMap)
                 .message(buildResultMessage(cefrLevel))
                 .cefrDescription(buildCefrDescription(cefrLevel))
                 .strengths(getTopSkills(radarData, true))
@@ -102,6 +133,16 @@ public class PlacementResultFactory {
                 .suggestedModules(suggestedModules)
                 .diagnosticTips(diagnosticTips)
                 .build();
+    }
+
+    /** Overload for backward compatibility */
+    public PlacementResultResponse buildResponse(
+            CefrLevel cefrLevel,
+            SkillScores scores,
+            List<PlacementTestAnswer> answers,
+            String roadmapJson,
+            boolean roadmapGenerated) {
+        return buildResponse(cefrLevel, Collections.emptyMap(), scores, answers, roadmapJson, roadmapGenerated);
     }
 
     // ─── Private Helpers ──────────────────────────────────────────────────────
@@ -113,6 +154,36 @@ public class PlacementResultFactory {
         map.put("Đọc hiểu", s.getReading());
         map.put("Nghe",     s.getListening());
         map.put("Phát âm",  s.getPronunciation());
+        return map;
+    }
+
+    private Map<String, PlacementResultResponse.SkillResult> buildSkillsMap(
+            Map<Skill, CefrLevel> skillCefrs,
+            SkillScores scores) {
+        Map<String, PlacementResultResponse.SkillResult> map = new LinkedHashMap<>();
+        Map<Skill, CefrLevel> safeCefrs = skillCefrs != null ? skillCefrs : Collections.emptyMap();
+
+        map.put(Skill.VOCABULARY.name(), PlacementResultResponse.SkillResult.builder()
+                .cefr(safeCefrs.getOrDefault(Skill.VOCABULARY, CefrLevel.A2).name())
+                .score(scores.getVocab())
+                .build());
+        map.put(Skill.GRAMMAR.name(), PlacementResultResponse.SkillResult.builder()
+                .cefr(safeCefrs.getOrDefault(Skill.GRAMMAR, CefrLevel.A2).name())
+                .score(scores.getGrammar())
+                .build());
+        map.put(Skill.READING.name(), PlacementResultResponse.SkillResult.builder()
+                .cefr(safeCefrs.getOrDefault(Skill.READING, CefrLevel.A2).name())
+                .score(scores.getReading())
+                .build());
+        map.put(Skill.LISTENING.name(), PlacementResultResponse.SkillResult.builder()
+                .cefr(safeCefrs.getOrDefault(Skill.LISTENING, CefrLevel.A2).name())
+                .score(scores.getListening())
+                .build());
+        map.put(Skill.PRONUNCIATION.name(), PlacementResultResponse.SkillResult.builder()
+                .cefr(safeCefrs.getOrDefault(Skill.PRONUNCIATION, CefrLevel.A2).name())
+                .score(scores.getPronunciation())
+                .build());
+
         return map;
     }
 
