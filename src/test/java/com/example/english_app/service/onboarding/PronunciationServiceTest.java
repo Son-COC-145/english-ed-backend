@@ -1,158 +1,141 @@
 package com.example.english_app.service.onboarding;
 
+import com.example.english_app.dto.response.PlacementPronunciationAnswerResponse;
 import com.example.english_app.dto.response.PronunciationScoreResult;
-import com.example.english_app.entity.onboarding.PlacementTestAnswer;
-import com.example.english_app.entity.onboarding.PlacementTestSession;
-import com.example.english_app.entity.user.User;
 import com.example.english_app.exception.AppException;
-import com.example.english_app.entity.question.Question;
-import com.example.english_app.repository.question.PlacementTestAnswerRepository;
-import com.example.english_app.repository.question.PlacementTestSessionRepository;
-import com.example.english_app.repository.question.QuestionRepository;
+import com.example.english_app.exception.ErrorCode;
 import com.example.english_app.service.audio.AudioAssessmentPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 
-import java.time.LocalDateTime;
-import java.util.Optional;
+import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class PronunciationServiceTest {
 
-    @Mock
-    private AudioAssessmentPort audioAssessmentPort;
-
-    @Mock
-    private PlacementTestSessionRepository sessionRepository;
-
-    @Mock
-    private PlacementTestAnswerRepository answerRepository;
-
-    @Mock
-    private QuestionRepository questionRepository;
-
-    @Mock
-    private PlacementTestService placementTestService;
+    @Mock private AudioAssessmentPort audioAssessmentPort;
+    @Mock private PlacementTestService placementTestService;
+    @Mock private PronunciationSubmissionClaimService claimService;
 
     @InjectMocks
     private PronunciationService pronunciationService;
 
-    private PlacementTestSession mockSession;
-    private User mockUser;
-    private Question mockQuestion;
+    private MockMultipartFile audioFile;
+    private UUID submissionId;
 
     @BeforeEach
     void setUp() {
-        mockUser = User.builder().id(1L).build();
-        mockSession = PlacementTestSession.builder()
-                .id(100L)
-                .student(mockUser)
-                .startedAt(LocalDateTime.now())
-                .lastActivityAt(LocalDateTime.now())
-                .currentQuestionIndex(0)
-                .isCompleted(false)
-                .build();
-        mockQuestion = Question.builder().id(200L).build();
-
-        lenient().when(placementTestService.getMaxPlacementQuestions()).thenReturn(20);
-        lenient().when(placementTestService.getNextQuestion(anyLong(), anyLong()))
-                .thenReturn(com.example.english_app.dto.response.PlacementQuestionResponse.builder().build());
+        audioFile = new MockMultipartFile(
+                "audioFile", "test.wav", "audio/wav", "dummy_audio".getBytes());
+        submissionId = UUID.randomUUID();
     }
 
     @Test
-    void submitPronunciation_ShouldSaveCorrectAnswer_WhenScoreIs60OrHigher() throws Exception {
-        // Arrange
-        when(sessionRepository.findById(100L)).thenReturn(Optional.of(mockSession));
-        when(questionRepository.findById(200L)).thenReturn(Optional.of(mockQuestion));
-        
-        PronunciationScoreResult scoreResult = PronunciationScoreResult.builder()
-                .word("hello")
-                .overallScore((short) 65)
-                .status("SCORED")
-                .build();
-                
-        when(audioAssessmentPort.assess(any(byte[].class), eq("hello"))).thenReturn(scoreResult);
-        
-        MockMultipartFile audioFile = new MockMultipartFile("audioFile", "test.wav", "audio/wav", "dummy_audio".getBytes());
+    void submitPronunciation_usesServerReferenceAndPersistsAssessment() {
+        PronunciationScoreResult score = PronunciationScoreResult.builder()
+                .word("hello").overallScore((short) 65).status("SCORED").build();
+        PlacementPronunciationAnswerResponse response = PlacementPronunciationAnswerResponse.builder()
+                .sessionId(100L).submittedQuestionId(200L).pronunciationResult(score).build();
 
-        // Act
-        PronunciationScoreResult result = pronunciationService.submitPronunciation(1L, 100L, 200L, audioFile, "hello", 1);
+        when(placementTestService.preparePronunciationSubmission(
+                eq(1L), eq(100L), eq(200L), eq(submissionId), anyString()))
+                .thenReturn(new PlacementTestService.PronunciationSubmissionPreparation("hello", null));
+        when(audioAssessmentPort.assess(any(byte[].class), eq("hello"))).thenReturn(score);
+        when(placementTestService.recordPronunciationAssessment(
+                eq(1L), eq(100L), eq(200L), eq(submissionId), anyString(), eq(score)))
+                .thenReturn(response);
 
-        // Assert
-        assertEquals((short) 65, result.getOverallScore());
-        
-        ArgumentCaptor<PlacementTestAnswer> answerCaptor = ArgumentCaptor.forClass(PlacementTestAnswer.class);
-        verify(answerRepository).save(answerCaptor.capture());
-        
-        PlacementTestAnswer savedAnswer = answerCaptor.getValue();
-        assertTrue(savedAnswer.getIsCorrect());
-        // Service hiện tại set question từ questionRepository — assertNotNull thay vì assertNull cũ
-        assertNotNull(savedAnswer.getQuestion());
-        assertEquals(200L, savedAnswer.getQuestion().getId());
+        PronunciationScoreResult result = pronunciationService.submitPronunciationWithProgression(
+                1L, 100L, 200L, submissionId, audioFile).getPronunciationResult();
+
+        assertThat(result).isSameAs(score);
+        verify(audioAssessmentPort).assess(any(byte[].class), eq("hello"));
+        verify(placementTestService).recordPronunciationAssessment(
+                eq(1L), eq(100L), eq(200L), eq(submissionId), anyString(), eq(score));
+        verify(claimService).claim(eq(100L), eq(200L), eq(submissionId), anyString());
+        verify(claimService).complete(eq(100L), eq(submissionId), anyString());
     }
 
     @Test
-    void submitPronunciation_ShouldSaveIncorrectAnswer_WhenScoreIsBelow60() throws Exception {
-        // Arrange
-        when(sessionRepository.findById(100L)).thenReturn(Optional.of(mockSession));
-        when(questionRepository.findById(200L)).thenReturn(Optional.of(mockQuestion));
-        
-        PronunciationScoreResult scoreResult = PronunciationScoreResult.builder()
-                .word("hello")
-                .overallScore((short) 59)
-                .status("SCORED")
-                .build();
-                
-        when(audioAssessmentPort.assess(any(byte[].class), eq("hello"))).thenReturn(scoreResult);
-        
-        MockMultipartFile audioFile = new MockMultipartFile("audioFile", "test.wav", "audio/wav", "dummy_audio".getBytes());
+    void submitPronunciation_forwardsLowScoreWithoutChangingIt() {
+        PronunciationScoreResult score = PronunciationScoreResult.builder()
+                .word("hello").overallScore((short) 59).status("SCORED").build();
+        when(placementTestService.preparePronunciationSubmission(
+                eq(1L), eq(100L), eq(200L), eq(submissionId), anyString()))
+                .thenReturn(new PlacementTestService.PronunciationSubmissionPreparation("hello", null));
+        when(audioAssessmentPort.assess(any(byte[].class), eq("hello"))).thenReturn(score);
+        when(placementTestService.recordPronunciationAssessment(
+                eq(1L), eq(100L), eq(200L), eq(submissionId), anyString(), eq(score)))
+                .thenReturn(PlacementPronunciationAnswerResponse.builder()
+                        .pronunciationResult(score).build());
 
-        // Act
-        pronunciationService.submitPronunciation(1L, 100L, 200L, audioFile, "hello", 1);
+        PronunciationScoreResult result = pronunciationService.submitPronunciationWithProgression(
+                1L, 100L, 200L, submissionId, audioFile).getPronunciationResult();
 
-        // Assert
-        ArgumentCaptor<PlacementTestAnswer> answerCaptor = ArgumentCaptor.forClass(PlacementTestAnswer.class);
-        verify(answerRepository).save(answerCaptor.capture());
-        
-        PlacementTestAnswer savedAnswer = answerCaptor.getValue();
-        assertFalse(savedAnswer.getIsCorrect());
+        assertThat(result.getOverallScore()).isEqualTo((short) 59);
     }
 
     @Test
-    void submitPronunciation_ShouldThrowException_WhenSessionBelongsToAnotherUser() {
-        // Arrange
-        when(sessionRepository.findById(100L)).thenReturn(Optional.of(mockSession));
-        MockMultipartFile audioFile = new MockMultipartFile("audio", "audio".getBytes());
+    void submitPronunciation_replaysProcessedSubmissionWithoutCallingAzure() {
+        PlacementPronunciationAnswerResponse replay = PlacementPronunciationAnswerResponse.builder()
+                .sessionId(100L).submittedQuestionId(200L).build();
+        when(placementTestService.preparePronunciationSubmission(
+                eq(1L), eq(100L), eq(200L), eq(submissionId), anyString()))
+                .thenReturn(new PlacementTestService.PronunciationSubmissionPreparation("hello", replay));
 
-        // Act & Assert
-        AppException exception = assertThrows(AppException.class, () -> {
-            pronunciationService.submitPronunciation(2L, 100L, 200L, audioFile, "hello", 1); // User 2 trying to access user 1's session
-        });
-        assertEquals(1005, exception.getErrorCode().getCode()); // ACCESS_DENIED
+        PlacementPronunciationAnswerResponse result = pronunciationService.submitPronunciationWithProgression(
+                1L, 100L, 200L, submissionId, audioFile);
+
+        assertThat(result).isSameAs(replay);
+        verifyNoInteractions(audioAssessmentPort);
+        verifyNoInteractions(claimService);
+        verify(placementTestService, never()).recordPronunciationAssessment(
+                anyLong(), anyLong(), anyLong(), any(), anyString(), any());
     }
 
     @Test
-    void submitPronunciationWithProgression_ShouldThrowException_WhenAnswerAlreadySubmitted() {
-        // Arrange
-        when(sessionRepository.findById(100L)).thenReturn(Optional.of(mockSession));
-        when(answerRepository.existsBySessionIdAndQuestionId(100L, 200L)).thenReturn(true);
-        MockMultipartFile audioFile = new MockMultipartFile("audio", "audio".getBytes());
+    void submitPronunciation_doesNotCallAzureWhenPreflightRejectsDuplicate() {
+        when(placementTestService.preparePronunciationSubmission(
+                eq(1L), eq(100L), eq(200L), eq(submissionId), anyString()))
+                .thenThrow(ErrorCode.ANSWER_ALREADY_SUBMITTED.toException());
 
-        // Act & Assert
-        AppException exception = assertThrows(AppException.class, () -> {
-            pronunciationService.submitPronunciationWithProgression(1L, 100L, 200L, audioFile, "hello", 1);
-        });
-        assertEquals(5005, exception.getErrorCode().getCode()); // ANSWER_ALREADY_SUBMITTED
-        verify(audioAssessmentPort, never()).assess(any(), any());
+        assertThatThrownBy(() -> pronunciationService.submitPronunciationWithProgression(
+                1L, 100L, 200L, submissionId, audioFile))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.ANSWER_ALREADY_SUBMITTED));
+
+        verifyNoInteractions(audioAssessmentPort);
+        verifyNoInteractions(claimService);
+    }
+
+    @Test
+    void unavailableProviderDoesNotPersistOrAdvancePlacement() {
+        PronunciationScoreResult unavailable = PronunciationScoreResult.builder()
+                .word("hello").status("UNAVAILABLE").build();
+        when(placementTestService.preparePronunciationSubmission(
+                eq(1L), eq(100L), eq(200L), eq(submissionId), anyString()))
+                .thenReturn(new PlacementTestService.PronunciationSubmissionPreparation("hello", null));
+        when(audioAssessmentPort.assess(any(byte[].class), eq("hello"))).thenReturn(unavailable);
+
+        assertThatThrownBy(() -> pronunciationService.submitPronunciationWithProgression(
+                1L, 100L, 200L, submissionId, audioFile))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.PRONUNCIATION_UNAVAILABLE));
+
+        verify(placementTestService, never()).recordPronunciationAssessment(
+                anyLong(), anyLong(), anyLong(), any(), anyString(), any());
+        verify(claimService).release(eq(100L), eq(submissionId), anyString());
     }
 }

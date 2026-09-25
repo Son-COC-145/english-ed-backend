@@ -10,7 +10,7 @@ import java.util.Map;
 /**
  * Response câu hỏi Placement Test.
  *
- * <p>Khi bài thi hoàn tất (đủ số câu hoặc confidence đạt ngưỡng),
+ * <p>Khi bài thi hoàn tất đủ 20 câu,
  * {@code isTestCompleted=true} và {@code placementResult} sẽ được điền.
  * Frontend kiểm tra flag này để biết chuyển sang màn hình kết quả.
  */
@@ -61,6 +61,8 @@ public class PlacementQuestionResponse {
 
     // ─── Feedback for previous answer (Gamification) ───────────────────────────
     private Boolean previousAnswerCorrect;
+    /** Retained for backward-compatible JSON shape; placement never exposes answer keys. */
+    @Deprecated
     private String previousCorrectAnswer;
     private String previousExplanation;
 }

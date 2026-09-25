@@ -370,6 +370,7 @@ class PlacementResultFactoryTest {
     private PlacementTestAnswer answerWithSkill(boolean isCorrect, Skill skill) {
         PlacementTestAnswer a = mock(PlacementTestAnswer.class);
         when(a.getIsCorrect()).thenReturn(isCorrect);
+        when(a.getPronunciationOverallScore()).thenReturn(null);
         Question q = mock(Question.class);
         when(q.getSkill()).thenReturn(skill);
         when(a.getQuestion()).thenReturn(q);

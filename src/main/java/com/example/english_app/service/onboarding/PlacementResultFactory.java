@@ -61,8 +61,21 @@ public class PlacementResultFactory {
                 .grammar(calculateSkillScore(bySkill.get(Skill.GRAMMAR)))
                 .reading(calculateSkillScore(bySkill.get(Skill.READING)))
                 .listening(calculateSkillScore(bySkill.get(Skill.LISTENING)))
-                .pronunciation(calculateSkillScore(bySkill.get(Skill.PRONUNCIATION)))
+                .pronunciation(calculatePronunciationScore(bySkill.get(Skill.PRONUNCIATION)))
                 .build();
+    }
+
+    /** Uses Azure's continuous derived score instead of collapsing pronunciation to pass/fail. */
+    public short calculatePronunciationScore(List<PlacementTestAnswer> answers) {
+        if (answers == null || answers.isEmpty()) return 0;
+        List<Short> scored = answers.stream()
+                .map(PlacementTestAnswer::getPronunciationOverallScore)
+                .filter(Objects::nonNull)
+                .toList();
+        if (scored.isEmpty()) {
+            return calculateSkillScore(answers);
+        }
+        return (short) Math.round(scored.stream().mapToInt(Short::intValue).average().orElse(0));
     }
 
     // ─── CEFR Median Calculation ─────────────────────────────────────────────
@@ -116,6 +129,8 @@ public class PlacementResultFactory {
 
         return PlacementResultResponse.builder()
                 .cefrLevel(cefrLevel.name())
+                .assessmentType("ESTIMATED_PLACEMENT")
+                .assessmentDisclaimer("Ước lượng trình độ đầu vào để cá nhân hóa lộ trình; không phải chứng chỉ CEFR chính thức.")
                 .totalQuestions(totalQuestions)
                 .correctAnswers(totalCorrect)
                 .vocabScore(scores.getVocab())

@@ -1,6 +1,7 @@
 package com.example.english_app.entity.onboarding;
 
 import com.example.english_app.entity.enums.CefrLevel;
+import com.example.english_app.entity.enums.RoadmapGenerationStatus;
 import com.example.english_app.entity.user.User;
 import jakarta.persistence.*;
 import lombok.*;
@@ -81,9 +82,26 @@ public class StudentOnboarding {
     @Column(name = "roadmap_json", columnDefinition = "jsonb")
     private String roadmapJson;
 
-    @Column(name = "daily_goal_xp", nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "roadmap_status", length = 20)
+    private RoadmapGenerationStatus roadmapStatus;
+
+    @Column(name = "roadmap_generation_version", nullable = false)
     @Builder.Default
-    private Short dailyGoalXp = 20;
+    private Integer roadmapGenerationVersion = 0;
+
+    @Column(name = "roadmap_generation_attempts", nullable = false)
+    @Builder.Default
+    private Integer roadmapGenerationAttempts = 0;
+
+    @Column(name = "roadmap_last_error", length = 200)
+    private String roadmapLastError;
+
+    @Column(name = "roadmap_updated_at")
+    private LocalDateTime roadmapUpdatedAt;
+
+    @Column(name = "daily_goal_xp")
+    private Short dailyGoalXp;
 
     @Column(name = "reminder_time")
     private LocalTime reminderTime;

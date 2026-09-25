@@ -60,7 +60,8 @@ public class SecurityConfig {
                                                 "/oauth2/**",
                                                 "/login/**",
                                                 "/swagger-ui/**",
-                                                "/v3/api-docs/**")
+                                                "/v3/api-docs/**",
+                                                "/actuator/**")
                                 .authorizeHttpRequests(auth -> auth
                                                 .requestMatchers(
                                                                 "/swagger-ui/**",
@@ -73,8 +74,11 @@ public class SecurityConfig {
                                                                 "/api/v1/auth/reset-password",
                                                                 "/api/v1/auth/refresh-token",
                                                                 "/api/v1/payments/vnpay-return",
-                                                                "/api/v1/payments/vnpay-ipn")
+                                                                "/api/v1/payments/vnpay-ipn",
+                                                                "/actuator/health")
                                                 .permitAll()
+                                                .requestMatchers("/actuator/**")
+                                                .hasRole("ADMIN")
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/ipa/phonemes/**", "/speaking/avatars/**")
                                                 .permitAll()
                                                 .requestMatchers(HttpMethod.OPTIONS, "/**")

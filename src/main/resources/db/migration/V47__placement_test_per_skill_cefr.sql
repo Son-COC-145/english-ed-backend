@@ -17,19 +17,19 @@ ALTER TABLE public.placement_test_sessions
     ADD COLUMN IF NOT EXISTS pronunciation_cefr_estimate VARCHAR(10);
 
 ALTER TABLE public.placement_test_sessions
-    ADD CONSTRAINT IF NOT EXISTS pts_vocab_cefr_check
+    ADD CONSTRAINT pts_vocab_cefr_check
         CHECK (vocab_cefr_estimate IS NULL
             OR vocab_cefr_estimate IN ('A1','A2','B1','B2','C1','C2')),
-    ADD CONSTRAINT IF NOT EXISTS pts_grammar_cefr_check
+    ADD CONSTRAINT pts_grammar_cefr_check
         CHECK (grammar_cefr_estimate IS NULL
             OR grammar_cefr_estimate IN ('A1','A2','B1','B2','C1','C2')),
-    ADD CONSTRAINT IF NOT EXISTS pts_reading_cefr_check
+    ADD CONSTRAINT pts_reading_cefr_check
         CHECK (reading_cefr_estimate IS NULL
             OR reading_cefr_estimate IN ('A1','A2','B1','B2','C1','C2')),
-    ADD CONSTRAINT IF NOT EXISTS pts_listening_cefr_check
+    ADD CONSTRAINT pts_listening_cefr_check
         CHECK (listening_cefr_estimate IS NULL
             OR listening_cefr_estimate IN ('A1','A2','B1','B2','C1','C2')),
-    ADD CONSTRAINT IF NOT EXISTS pts_pronunciation_cefr_check
+    ADD CONSTRAINT pts_pronunciation_cefr_check
         CHECK (pronunciation_cefr_estimate IS NULL
             OR pronunciation_cefr_estimate IN ('A1','A2','B1','B2','C1','C2'));
 
@@ -45,18 +45,24 @@ ALTER TABLE public.student_onboarding
     ADD COLUMN IF NOT EXISTS placement_pronunciation_cefr VARCHAR(10);
 
 ALTER TABLE public.student_onboarding
-    ADD CONSTRAINT IF NOT EXISTS so_vocab_cefr_check
+    ADD CONSTRAINT so_vocab_cefr_check
         CHECK (placement_vocab_cefr IS NULL
             OR placement_vocab_cefr IN ('A1','A2','B1','B2','C1','C2')),
-    ADD CONSTRAINT IF NOT EXISTS so_grammar_cefr_check
+    ADD CONSTRAINT so_grammar_cefr_check
         CHECK (placement_grammar_cefr IS NULL
             OR placement_grammar_cefr IN ('A1','A2','B1','B2','C1','C2')),
-    ADD CONSTRAINT IF NOT EXISTS so_reading_cefr_check
+    ADD CONSTRAINT so_reading_cefr_check
         CHECK (placement_reading_cefr IS NULL
             OR placement_reading_cefr IN ('A1','A2','B1','B2','C1','C2')),
-    ADD CONSTRAINT IF NOT EXISTS so_listening_cefr_check
+    ADD CONSTRAINT so_listening_cefr_check
         CHECK (placement_listening_cefr IS NULL
             OR placement_listening_cefr IN ('A1','A2','B1','B2','C1','C2')),
-    ADD CONSTRAINT IF NOT EXISTS so_pronunciation_cefr_check
+    ADD CONSTRAINT so_pronunciation_cefr_check
         CHECK (placement_pronunciation_cefr IS NULL
             OR placement_pronunciation_cefr IN ('A1','A2','B1','B2','C1','C2'));
+
+-- Hot path cho việc chọn câu kế tiếp theo skill + CEFR.
+-- UNIQUE(session_id, question_id) ở V22 hỗ trợ vế NOT EXISTS của query chọn câu.
+CREATE INDEX IF NOT EXISTS idx_questions_active_skill_level_id
+    ON public.questions (skill, cefr_level, id)
+    WHERE is_active = true;

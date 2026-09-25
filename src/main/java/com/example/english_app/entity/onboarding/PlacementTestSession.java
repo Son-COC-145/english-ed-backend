@@ -42,12 +42,20 @@ public class PlacementTestSession {
     @Builder.Default
     private Integer currentQuestionIndex = 0;
 
+    /**
+     * Câu hỏi đã được server cấp và đang chờ câu trả lời.
+     * Persist ID này giúp GET next-question idempotent và ngăn client nộp một questionId tùy ý.
+     */
+    @Column(name = "current_question_id")
+    private Long currentQuestionId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "current_cefr_estimate")
     private CefrLevel currentCefrEstimate;
 
-    @Column(name = "confidence_score", precision = 5, scale = 2)
-    private BigDecimal confidenceScore;
+    /** Completion progress only; this is not a psychometric confidence measure. */
+    @Column(name = "progress_percent", precision = 5, scale = 2)
+    private BigDecimal progressPercent;
 
     /**
      * Số lần trả lời sai liên tiếp tính đến câu hỏi hiện tại.

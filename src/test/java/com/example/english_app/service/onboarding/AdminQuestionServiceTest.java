@@ -45,7 +45,7 @@ class AdminQuestionServiceTest {
                 .skill(skill)
                 .questionType(QuestionType.MULTIPLE_CHOICE)
                 .contentJson("{\"question\":\"Test\",\"options\":[\"A\",\"B\"]}")
-                .correctAnswer("Answer")
+                .correctAnswer("A")
                 .timeoutSeconds(30)
                 .isActive(true)
                 .build();
@@ -77,7 +77,7 @@ class AdminQuestionServiceTest {
                 .skill(Skill.GRAMMAR)
                 .questionType(QuestionType.MULTIPLE_CHOICE)
                 .contentJson("{\"question\":\"Test\",\"options\":[\"A\",\"B\"]}")
-                .correctAnswer("Answer")
+                .correctAnswer("A")
                 .timeoutSeconds(30)
                 .build();
 
@@ -142,6 +142,41 @@ class AdminQuestionServiceTest {
         org.junit.jupiter.api.Assertions.assertThrows(com.example.english_app.exception.AppException.class, () ->
                 adminQuestionService.createQuestion(request)
         );
+    }
+
+    @Test
+    @DisplayName("Listening chưa có media không được active")
+    void createActiveListeningWithoutMediaIsRejected() {
+        AdminQuestionRequest request = AdminQuestionRequest.builder()
+                .cefrLevel(CefrLevel.A2)
+                .skill(Skill.LISTENING)
+                .questionType(QuestionType.LISTENING)
+                .contentJson("{\"transcript\":\"It is raining\",\"question\":\"Weather?\","
+                        + "\"options\":[\"rain\",\"sun\"]}")
+                .correctAnswer("rain")
+                .timeoutSeconds(30)
+                .isActive(true)
+                .build();
+
+        org.junit.jupiter.api.Assertions.assertThrows(com.example.english_app.exception.AppException.class,
+                () -> adminQuestionService.createQuestion(request));
+    }
+
+    @Test
+    @DisplayName("Pronunciation reference phải khớp từ hiển thị")
+    void pronunciationReferenceMismatchIsRejected() {
+        AdminQuestionRequest request = AdminQuestionRequest.builder()
+                .cefrLevel(CefrLevel.A2)
+                .skill(Skill.PRONUNCIATION)
+                .questionType(QuestionType.PRONUNCIATION)
+                .contentJson("{\"word\":\"comfortable\",\"ipaTranscription\":\"/test/\"}")
+                .correctAnswer("different")
+                .timeoutSeconds(30)
+                .isActive(false)
+                .build();
+
+        org.junit.jupiter.api.Assertions.assertThrows(com.example.english_app.exception.AppException.class,
+                () -> adminQuestionService.createQuestion(request));
     }
 
     @Test

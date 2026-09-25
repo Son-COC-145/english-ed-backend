@@ -15,6 +15,8 @@ import java.util.Map;
 public class PlacementResultResponse {
 
     private String cefrLevel;
+    private String assessmentType;
+    private String assessmentDisclaimer;
     private int totalQuestions;
     private int correctAnswers;
 
