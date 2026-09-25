@@ -48,6 +48,9 @@ class OnboardingSessionTimeoutTest {
     @Mock private RoadmapGenerationService       roadmapGenerationService;
     @Mock private PlacementResultFactory         resultFactory;
     @Mock private ObjectMapper                   objectMapper;
+    @Mock private PlacementQuestionContentMapper questionContentMapper;
+    @Mock private PlacementSessionExpiryService expiryService;
+    @Mock private RoadmapJobService roadmapJobService;
 
     @InjectMocks
     private PlacementTestService placementTestService;
@@ -73,11 +76,9 @@ class OnboardingSessionTimeoutTest {
     @DisplayName("Session còn hạn (10 phút trước) → không throw PLACEMENT_TEST_EXPIRED")
     void sessionActive_within30Min_continuesNormally() {
         activeSession.setLastActivityAt(LocalDateTime.now().minusMinutes(10));
-        given(sessionRepository.findByIdWithStudent(100L)).willReturn(Optional.of(activeSession));
-        given(answerRepository.countBySessionId(100L)).willReturn(0L);
-        given(answerRepository.findBySessionIdOrderByAnsweredAtAsc(100L)).willReturn(Collections.emptyList());
-        // New API: findOneRandomByCefrLevelExcluding returns Optional
-        given(questionRepository.findOneRandomByCefrLevelExcluding(any(), any())).willReturn(Optional.empty());
+        given(sessionRepository.findByIdWithStudentForUpdate(100L)).willReturn(Optional.of(activeSession));
+        given(questionRepository.findBestAvailableForPlacement(any(), any(), any(Integer.class)))
+                .willReturn(Optional.empty());
 
         // PLACEMENT_TEST_ALREADY_COMPLETED vì hết câu hỏi trong ngân hàng — nhưng KHÔNG phải EXPIRED
         assertThatThrownBy(() -> placementTestService.getNextQuestion(100L, 1L))
@@ -90,7 +91,8 @@ class OnboardingSessionTimeoutTest {
     @DisplayName("Session hết hạn (45 phút trước) → throw PLACEMENT_TEST_EXPIRED + đánh dấu completed")
     void sessionExpired_45MinAgo_throwsExpiredException() {
         activeSession.setLastActivityAt(LocalDateTime.now().minusMinutes(45));
-        given(sessionRepository.findByIdWithStudent(100L)).willReturn(Optional.of(activeSession));
+        given(expiryService.closeIfExpired(100L, 1L)).willReturn(true);
+        given(sessionRepository.findByIdWithStudentForUpdate(100L)).willReturn(Optional.of(activeSession));
 
         assertThatThrownBy(() -> placementTestService.getNextQuestion(100L, 1L))
                 .isInstanceOf(AppException.class)
@@ -98,7 +100,7 @@ class OnboardingSessionTimeoutTest {
                         .isEqualTo(ErrorCode.PLACEMENT_TEST_EXPIRED));
 
         // Session phải được đánh dấu is_completed = true
-        verify(sessionRepository).save(argThat(PlacementTestSession::getIsCompleted));
+        verify(expiryService).closeIfExpired(100L, 1L);
     }
 
     @Test
@@ -106,10 +108,9 @@ class OnboardingSessionTimeoutTest {
     void noLastActivity_recentStartedAt_sessionValid() {
         activeSession.setLastActivityAt(null);
         activeSession.setStartedAt(LocalDateTime.now().minusMinutes(5));
-        given(sessionRepository.findByIdWithStudent(100L)).willReturn(Optional.of(activeSession));
-        given(answerRepository.countBySessionId(100L)).willReturn(0L);
-        given(answerRepository.findBySessionIdOrderByAnsweredAtAsc(100L)).willReturn(Collections.emptyList());
-        given(questionRepository.findOneRandomByCefrLevelExcluding(any(), any())).willReturn(Optional.empty());
+        given(sessionRepository.findByIdWithStudentForUpdate(100L)).willReturn(Optional.of(activeSession));
+        given(questionRepository.findBestAvailableForPlacement(any(), any(), any(Integer.class)))
+                .willReturn(Optional.empty());
 
         assertThatThrownBy(() -> placementTestService.getNextQuestion(100L, 1L))
                 .isInstanceOf(AppException.class)
@@ -122,7 +123,8 @@ class OnboardingSessionTimeoutTest {
     void noLastActivity_oldStartedAt_sessionExpired() {
         activeSession.setLastActivityAt(null);
         activeSession.setStartedAt(LocalDateTime.now().minusMinutes(60));
-        given(sessionRepository.findByIdWithStudent(100L)).willReturn(Optional.of(activeSession));
+        given(expiryService.closeIfExpired(100L, 1L)).willReturn(true);
+        given(sessionRepository.findByIdWithStudentForUpdate(100L)).willReturn(Optional.of(activeSession));
 
         assertThatThrownBy(() -> placementTestService.getNextQuestion(100L, 1L))
                 .isInstanceOf(AppException.class)

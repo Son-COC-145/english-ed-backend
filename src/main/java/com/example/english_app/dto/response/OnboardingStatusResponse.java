@@ -22,8 +22,8 @@ public class OnboardingStatusResponse {
     private boolean onboardingCompleted;
 
     /**
-     * Bước tiếp theo cần thực hiện:
-     * GOAL_SURVEY | PLACEMENT_TEST | SETTINGS | COMPLETE | COMPLETED
+     * Bước tiếp theo cần thực hiện: GOAL_SURVEY | PLACEMENT_TEST | ROADMAP_GENERATING |
+     * ROADMAP_FAILED | SETTINGS | COMPLETE | COMPLETED.
      */
     private String nextStep;
 
@@ -46,4 +46,6 @@ public class OnboardingStatusResponse {
     private String placementCefrLevel;
     private Short dailyGoalXp;
     private boolean roadmapGenerated;
+    private String roadmapStatus;
+    private Long roadmapRetryAfterMs;
 }

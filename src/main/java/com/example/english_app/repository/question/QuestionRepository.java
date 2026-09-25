@@ -1,6 +1,7 @@
 package com.example.english_app.repository.question;
 
 import com.example.english_app.entity.enums.CefrLevel;
+import com.example.english_app.entity.enums.QuestionType;
 import com.example.english_app.entity.enums.Skill;
 import com.example.english_app.entity.question.Question;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -17,25 +18,48 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     List<Question> findByCefrLevelAndIsActiveTrue(CefrLevel cefrLevel);
 
     /**
-     * Lấy ngẫu nhiên MỘT câu hỏi thuộc level chỉ định, loại trừ các câu đã trả lời.
-     *
-     * <p>Dùng LIMIT 1 trực tiếp trong SQL để PostgreSQL không cần load toàn bộ
-     * bảng vào memory rồi Java mới lấy get(0). Với bảng lớn, đây là sự khác biệt
-     * giữa O(n log n) và O(1) I/O.
-     *
-     * @param cefrLevel  Trình độ CEFR cần lấy câu hỏi.
-     * @param excludeIds Danh sách ID câu hỏi đã trả lời (không lấy lại).
-     * @return Optional chứa câu hỏi nếu còn, empty nếu hết câu hỏi ở level này.
+     * Chọn một câu chưa được trả lời bằng một DB round-trip.
+     * Ưu tiên CEFR gần target nhất; nếu cùng khoảng cách thì ưu tiên level thấp hơn,
+     * sau đó random giữa các câu cùng hạng.
      */
-    @Query(value = "SELECT q FROM Question q " +
-            "WHERE q.cefrLevel = :level " +
-            "AND q.isActive = true " +
-            "AND q.id NOT IN :excludeIds " +
-            "ORDER BY FUNCTION('RANDOM') " +
-            "LIMIT 1")
-    Optional<Question> findOneRandomByCefrLevelExcluding(
-            @Param("level") CefrLevel cefrLevel,
-            @Param("excludeIds") List<Long> excludeIds);
+    @Query(value = """
+            SELECT q.*
+            FROM questions q
+            WHERE q.skill = :skill
+              AND q.is_active = true
+              AND (:skill <> 'LISTENING' OR q.placement_audio_url IS NOT NULL)
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM placement_test_answers a
+                  WHERE a.session_id = :sessionId
+                    AND a.question_id = q.id
+              )
+            ORDER BY
+              ABS((CASE q.cefr_level
+                    WHEN 'A1' THEN 0
+                    WHEN 'A2' THEN 1
+                    WHEN 'B1' THEN 2
+                    WHEN 'B2' THEN 3
+                    WHEN 'C1' THEN 4
+                    WHEN 'C2' THEN 5
+                    ELSE 99
+                  END) - :targetRank),
+              CASE WHEN (CASE q.cefr_level
+                    WHEN 'A1' THEN 0
+                    WHEN 'A2' THEN 1
+                    WHEN 'B1' THEN 2
+                    WHEN 'B2' THEN 3
+                    WHEN 'C1' THEN 4
+                    WHEN 'C2' THEN 5
+                    ELSE 99
+                  END) < :targetRank THEN 0 ELSE 1 END,
+              RANDOM()
+            LIMIT 1
+            """, nativeQuery = true)
+    Optional<Question> findBestAvailableForPlacement(
+            @Param("sessionId") Long sessionId,
+            @Param("skill") String skill,
+            @Param("targetRank") int targetRank);
 
     long countByCefrLevelAndIsActiveTrue(CefrLevel cefrLevel);
 
@@ -60,6 +84,14 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     /** Đếm số câu hỏi active theo từng kỹ năng: trả về [skill, count]. */
     @Query("SELECT q.skill, COUNT(q) FROM Question q WHERE q.isActive = true GROUP BY q.skill")
     List<Object[]> countActiveGroupBySkill();
+
+    /** Learner-ready questions; listening items count only after media was pre-generated. */
+    @Query("SELECT q.skill, COUNT(q) FROM Question q WHERE q.isActive = true " +
+           "AND (q.skill <> com.example.english_app.entity.enums.Skill.LISTENING " +
+           "OR q.placementAudioUrl IS NOT NULL) GROUP BY q.skill")
+    List<Object[]> countPlacementReadyGroupBySkill();
+
+    List<Question> findBySkillAndQuestionType(Skill skill, QuestionType questionType);
 
     /** Breakdown đầy đủ (cefrLevel, skill, isActive, count) cho bảng thống kê chi tiết. */
     @Query("SELECT q.cefrLevel, q.skill, q.isActive, COUNT(q) FROM Question q " +

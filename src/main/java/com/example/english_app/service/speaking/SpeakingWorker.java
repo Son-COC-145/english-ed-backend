@@ -13,6 +13,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.Async;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -41,7 +43,7 @@ public class SpeakingWorker {
         workers = Executors.newFixedThreadPool(poolSize);
     }
 
-    @Scheduled(fixedDelayString = "${speaking.worker.poll-ms:500}")
+    @Scheduled(fixedDelayString = "${speaking.worker.poll-ms:1800000}")
     public void poll() {
         while (active.get() < poolSize) {
             SpeakingStore.Job job = store.claim();
@@ -69,6 +71,12 @@ public class SpeakingWorker {
                 }
             });
         }
+    }
+
+    @EventListener(SpeakingJobCreatedEvent.class)
+    @Async
+    public void triggerOnNewJob() {
+        poll();
     }
 
     void process(SpeakingStore.Job job) throws Exception {

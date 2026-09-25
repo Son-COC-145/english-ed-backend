@@ -13,6 +13,7 @@ import com.example.english_app.exception.ErrorCode;
 import com.example.english_app.repository.question.QuestionRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -52,16 +53,21 @@ public class AdminQuestionServiceImpl implements AdminQuestionService {
     @Override
     @Transactional
     public AdminQuestionResponse createQuestion(AdminQuestionRequest request) {
-        validateContentJson(request.getQuestionType(), request.getContentJson());
+        validateSkillAndType(request.getSkill(), request.getQuestionType());
+        NormalizedContent normalized = normalizeAndValidateContent(
+                request.getQuestionType(), request.getContentJson(), request.getCorrectAnswer());
+        boolean active = request.getIsActive() != null ? request.getIsActive() : true;
+        validateListeningActivation(request.getQuestionType(), active, normalized.audioUrl());
         Question q = Question.builder()
                 .cefrLevel(request.getCefrLevel())
                 .skill(request.getSkill())
                 .questionType(request.getQuestionType())
-                .contentJson(request.getContentJson())
+                .contentJson(normalized.contentJson())
                 .correctAnswer(request.getCorrectAnswer())
                 .timeoutSeconds(request.getTimeoutSeconds())
                 .difficultyIndex(request.getDifficultyIndex())
-                .isActive(request.getIsActive() != null ? request.getIsActive() : true)
+                .placementAudioUrl(normalized.audioUrl())
+                .isActive(active)
                 .build();
 
         return mapToResponse(questionRepository.save(q));
@@ -70,17 +76,28 @@ public class AdminQuestionServiceImpl implements AdminQuestionService {
     @Override
     @Transactional
     public AdminQuestionResponse updateQuestion(Long id, AdminQuestionRequest request) {
-        validateContentJson(request.getQuestionType(), request.getContentJson());
+        validateSkillAndType(request.getSkill(), request.getQuestionType());
+        NormalizedContent normalized = normalizeAndValidateContent(
+                request.getQuestionType(), request.getContentJson(), request.getCorrectAnswer());
         Question q = findOrThrow(id);
+        boolean active = request.getIsActive() != null ? request.getIsActive() : q.getIsActive();
+        validateListeningActivation(request.getQuestionType(), active, normalized.audioUrl());
 
         q.setCefrLevel(request.getCefrLevel());
         q.setSkill(request.getSkill());
         q.setQuestionType(request.getQuestionType());
-        q.setContentJson(request.getContentJson());
+        q.setContentJson(normalized.contentJson());
         q.setCorrectAnswer(request.getCorrectAnswer());
         q.setTimeoutSeconds(request.getTimeoutSeconds());
         if (request.getDifficultyIndex() != null) q.setDifficultyIndex(request.getDifficultyIndex());
-        if (request.getIsActive() != null) q.setIsActive(request.getIsActive());
+        q.setIsActive(active);
+        if (request.getQuestionType() == QuestionType.LISTENING) {
+            // Any content edit invalidates the old generated recording unless a new opaque URL
+            // was explicitly supplied by the administrator.
+            q.setPlacementAudioUrl(normalized.audioUrl());
+        } else {
+            q.setPlacementAudioUrl(null);
+        }
 
         return mapToResponse(questionRepository.save(q));
     }
@@ -100,6 +117,7 @@ public class AdminQuestionServiceImpl implements AdminQuestionService {
     @Transactional
     public AdminQuestionResponse toggleActive(Long id, boolean active) {
         Question q = findOrThrow(id);
+        validateListeningActivation(q.getQuestionType(), active, q.getPlacementAudioUrl());
         q.setIsActive(active);
         return mapToResponse(questionRepository.save(q));
     }
@@ -183,6 +201,7 @@ public class AdminQuestionServiceImpl implements AdminQuestionService {
                 .correctAnswer(q.getCorrectAnswer())
                 .timeoutSeconds(q.getTimeoutSeconds())
                 .difficultyIndex(q.getDifficultyIndex())
+                .placementAudioUrl(q.getPlacementAudioUrl())
                 .isActive(q.getIsActive())
                 .createdAt(q.getCreatedAt())
                 .updatedAt(q.getUpdatedAt())
@@ -194,21 +213,44 @@ public class AdminQuestionServiceImpl implements AdminQuestionService {
      * Ném {@code AppException(INVALID_INPUT)} nếu JSON không hợp lệ / thiếu field.
      * Giúp Admin biết ngay lỗi schema thay vì lưu data sai vào DB.
      */
-    private void validateContentJson(QuestionType type, String contentJson) {
+    private NormalizedContent normalizeAndValidateContent(
+            QuestionType type,
+            String contentJson,
+            String correctAnswer) {
         try {
-            JsonNode root = objectMapper.readTree(contentJson);
+            ObjectNode root = (ObjectNode) objectMapper.readTree(contentJson);
+            if (type == QuestionType.READING_COMPREHENSION && !root.hasNonNull("passage") && root.hasNonNull("text")) {
+                root.set("passage", root.get("text"));
+            }
+            if (type == QuestionType.PRONUNCIATION && !root.hasNonNull("ipaTranscription") && root.hasNonNull("ipa")) {
+                root.set("ipaTranscription", root.get("ipa"));
+            }
+            if (type == QuestionType.LISTENING && !root.hasNonNull("audioUrl") && root.hasNonNull("audio_url")) {
+                root.set("audioUrl", root.get("audio_url"));
+            }
+
+            String audioUrl = type == QuestionType.LISTENING && root.hasNonNull("audioUrl")
+                    ? root.get("audioUrl").asText().trim()
+                    : null;
+
+            root.remove("text");
+            root.remove("ipa");
+            root.remove("audio_url");
+            root.remove("audioUrl");
+
             switch (type) {
-                case MULTIPLE_CHOICE, FILL_BLANK -> {
+                case MULTIPLE_CHOICE -> {
                     requireField(root, "question", type);
                     requireField(root, "options",  type);
                 }
+                case FILL_BLANK -> requireField(root, "question", type);
                 case READING_COMPREHENSION -> {
                     requireField(root, "passage",  type);
                     requireField(root, "question", type);
                     requireField(root, "options",  type);
                 }
                 case LISTENING -> {
-                    requireField(root, "audioUrl", type);
+                    requireField(root, "transcript", type);
                     requireField(root, "question", type);
                     requireField(root, "options",  type);
                 }
@@ -217,12 +259,73 @@ public class AdminQuestionServiceImpl implements AdminQuestionService {
                     requireField(root, "ipaTranscription", type);
                 }
             }
+
+            validateOptionsAndAnswer(type, root, correctAnswer);
+            return new NormalizedContent(objectMapper.writeValueAsString(root), blankToNull(audioUrl));
         } catch (AppException e) {
             throw e; // re-throw validation errors
         } catch (Exception e) {
             throw new AppException(ErrorCode.INVALID_REQUEST,
                     "contentJson không phải JSON hợp lệ: " + e.getMessage());
         }
+    }
+
+    private void validateSkillAndType(Skill skill, QuestionType type) {
+        boolean valid = switch (type) {
+            case LISTENING -> skill == Skill.LISTENING;
+            case READING_COMPREHENSION -> skill == Skill.READING;
+            case PRONUNCIATION -> skill == Skill.PRONUNCIATION;
+            case MULTIPLE_CHOICE, FILL_BLANK -> skill == Skill.VOCABULARY || skill == Skill.GRAMMAR;
+        };
+        if (!valid) {
+            throw new AppException(ErrorCode.INVALID_REQUEST,
+                    "Question type " + type + " is incompatible with skill " + skill);
+        }
+    }
+
+    private void validateOptionsAndAnswer(QuestionType type, JsonNode root, String correctAnswer) {
+        if (type == QuestionType.PRONUNCIATION) {
+            String displayedWord = root.get("word").asText().trim();
+            if (!displayedWord.equalsIgnoreCase(correctAnswer.trim())) {
+                throw new AppException(ErrorCode.INVALID_REQUEST,
+                        "correctAnswer must match contentJson.word for pronunciation");
+            }
+            return;
+        }
+        if (type == QuestionType.FILL_BLANK) return;
+        JsonNode options = root.get("options");
+        if (options == null || !options.isArray() || options.size() < 2) {
+            throw new AppException(ErrorCode.INVALID_REQUEST,
+                    "contentJson options must contain at least two choices");
+        }
+        boolean matches = false;
+        java.util.Set<String> unique = new java.util.HashSet<>();
+        for (JsonNode option : options) {
+            String value = option.asText().trim();
+            unique.add(value.toLowerCase(java.util.Locale.ROOT));
+            if (value.equalsIgnoreCase(correctAnswer.trim())) matches = true;
+        }
+        if (unique.size() != options.size()) {
+            throw new AppException(ErrorCode.INVALID_REQUEST, "contentJson options must be unique");
+        }
+        if (!matches) {
+            throw new AppException(ErrorCode.INVALID_REQUEST,
+                    "correctAnswer must match one of contentJson.options");
+        }
+    }
+
+    private String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
+    }
+
+    private void validateListeningActivation(QuestionType type, boolean active, String audioUrl) {
+        if (active && type == QuestionType.LISTENING && blankToNull(audioUrl) == null) {
+            throw new AppException(ErrorCode.INVALID_REQUEST,
+                    "Listening question must have pre-generated audio before activation");
+        }
+    }
+
+    private record NormalizedContent(String contentJson, String audioUrl) {
     }
 
     private void requireField(JsonNode root, String field, QuestionType type) {
