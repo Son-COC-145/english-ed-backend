@@ -51,8 +51,9 @@ class SpeakingStorePostgresTest {
         @Bean SpeakingStore store(SpeakingSessionRepository sessions, SpeakingScenarioRepository scenarios,
                                   SpeakingStartRequestRepository startRequests, SpeakingTurnRepository turns,
                                   UserRepository users, SpeakingJobRepository jobs,
-                                  SpeakingRewardRepository rewards, SpeakingJson json) {
-            return new SpeakingStore(sessions,scenarios,startRequests,turns,users,jobs,rewards,json);
+                                  SpeakingRewardRepository rewards, SpeakingJson json,
+                                  org.springframework.context.ApplicationEventPublisher publisher) {
+            return new SpeakingStore(sessions,scenarios,startRequests,turns,users,jobs,rewards,json, publisher);
         }
     }
     @BeforeAll void initialize() throws Exception {
