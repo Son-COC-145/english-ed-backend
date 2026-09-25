@@ -25,8 +25,9 @@ class SpeakingStoreTest {
     final SpeakingTurnRepository turns = mock(SpeakingTurnRepository.class);
     final SpeakingJobRepository jobs = mock(SpeakingJobRepository.class);
     final SpeakingRewardRepository rewards = mock(SpeakingRewardRepository.class);
+    final org.springframework.context.ApplicationEventPublisher publisher = mock(org.springframework.context.ApplicationEventPublisher.class);
     final SpeakingStore store = new SpeakingStore(sessions, scenarios, startRequests, turns, mock(UserRepository.class), jobs, rewards,
-            new SpeakingJson(new ObjectMapper()));
+            new SpeakingJson(new ObjectMapper()), publisher);
     SpeakingSession session;
 
     @BeforeEach void setup() {

@@ -30,11 +30,12 @@ class RoadmapJobServiceTest {
 
     @Mock private RoadmapGenerationJobRepository jobRepository;
     @Mock private OnboardingRepository onboardingRepository;
+    @Mock private org.springframework.context.ApplicationEventPublisher publisher;
     private RoadmapJobService service;
 
     @BeforeEach
     void setUp() {
-        service = new RoadmapJobService(jobRepository, onboardingRepository, new ObjectMapper());
+        service = new RoadmapJobService(jobRepository, onboardingRepository, new ObjectMapper(), publisher);
     }
 
     @Test
