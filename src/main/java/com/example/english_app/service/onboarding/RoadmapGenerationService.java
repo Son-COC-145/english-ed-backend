@@ -5,34 +5,25 @@ import com.example.english_app.dto.response.roadmap.RoadmapModule;
 import com.example.english_app.dto.response.roadmap.RoadmapResponse;
 import com.example.english_app.entity.enums.CefrLevel;
 import com.example.english_app.entity.enums.TopicCategory;
-import com.example.english_app.entity.onboarding.StudentOnboarding;
 import com.example.english_app.entity.vocabulary.Topic;
-import com.example.english_app.repository.onboarding.OnboardingRepository;
 import com.example.english_app.repository.speaking.SpeakingScenarioRepository;
 import com.example.english_app.repository.vocabulary.TopicRepository;
 import com.example.english_app.repository.vocabulary.VocabularyRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StopWatch;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
  * Service độc lập chịu trách nhiệm sinh lộ trình học tập (Roadmap) dựa trên
  * mục tiêu và trình độ của học viên.
  *
- * <p>Sử dụng transaction REQUIRES_NEW để đảm bảo nếu quá trình sinh lộ trình lỗi,
- * nó sẽ KHÔNG làm rollback kết quả làm bài Placement Test của user.
+ * Worker bền vững chịu trách nhiệm retry và publish kết quả; service này chỉ dựng dữ liệu.
  */
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RoadmapGenerationService {
@@ -41,52 +32,13 @@ public class RoadmapGenerationService {
     private final TopicRepository topicRepository;
     private final VocabularyRepository vocabularyRepository;
     private final SpeakingScenarioRepository speakingScenarioRepository;
-    private final OnboardingRepository onboardingRepository;
-    private final ObjectMapper objectMapper;
 
-    /**
-     * Entry point: Tạo và lưu lộ trình vào DB.
-     * Transaction độc lập để không ảnh hưởng đến luồng chính.
-     */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public RoadmapResponse generateAndPersist(Long userId, CefrLevel level, String goalSurveyJson) {
-        log.info("Starting roadmap generation for user {}, CEFR={}, goals={}", userId, level, goalSurveyJson);
-        StopWatch stopWatch = new StopWatch();
-        stopWatch.start();
-
-        try {
-            // 1. Phân tích mục tiêu
-            List<TopicCategory> categories = goalSurveyParser.extractCategories(goalSurveyJson);
-            List<String> focusSkills = goalSurveyParser.extractFocusSkills(goalSurveyJson);
-            
-            // 2. Build roadmap logic
-            RoadmapResponse roadmap = buildRoadmap(level, categories, focusSkills);
-
-            // 3. Serialize và lưu vào StudentOnboarding
-            Optional<StudentOnboarding> optOnboarding = onboardingRepository.findByStudentId(userId);
-            if (optOnboarding.isPresent()) {
-                StudentOnboarding onboarding = optOnboarding.get();
-                String roadmapJson = objectMapper.writeValueAsString(roadmap);
-                onboarding.setRoadmapJson(roadmapJson);
-                onboardingRepository.save(onboarding);
-                log.info("Persisted roadmap_json for user {}", userId);
-            } else {
-                log.warn("Cannot persist roadmap: Onboarding record not found for user {}", userId);
-            }
-
-            stopWatch.stop();
-            if (stopWatch.getTotalTimeMillis() > 500) {
-                log.warn("Performance warning: Roadmap generation took {} ms", stopWatch.getTotalTimeMillis());
-            } else {
-                log.debug("Roadmap generated in {} ms", stopWatch.getTotalTimeMillis());
-            }
-
-            return roadmap;
-
-        } catch (Exception e) {
-            log.error("Failed to generate and persist roadmap for user {}", userId, e);
-            throw new RuntimeException("Roadmap generation failed", e);
-        }
+    /** Builds a roadmap without updating onboarding state; the durable worker owns persistence. */
+    @Transactional(readOnly = true)
+    public RoadmapResponse generateRoadmap(CefrLevel level, String goalSurveyJson) {
+        List<TopicCategory> categories = goalSurveyParser.extractCategories(goalSurveyJson);
+        List<String> focusSkills = goalSurveyParser.extractFocusSkills(goalSurveyJson);
+        return buildRoadmap(level, categories, focusSkills);
     }
 
     /**

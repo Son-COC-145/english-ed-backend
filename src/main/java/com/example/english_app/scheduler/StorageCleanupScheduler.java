@@ -21,26 +21,29 @@ public class StorageCleanupScheduler {
     @Value("${storage.cleanup.max-jobs-per-poll:25}")
     private int maxJobsPerPoll;
 
-    @Scheduled(fixedDelayString = "${storage.cleanup.poll-ms:30000}")
+    // Chạy lúc 2h sáng mỗi ngày
+    @Scheduled(cron = "${storage.cleanup.cron:0 0 2 * * *}")
     public void cleanup() {
         for (int index = 0; index < maxJobsPerPoll; index++) {
             List<StoredFile> claimed = store.claimCleanup();
-            if (claimed.isEmpty()) break;
+            if (claimed.isEmpty())
+                break;
             StoredFile file = claimed.getFirst();
             try {
                 if (store.hasReferences(file.url())) {
-                    store.finish(file,"ACTIVE",null);
+                    store.finish(file, "ACTIVE", null);
                     continue;
                 }
                 switch (file.provider()) {
-                    case "CLOUDINARY" -> cloudinary.deleteFile(file.objectKey(),file.resourceType());
+                    case "CLOUDINARY" -> cloudinary.deleteFile(file.objectKey(), file.resourceType());
                     case "AZURE" -> azure.deleteBlob(file.objectKey());
                     default -> throw new IllegalStateException("Unsupported storage provider");
                 }
-                store.finish(file,"DELETED",null);
+                store.finish(file, "DELETED", null);
             } catch (RuntimeException exception) {
-                store.finish(file,file.attempts() >= 9 ? "FAILED" : "DELETE_PENDING",exception.getClass().getSimpleName());
-                log.warn("Storage cleanup failed: fileId={} provider={}",file.id(),file.provider());
+                store.finish(file, file.attempts() >= 9 ? "FAILED" : "DELETE_PENDING",
+                        exception.getClass().getSimpleName());
+                log.warn("Storage cleanup failed: fileId={} provider={}", file.id(), file.provider());
             }
         }
     }

@@ -3,13 +3,16 @@ package com.example.english_app.service.onboarding;
 import com.example.english_app.dto.request.GoalSurveyRequest;
 import com.example.english_app.dto.request.OnboardingSettingsRequest;
 import com.example.english_app.dto.response.OnboardingStatusResponse;
+import com.example.english_app.dto.response.RoadmapGenerationStatusResponse;
 import com.example.english_app.dto.response.roadmap.RoadmapProgressResponse;
 import com.example.english_app.dto.response.roadmap.RoadmapResponse;
 import com.example.english_app.dto.response.roadmap.RoadmapMilestone;
 import com.example.english_app.dto.response.roadmap.RoadmapModule;
 import com.example.english_app.entity.gamification.DailyGoal;
 import com.example.english_app.entity.gamification.StudentStat;
+import com.example.english_app.entity.onboarding.PlacementTestSession;
 import com.example.english_app.entity.onboarding.StudentOnboarding;
+import com.example.english_app.entity.enums.RoadmapGenerationStatus;
 import com.example.english_app.entity.user.User;
 import com.example.english_app.exception.ErrorCode;
 import com.example.english_app.repository.gamification.DailyGoalRepository;
@@ -58,6 +61,7 @@ public class OnboardingLifecycleService {
     private final DailyGoalRepository         dailyGoalRepository;
     private final StudentStatRepository       studentStatRepository;
     private final ObjectMapper                objectMapper;
+    private final RoadmapJobService           roadmapJobService;
 
     // ─── Step constants (dùng chung với frontend) ────────────────────────────
     // Flow: GOAL_SURVEY(1) → PLACEMENT_TEST(2) → ROADMAP_VIEW(3) → SETTINGS(4) → COMPLETED(5)
@@ -73,13 +77,15 @@ public class OnboardingLifecycleService {
     /**
      * Tính toán và trả về trạng thái onboarding hiện tại của user.
      *
-     * <p><b>Flow chuẩn:</b> GOAL_SURVEY (1) → PLACEMENT_TEST (2) → SETTINGS (3) → COMPLETE (4) → COMPLETED (5)
+     * <p><b>Flow chuẩn:</b> GOAL_SURVEY (1) → PLACEMENT_TEST (2) → ROADMAP_VIEW (3)
+     * → SETTINGS/COMPLETE (4) → COMPLETED (5)
      *
      * <p><b>Invariant (FE contract):</b>
      * <ul>
-     *   <li>Goal survey chưa xơng (và placement chưa xơng)   → nextStep = GOAL_SURVEY
+     *   <li>Goal survey chưa xong (và placement chưa xong)     → nextStep = GOAL_SURVEY
      *   <li>Goal xong, placement IN_PROGRESS                   → nextStep = PLACEMENT_TEST
      *   <li>Goal xong, placement chưa xử lý                   → nextStep = PLACEMENT_TEST
+     *   <li>Placement xong, roadmap chưa sẵn sàng              → nextStep = ROADMAP_GENERATING/ROADMAP_FAILED
      *   <li>Goal + Placement đã xong, Settings chưa xong       → nextStep = SETTINGS
      *   <li>Goal + Placement + Settings xong, chưa complete     → nextStep = COMPLETE
      *   <li>Onboarding completed                               → nextStep = COMPLETED (Terminal)
@@ -112,6 +118,7 @@ public class OnboardingLifecycleService {
                         .totalSteps(TOTAL_STEPS)
                         .userName(user.getFullName())
                         .roadmapGenerated(false)
+                        .roadmapStatus("NOT_STARTED")
                         .build();
             }
 
@@ -128,6 +135,7 @@ public class OnboardingLifecycleService {
                     .totalSteps(TOTAL_STEPS)
                     .userName(user.getFullName())
                     .roadmapGenerated(false)
+                    .roadmapStatus("NOT_STARTED")
                     .build();
         }
 
@@ -135,7 +143,8 @@ public class OnboardingLifecycleService {
         String userName       = ob.getStudent().getFullName();
         boolean goalDone      = ob.getGoalSurveyJson() != null;
         boolean placementDone = ob.getPlacementCefrLevel() != null;
-        boolean roadmapDone   = ob.getRoadmapJson() != null;
+        boolean roadmapDone   = isRoadmapReady(ob);
+        RoadmapGenerationStatus roadmapStatus = effectiveRoadmapStatus(ob);
         boolean settingsDone  = ob.getDailyGoalXp() != null && ob.getDailyGoalXp() > 0;
         boolean isCompleted   = Boolean.TRUE.equals(ob.getOnboardingCompleted());
 
@@ -173,13 +182,18 @@ public class OnboardingLifecycleService {
         } else if (!placementDone) {
             nextStep = "PLACEMENT_TEST";
             stepNumber = STEP_PLACEMENT_TEST;
+        } else if (!roadmapDone) {
+            nextStep = roadmapStatus == RoadmapGenerationStatus.FAILED
+                    ? "ROADMAP_FAILED"
+                    : "ROADMAP_GENERATING";
+            stepNumber = STEP_ROADMAP_VIEW;
         } else if (!settingsDone) {
             nextStep = "SETTINGS";
             stepNumber = STEP_SETTINGS;
         } else if (!isCompleted) {
             // ĐÃ XONG CẢ 3 BƯỚC NHƯNG CHƯA BẤM COMPLETE -> BƯỚC TIẾP LÀ COMPLETE (KHÔNG BAO GIỜ LÀ SETTINGS)
             nextStep = "COMPLETE";
-            stepNumber = 4;
+            stepNumber = STEP_SETTINGS;
         } else {
             nextStep = "COMPLETED";
             stepNumber = STEP_COMPLETED;
@@ -200,6 +214,8 @@ public class OnboardingLifecycleService {
                 .placementCefrLevel(placementDone ? ob.getPlacementCefrLevel().name() : null)
                 .dailyGoalXp(ob.getDailyGoalXp())
                 .roadmapGenerated(roadmapDone)
+                .roadmapStatus(roadmapStatus != null ? roadmapStatus.name() : "NOT_STARTED")
+                .roadmapRetryAfterMs(isRoadmapInProgress(roadmapStatus) ? 1500L : null)
                 .build();
     }
 
@@ -234,7 +250,13 @@ public class OnboardingLifecycleService {
         StudentOnboarding ob = onboardingRepository.findByStudentId(userId)
                 .orElseThrow(() -> ErrorCode.SYSTEM_ERROR.toException());
 
-        if (ob.getRoadmapJson() == null) {
+        if (!isRoadmapReady(ob)) {
+            if (effectiveRoadmapStatus(ob) == RoadmapGenerationStatus.FAILED) {
+                throw ErrorCode.ROADMAP_GENERATION_FAILED.toException();
+            }
+            if (ob.getPlacementCefrLevel() != null) {
+                throw ErrorCode.ROADMAP_GENERATING.toException();
+            }
             throw ErrorCode.ROADMAP_NOT_GENERATED.toException();
         }
 
@@ -244,6 +266,25 @@ public class OnboardingLifecycleService {
             log.error("Failed to parse roadmap_json for user {}", userId, e);
             throw ErrorCode.SYSTEM_ERROR.toException();
         }
+    }
+
+    @Transactional(readOnly = true)
+    public RoadmapGenerationStatusResponse getRoadmapGenerationStatus(Long userId) {
+        StudentOnboarding onboarding = onboardingRepository.findByStudentId(userId)
+                .orElseThrow(() -> ErrorCode.PLACEMENT_TEST_NOT_FOUND.toException());
+        RoadmapGenerationStatus status = effectiveRoadmapStatus(onboarding);
+        boolean ready = isRoadmapReady(onboarding);
+        return RoadmapGenerationStatusResponse.builder()
+                .status(status != null ? status.name() : "NOT_STARTED")
+                .ready(ready)
+                .attempts(Optional.ofNullable(onboarding.getRoadmapGenerationAttempts()).orElse(0))
+                .retryAfterMs(isRoadmapInProgress(status) ? 1500L : null)
+                .build();
+    }
+
+    public RoadmapGenerationStatusResponse retryRoadmap(Long userId) {
+        roadmapJobService.retry(userId);
+        return getRoadmapGenerationStatus(userId);
     }
 
     /**
@@ -355,7 +396,7 @@ public class OnboardingLifecycleService {
         boolean allDone = ob.getGoalSurveyJson() != null
                 && ob.getPlacementCefrLevel() != null
                 && ob.getDailyGoalXp() != null && ob.getDailyGoalXp() > 0
-                && ob.getRoadmapJson() != null;
+                && isRoadmapReady(ob);
 
         if (!allDone) {
             log.warn("completeOnboarding() called with incomplete state for user {}: " +
@@ -380,6 +421,13 @@ public class OnboardingLifecycleService {
      * để tránh getStatus() trả settingsDone=true sau khi reset.
      */
     public void resetOnboarding(Long userId) {
+        // Serialize reset with start/skip and lock the active session so an in-flight final answer
+        // cannot republish placement state after the reset.
+        userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
+        Optional<PlacementTestSession> activeSession =
+                sessionRepository.findActiveByStudentIdForUpdate(userId);
+
         onboardingRepository.findByStudentId(userId).ifPresent(ob -> {
             ob.setGoalSurveyJson(null);
             ob.setPlacementCefrLevel(null);
@@ -388,11 +436,22 @@ public class OnboardingLifecycleService {
             ob.setPlacementReadingScore(null);
             ob.setPlacementListeningScore(null);
             ob.setPlacementPronunciationScore(null);
+            ob.setPlacementVocabCefr(null);
+            ob.setPlacementGrammarCefr(null);
+            ob.setPlacementReadingCefr(null);
+            ob.setPlacementListeningCefr(null);
+            ob.setPlacementPronunciationCefr(null);
             ob.setPlacementCompletedAt(null);
             ob.setIsPlacementSkipped(false);
             ob.setOnboardingCompleted(false);
             ob.setOnboardingCompletedAt(null);
             ob.setRoadmapJson(null);
+            ob.setRoadmapStatus(null);
+            ob.setRoadmapGenerationVersion(
+                    Optional.ofNullable(ob.getRoadmapGenerationVersion()).orElse(0) + 1);
+            ob.setRoadmapGenerationAttempts(0);
+            ob.setRoadmapLastError(null);
+            ob.setRoadmapUpdatedAt(null);
             // Reset settings — quan trọng: nếu không reset, getStatus() sẽ thấy
             // settingsDone=true (dailyGoalXp vẫn còn giá trị cũ) và bỏ qua bước Settings.
             ob.setDailyGoalXp(null);
@@ -401,11 +460,11 @@ public class OnboardingLifecycleService {
             log.info("Onboarding reset for user {}", userId);
         });
 
-        sessionRepository.findTopByStudentIdAndIsCompletedFalseOrderByStartedAtDesc(userId)
-                .ifPresent(s -> {
-                    s.setIsCompleted(true);
-                    sessionRepository.save(s);
-                });
+        activeSession.ifPresent(s -> {
+            s.setIsCompleted(true);
+            s.setCurrentQuestionId(null);
+            sessionRepository.save(s);
+        });
     }
 
     // ─── Private ──────────────────────────────────────────────────────────────
@@ -413,5 +472,21 @@ public class OnboardingLifecycleService {
     private User findUser(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
+    }
+
+    private boolean isRoadmapReady(StudentOnboarding onboarding) {
+        return onboarding.getRoadmapJson() != null
+                && (onboarding.getRoadmapStatus() == null
+                || onboarding.getRoadmapStatus() == RoadmapGenerationStatus.READY);
+    }
+
+    private RoadmapGenerationStatus effectiveRoadmapStatus(StudentOnboarding onboarding) {
+        if (isRoadmapReady(onboarding)) return RoadmapGenerationStatus.READY;
+        return onboarding.getRoadmapStatus();
+    }
+
+    private boolean isRoadmapInProgress(RoadmapGenerationStatus status) {
+        return status == RoadmapGenerationStatus.PENDING
+                || status == RoadmapGenerationStatus.PROCESSING;
     }
 }

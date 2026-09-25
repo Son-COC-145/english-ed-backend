@@ -1,7 +1,11 @@
 package com.example.english_app.service.onboarding;
 
 import com.example.english_app.dto.response.PlacementResultResponse;
+import com.example.english_app.dto.response.PlacementPronunciationAnswerResponse;
+import com.example.english_app.dto.response.PronunciationScoreResult;
 import com.example.english_app.entity.enums.CefrLevel;
+import com.example.english_app.entity.enums.QuestionType;
+import com.example.english_app.entity.enums.Skill;
 import com.example.english_app.entity.onboarding.PlacementTestAnswer;
 import com.example.english_app.entity.onboarding.PlacementTestSession;
 import com.example.english_app.entity.onboarding.StudentOnboarding;
@@ -15,9 +19,6 @@ import com.example.english_app.dto.request.PlacementAnswerRequest;
 import com.example.english_app.dto.response.PlacementQuestionResponse;
 import com.example.english_app.repository.user.UserRepository;
 import com.example.english_app.service.onboarding.PlacementResultFactory.SkillScores;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -34,31 +35,27 @@ import java.util.*;
 @Transactional
 public class PlacementTestService {
 
-    @Value("${onboarding.placement.max-questions:30}")
+    public record PronunciationSubmissionPreparation(
+            String referenceText,
+            PlacementPronunciationAnswerResponse replayResponse) {
+    }
+
+    @Value("${onboarding.placement.max-questions:20}")
     private int maxPlacementQuestions;
 
-    @Value("${onboarding.placement.confidence-threshold:85.0}")
-    private double confidenceThreshold;
-
-    @Value("${onboarding.placement.max-wrong-streak:3}")
-    private int maxWrongStreak;
-
-    /**
-     * Số câu tối thiểu phải hoàn thành trước khi cho phép kết thúc sớm (CAT early-stop).
-     * Ngăn bug: user sai 3 câu liên tiếp ở câu 3→5 → confidence = 100% → test bị đánh
-     * dấu COMPLETED khi chỉ làm được ~5 câu, gây nhầm lẫn "đã hoàn thành" khi mở lại app.
-     */
-    @Value("${onboarding.placement.min-questions-before-early-stop:10}")
-    private int minQuestionsBeforeEarlyStop;
+    private static final Skill[] SKILL_BLUEPRINT = {
+            Skill.VOCABULARY, Skill.GRAMMAR, Skill.READING, Skill.LISTENING, Skill.PRONUNCIATION
+    };
 
     private final PlacementTestSessionRepository sessionRepository;
     private final PlacementTestAnswerRepository answerRepository;
     private final QuestionRepository questionRepository;
     private final OnboardingRepository onboardingRepository;
-    private final RoadmapGenerationService roadmapGenerationService;
     private final PlacementResultFactory resultFactory;
-    private final ObjectMapper objectMapper;
+    private final PlacementQuestionContentMapper questionContentMapper;
+    private final PlacementSessionExpiryService expiryService;
     private final UserRepository userRepository;
+    private final RoadmapJobService roadmapJobService;
 
     public PlacementQuestionResponse startTest(Long userId) {
         // Guard: đã hoàn thành placement test rồi → KHÔNG throw error,
@@ -82,31 +79,24 @@ public class PlacementTestService {
 
         if (existing.isPresent()) {
             PlacementTestSession session = existing.get();
+            // Session được tạo bởi phiên bản cũ không có per-skill state/issued question.
+            // Không trộn hai thuật toán trong cùng một bài; đóng session cũ và bắt đầu lại.
+            if (isLegacySession(session)) {
+                log.warn("Closing legacy placement session {} for user {} before starting the 20-question flow",
+                        session.getId(), userId);
+                session.setIsCompleted(true);
+                session.setCurrentQuestionId(null);
+                sessionRepository.save(session);
+                return startNewSession(userId);
+            }
             if (session.isExpired()) {
-                // P1-C fix: Nếu user đã trả lời ít nhất 1 câu, tự động hoàn thành
-                // (dùng CAT state đã tính) để giữ điểm số — thay vì silently drop toàn bộ tiến trình.
-                // Nếu session rỗng (không có câu trả lời nào), chỉ đóng và tạo session mới.
-                if (session.getCurrentQuestionIndex() > 0) {
-                    log.warn("Session {} expired for user {} with {} answers. Auto-completing to preserve grade.",
-                            session.getId(), userId, session.getCurrentQuestionIndex());
-                    try {
-                        PlacementResultResponse result = completeTest(session.getId(), userId);
-                        return PlacementQuestionResponse.builder()
-                                .sessionStatus("COMPLETED")
-                                .isTestCompleted(true)
-                                .placementResult(result)
-                                .nextQuestion(null)
-                                .build();
-                    } catch (Exception e) {
-                        log.error("Auto-complete of expired session {} failed; starting new session.", session.getId(), e);
-                        session.setIsCompleted(true);
-                        sessionRepository.save(session);
-                    }
-                } else {
-                    log.warn("Session {} expired for user {} with no answers. Creating new session.", session.getId(), userId);
-                    session.setIsCompleted(true);
-                    sessionRepository.save(session);
-                }
+                // Bài placement chỉ có giá trị khi đủ 20 câu. Session hết hạn được đóng như
+                // một attempt bị bỏ dở, tuyệt đối không sinh kết quả từ dữ liệu một phần.
+                log.warn("Session {} expired for user {} with {} answers. Starting a fresh attempt.",
+                        session.getId(), userId, session.getCurrentQuestionIndex());
+                session.setIsCompleted(true);
+                session.setCurrentQuestionId(null);
+                sessionRepository.save(session);
             } else {
                 return getNextQuestion(session.getId(), userId);
             }
@@ -116,8 +106,16 @@ public class PlacementTestService {
     }
 
     public PlacementResultResponse skipTest(Long userId) {
-        com.example.english_app.entity.user.User user = userRepository.findById(userId)
+        // Serialize repeated skip requests, then lock the active attempt so skip cannot race the
+        // twentieth answer and overwrite a legitimately calculated result.
+        com.example.english_app.entity.user.User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
+
+        sessionRepository.findActiveByStudentIdForUpdate(userId)
+                .ifPresent(s -> {
+                    s.setIsCompleted(true);
+                    s.setCurrentQuestionId(null);
+                });
 
         StudentOnboarding onboarding = onboardingRepository.findByStudentId(userId)
                 .orElseGet(() -> StudentOnboarding.builder().student(user).build());
@@ -127,12 +125,6 @@ public class PlacementTestService {
         }
 
         // Đóng session đang dở (nếu có)
-        sessionRepository.findTopByStudentIdAndIsCompletedFalseOrderByStartedAtDesc(userId)
-                .ifPresent(s -> {
-                    s.setIsCompleted(true);
-                    sessionRepository.save(s);
-                });
-
         short baselineScore = 20;
         onboarding.setPlacementCefrLevel(CefrLevel.A1);
         onboarding.setIsPlacementSkipped(true);
@@ -141,29 +133,19 @@ public class PlacementTestService {
         onboarding.setPlacementReadingScore(baselineScore);
         onboarding.setPlacementListeningScore(baselineScore);
         onboarding.setPlacementPronunciationScore(baselineScore);
+        onboarding.setPlacementVocabCefr(CefrLevel.A1);
+        onboarding.setPlacementGrammarCefr(CefrLevel.A1);
+        onboarding.setPlacementReadingCefr(CefrLevel.A1);
+        onboarding.setPlacementListeningCefr(CefrLevel.A1);
+        onboarding.setPlacementPronunciationCefr(CefrLevel.A1);
         onboarding.setPlacementCompletedAt(LocalDateTime.now());
-        onboardingRepository.save(onboarding);
+        queueRoadmapGeneration(onboarding, userId, CefrLevel.A1);
 
         log.info("Placement test skipped for user {}. Assigned default CEFR: A1 with baseline scores: {}", userId,
                 baselineScore);
 
-        // Tự động sinh Roadmap.
-        // Lưu ý: generateAndPersist() chạy trong transaction REQUIRES_NEW và TỰ PERSIST roadmap_json
-        // vào DB rồi. Chúng ta chỉ cần đọc roadmapJson từ kết quả trả về để build response;
-        // KHÔNG cần gọi onboardingRepository.save() lần nữa — tránh ghi đè bằng object stale.
-        String roadmapJson = null;
-        boolean roadmapGenerated = false;
-        try {
-            var roadmap = roadmapGenerationService.generateAndPersist(userId, CefrLevel.A1,
-                    onboarding.getGoalSurveyJson());
-            if (roadmap != null) {
-                roadmapJson = objectMapper.writeValueAsString(roadmap);
-                roadmapGenerated = true;
-            }
-        } catch (Exception e) {
-            log.error("Roadmap generation failed during skipTest for user {}", userId, e);
-        }
-
+        // Roadmap được tạo sau commit để response skip/submit không phải chờ các query lộ trình
+        // và tránh hai transaction cùng cập nhật một StudentOnboarding row.
         SkillScores scores = SkillScores.builder()
                 .vocab(baselineScore)
                 .grammar(baselineScore)
@@ -172,67 +154,64 @@ public class PlacementTestService {
                 .pronunciation(baselineScore)
                 .build();
 
-        return resultFactory.buildResponse(CefrLevel.A1, scores, Collections.emptyList(), roadmapJson,
-                roadmapGenerated);
+        Map<Skill, CefrLevel> skillCefrs = new EnumMap<>(Skill.class);
+        for (Skill s : SKILL_BLUEPRINT) {
+            skillCefrs.put(s, CefrLevel.A1);
+        }
+
+        return resultFactory.buildResponse(CefrLevel.A1, skillCefrs, scores, Collections.emptyList(), null, false);
     }
 
     public PlacementQuestionResponse getNextQuestion(Long sessionId, Long userId) {
-        PlacementTestSession session = requireSession(sessionId, userId);
-
-        if (session.getIsCompleted()) {
-            throw ErrorCode.PLACEMENT_TEST_ALREADY_COMPLETED.toException();
-        }
-        if (session.isExpired()) {
-            session.setIsCompleted(true);
-            sessionRepository.save(session);
-            throw ErrorCode.PLACEMENT_TEST_EXPIRED.toException();
-        }
+        rejectAndCommitIfExpired(sessionId, userId);
+        PlacementTestSession session = requireSessionForUpdate(sessionId, userId);
+        ensureSessionCanAcceptAnswer(session);
 
         int answeredCount = session.getCurrentQuestionIndex();
-
         if (answeredCount >= maxPlacementQuestions) {
             throw ErrorCode.PLACEMENT_TEST_ALREADY_COMPLETED.toException();
         }
 
-        List<Long> answeredIds = answerRepository.findAnsweredQuestionIdsBySessionId(sessionId);
-        if (answeredIds.isEmpty()) {
-            answeredIds = List.of(-1L);
+        // Idempotent: refresh/retry luôn nhận lại đúng câu đang chờ trả lời.
+        if (session.getCurrentQuestionId() != null) {
+            Question assigned = questionRepository.findById(session.getCurrentQuestionId())
+                    .orElseThrow(() -> ErrorCode.SYSTEM_ERROR.toException());
+            return buildQuestionResponse(sessionId, answeredCount, assigned);
         }
 
-        CefrLevel currentLevel = session.getCurrentCefrEstimate() != null
-                ? session.getCurrentCefrEstimate()
-                : CefrLevel.A2;
-
-        Question next = pickNextQuestion(currentLevel, answeredIds);
-        if (next == null) {
-            throw ErrorCode.PLACEMENT_TEST_ALREADY_COMPLETED.toException();
-        }
+        Skill targetSkill = getTargetSkill(answeredCount);
+        CefrLevel currentLevel = getSkillEstimate(session, targetSkill);
+        Question next = pickNextQuestion(sessionId, targetSkill, currentLevel);
+        session.setCurrentQuestionId(next.getId());
+        sessionRepository.save(session);
 
         return buildQuestionResponse(sessionId, answeredCount, next);
     }
 
     public PlacementQuestionResponse submitAnswer(Long userId, PlacementAnswerRequest request) {
-        PlacementTestSession session = requireSession(request.getSessionId(), userId);
+        if (request.getSubmissionId() == null) {
+            throw ErrorCode.INVALID_REQUEST.toException();
+        }
+        String requestHash = PlacementSubmissionHasher.answer(
+                request.getSessionId(), request.getQuestionId(),
+                request.getAnswerGiven(), request.getTimeSpentMs());
 
-        if (session.getIsCompleted()) {
-            throw ErrorCode.PLACEMENT_TEST_ALREADY_COMPLETED.toException();
+        rejectAndCommitIfExpired(request.getSessionId(), userId);
+        PlacementTestSession session = requireSessionForUpdate(request.getSessionId(), userId);
+        PlacementTestAnswer replay = findReplayCandidate(
+                request.getSessionId(), request.getQuestionId(), request.getSubmissionId(),
+                requestHash, "ANSWER");
+        if (replay != null) {
+            return replayAnswerResponse(session, userId, replay);
         }
-        if (session.isExpired()) {
-            session.setIsCompleted(true);
-            sessionRepository.save(session);
-            throw ErrorCode.PLACEMENT_TEST_EXPIRED.toException();
-        }
-        if (answerRepository.existsBySessionIdAndQuestionId(request.getSessionId(), request.getQuestionId())) {
-            log.warn("Duplicate answer submit: sessionId={}, questionId={}, userId={}",
-                    request.getSessionId(), request.getQuestionId(), userId);
-            throw ErrorCode.ANSWER_ALREADY_SUBMITTED.toException();
-        }
+        ensureSessionCanAcceptAnswer(session);
 
-        Question question = questionRepository.findById(request.getQuestionId())
-                .orElseThrow(() -> ErrorCode.SYSTEM_ERROR.toException());
+        Question question = requireAssignedQuestion(session, request.getQuestionId(), false);
 
         boolean isCorrect = question.getCorrectAnswer()
                 .equalsIgnoreCase(request.getAnswerGiven() != null ? request.getAnswerGiven().trim() : "");
+
+        Question next = advanceSessionAndAssignNext(session, question, isCorrect);
 
         answerRepository.save(PlacementTestAnswer.builder()
                 .session(session)
@@ -240,20 +219,18 @@ public class PlacementTestService {
                 .answerGiven(request.getAnswerGiven())
                 .isCorrect(isCorrect)
                 .timeSpentMs(request.getTimeSpentMs())
+                .submissionId(request.getSubmissionId())
+                .requestHash(requestHash)
+                .submissionType("ANSWER")
                 .answeredAt(LocalDateTime.now())
                 .build());
-
-        session.setLastActivityAt(LocalDateTime.now());
-        session.setCurrentQuestionIndex(session.getCurrentQuestionIndex() + 1);
-        updateCatState(session, isCorrect);
         sessionRepository.save(session);
 
         int answeredCount = session.getCurrentQuestionIndex();
-
-        boolean shouldFinish = shouldFinishEarly(session, answeredCount);
-
-        if (shouldFinish) {
-            PlacementResultResponse result = completeTest(session.getId(), userId);
+        if (answeredCount == maxPlacementQuestions) {
+            // Bắt buộc flush answer thứ 20 trước khi guard count trong completeTestInternal.
+            answerRepository.flush();
+            PlacementResultResponse result = completeTestInternal(session, userId);
             return PlacementQuestionResponse.builder()
                     .sessionId(session.getId())
                     .submittedQuestionId(request.getQuestionId())
@@ -261,35 +238,160 @@ public class PlacementTestService {
                     .isTestCompleted(true)
                     .placementResult(result)
                     .previousAnswerCorrect(isCorrect)
-                    .previousCorrectAnswer(question.getCorrectAnswer())
                     .nextQuestion(null)
                     .build();
         }
 
-        PlacementQuestionResponse nextQuestion = getNextQuestion(session.getId(), userId);
-        nextQuestion.setSubmittedQuestionId(request.getQuestionId());
-        nextQuestion.setSessionStatus("IN_PROGRESS");
-        nextQuestion.setPreviousAnswerCorrect(isCorrect);
-        nextQuestion.setPreviousCorrectAnswer(question.getCorrectAnswer());
-        return nextQuestion;
+        PlacementQuestionResponse response = buildQuestionResponse(session.getId(), answeredCount, next);
+        response.setSubmittedQuestionId(request.getQuestionId());
+        response.setSessionStatus("IN_PROGRESS");
+        response.setPreviousAnswerCorrect(isCorrect);
+        return response;
+    }
+
+    /**
+     * Preflight nhẹ trước khi gọi dịch vụ chấm audio. Không giữ DB transaction trong lúc
+     * chờ network; state sẽ được revalidate dưới row lock khi ghi kết quả.
+     */
+    @Transactional(readOnly = true)
+    public PronunciationSubmissionPreparation preparePronunciationSubmission(
+            Long userId,
+            Long sessionId,
+            Long questionId,
+            UUID submissionId,
+            String requestHash) {
+        if (submissionId == null) {
+            throw ErrorCode.INVALID_REQUEST.toException();
+        }
+        PlacementTestSession session = requireSession(sessionId, userId);
+        PlacementTestAnswer replay = findReplayCandidate(
+                sessionId, questionId, submissionId, requestHash, "PRONUNCIATION");
+        if (replay != null) {
+            return new PronunciationSubmissionPreparation(
+                    replay.getQuestion().getCorrectAnswer(),
+                    replayPronunciationResponse(session, userId, replay));
+        }
+        rejectAndCommitIfExpired(sessionId, userId);
+        if (Boolean.TRUE.equals(session.getIsCompleted())) {
+            throw ErrorCode.PLACEMENT_TEST_ALREADY_COMPLETED.toException();
+        }
+        if (session.isExpired()) {
+            throw ErrorCode.PLACEMENT_TEST_EXPIRED.toException();
+        }
+        String referenceText = requireAssignedQuestion(session, questionId, true).getCorrectAnswer();
+        return new PronunciationSubmissionPreparation(referenceText, null);
+    }
+
+    /** Ghi kết quả pronunciation và tiến trình trong một transaction ngắn, có row lock. */
+    public PlacementPronunciationAnswerResponse recordPronunciationAssessment(
+            Long userId,
+            Long sessionId,
+            Long questionId,
+            UUID submissionId,
+            String requestHash,
+            PronunciationScoreResult pronunciationResult) {
+
+        if (submissionId == null || requestHash == null) {
+            throw ErrorCode.INVALID_REQUEST.toException();
+        }
+        if (pronunciationResult == null
+                || !"SCORED".equals(pronunciationResult.getStatus())
+                || pronunciationResult.getOverallScore() == null) {
+            throw ErrorCode.PRONUNCIATION_UNAVAILABLE.toException();
+        }
+
+        rejectAndCommitIfExpired(sessionId, userId);
+        PlacementTestSession session = requireSessionForUpdate(sessionId, userId);
+        PlacementTestAnswer replay = findReplayCandidate(
+                sessionId, questionId, submissionId, requestHash, "PRONUNCIATION");
+        if (replay != null) {
+            return replayPronunciationResponse(session, userId, replay);
+        }
+        ensureSessionCanAcceptAnswer(session);
+
+        Question question = requireAssignedQuestion(session, questionId, true);
+        boolean isCorrect = pronunciationResult.getOverallScore() != null
+                && pronunciationResult.getOverallScore() >= 60;
+        Question next = advanceSessionAndAssignNext(session, question, isCorrect);
+
+        answerRepository.save(PlacementTestAnswer.builder()
+                .session(session)
+                .question(question)
+                .answerGiven(question.getCorrectAnswer())
+                .isCorrect(isCorrect)
+                .timeSpentMs(null)
+                .submissionId(submissionId)
+                .requestHash(requestHash)
+                .submissionType("PRONUNCIATION")
+                .pronunciationOverallScore(pronunciationResult.getOverallScore())
+                .pronunciationAccuracyScore(pronunciationResult.getAccuracyScore())
+                .pronunciationFluencyScore(pronunciationResult.getFluencyScore())
+                .pronunciationCompletenessScore(pronunciationResult.getCompletenessScore())
+                .answeredAt(LocalDateTime.now())
+                .build());
+        sessionRepository.save(session);
+
+        if (session.getCurrentQuestionIndex() == maxPlacementQuestions) {
+            answerRepository.flush();
+            PlacementResultResponse placementResult = completeTestInternal(session, userId);
+            return PlacementPronunciationAnswerResponse.builder()
+                    .sessionId(sessionId)
+                    .submittedQuestionId(questionId)
+                    .sessionStatus("COMPLETED")
+                    .isTestCompleted(true)
+                    .placementResult(placementResult)
+                    .pronunciationResult(pronunciationResult)
+                    .nextQuestion(null)
+                    .build();
+        }
+
+        PlacementQuestionResponse nextResponse = buildQuestionResponse(
+                sessionId, session.getCurrentQuestionIndex(), next);
+        nextResponse.setSubmittedQuestionId(questionId);
+        nextResponse.setPreviousAnswerCorrect(isCorrect);
+
+        return PlacementPronunciationAnswerResponse.builder()
+                .sessionId(sessionId)
+                .submittedQuestionId(questionId)
+                .sessionStatus("IN_PROGRESS")
+                .isTestCompleted(false)
+                .pronunciationResult(pronunciationResult)
+                .nextQuestion(nextResponse)
+                .build();
     }
 
     public PlacementResultResponse completeTest(Long sessionId, Long userId) {
-        PlacementTestSession session = requireSession(sessionId, userId);
+        rejectAndCommitIfExpired(sessionId, userId);
+        PlacementTestSession session = requireSessionForUpdate(sessionId, userId);
 
         if (session.getIsCompleted()) {
             return getResult(userId);
         }
 
+        return completeTestInternal(session, userId);
+    }
+
+    private PlacementResultResponse completeTestInternal(PlacementTestSession session, Long userId) {
+        List<PlacementTestAnswer> answers = answerRepository.findBySessionIdOrderByAnsweredAtAsc(session.getId());
+        if (answers.size() != maxPlacementQuestions
+                || session.getCurrentQuestionIndex() != maxPlacementQuestions) {
+            log.warn("Rejected early placement completion: sessionId={}, persistedAnswers={}, index={}, expected={}",
+                    session.getId(), answers.size(), session.getCurrentQuestionIndex(), maxPlacementQuestions);
+            throw ErrorCode.PLACEMENT_TEST_INCOMPLETE.toException();
+        }
+
         session.setIsCompleted(true);
+        session.setCurrentQuestionId(null);
         sessionRepository.save(session);
 
-        List<PlacementTestAnswer> answers = answerRepository.findBySessionIdOrderByAnsweredAtAsc(sessionId);
         SkillScores scores = resultFactory.calculateAllSkills(answers);
 
-        CefrLevel finalLevel = session.getCurrentCefrEstimate() != null
-                ? session.getCurrentCefrEstimate()
-                : CefrLevel.A1;
+        // Bound each estimate by the hardest level the learner actually saw. This prevents a
+        // four-correct A2→B1→B2→C1 path from being reported as C2 without any C2 evidence.
+        Map<Skill, CefrLevel> skillCefrs = getEvidenceBoundedSkillEstimates(session, answers);
+
+        // Overall CEFR = median của 5 skill estimates
+        CefrLevel finalLevel = resultFactory.calculateFinalCefrMedian(skillCefrs);
 
         // Lưu kết quả vào StudentOnboarding
         StudentOnboarding onboarding = onboardingRepository.findByStudentId(userId)
@@ -304,28 +406,40 @@ public class PlacementTestService {
         onboarding.setPlacementReadingScore(scores.getReading());
         onboarding.setPlacementListeningScore(scores.getListening());
         onboarding.setPlacementPronunciationScore(scores.getPronunciation());
+
+        // 5 per-skill CEFR columns
+        onboarding.setPlacementVocabCefr(skillCefrs.get(Skill.VOCABULARY));
+        onboarding.setPlacementGrammarCefr(skillCefrs.get(Skill.GRAMMAR));
+        onboarding.setPlacementReadingCefr(skillCefrs.get(Skill.READING));
+        onboarding.setPlacementListeningCefr(skillCefrs.get(Skill.LISTENING));
+        onboarding.setPlacementPronunciationCefr(skillCefrs.get(Skill.PRONUNCIATION));
+
         onboarding.setPlacementCompletedAt(LocalDateTime.now());
+        queueRoadmapGeneration(onboarding, userId, finalLevel);
+
+        log.info("Placement test completed for user {}. Overall CEFR: {}, Skill CEFRs: {}",
+                userId, finalLevel, skillCefrs);
+
+        return resultFactory.buildResponse(finalLevel, skillCefrs, scores, answers, null, false);
+    }
+
+    /**
+     * Persists the roadmap intent in the same transaction as the placement result. The worker may
+     * run later, but a committed placement can no longer lose its roadmap request on process crash.
+     */
+    private void queueRoadmapGeneration(
+            StudentOnboarding onboarding,
+            Long userId,
+            CefrLevel level) {
+        int nextVersion = Optional.ofNullable(onboarding.getRoadmapGenerationVersion()).orElse(0) + 1;
+        onboarding.setRoadmapJson(null);
+        onboarding.setRoadmapStatus(com.example.english_app.entity.enums.RoadmapGenerationStatus.PENDING);
+        onboarding.setRoadmapGenerationVersion(nextVersion);
+        onboarding.setRoadmapGenerationAttempts(0);
+        onboarding.setRoadmapLastError(null);
+        onboarding.setRoadmapUpdatedAt(LocalDateTime.now());
         onboardingRepository.save(onboarding);
-
-        log.info("Placement test completed for user {}. CEFR: {}", userId, finalLevel);
-
-        // Sinh lộ trình — dùng try-catch riêng để lỗi roadmap không rollback kết quả placement.
-        // generateAndPersist() chạy trong transaction REQUIRES_NEW và TỰ PERSIST roadmap_json;
-        // chỉ cần serialize kết quả trả về để build response — KHÔNG save lại onboarding ở đây.
-        String roadmapJson = null;
-        boolean roadmapGenerated = false;
-        try {
-            var roadmap = roadmapGenerationService.generateAndPersist(userId, finalLevel,
-                    onboarding.getGoalSurveyJson());
-            if (roadmap != null) {
-                roadmapJson = objectMapper.writeValueAsString(roadmap);
-                roadmapGenerated = true;
-            }
-        } catch (Exception e) {
-            log.error("Roadmap generation failed for user {}, placement result still saved.", userId, e);
-        }
-
-        return resultFactory.buildResponse(finalLevel, scores, answers, roadmapJson, roadmapGenerated);
+        roadmapJobService.enqueue(userId, nextVersion, level, onboarding.getGoalSurveyJson());
     }
 
     /**
@@ -340,11 +454,13 @@ public class PlacementTestService {
             throw ErrorCode.PLACEMENT_TEST_NOT_FOUND.toException();
         }
 
-        PlacementTestSession session = sessionRepository
-                .findTopByStudentIdOrderByStartedAtDesc(userId)
-                .orElseThrow(() -> ErrorCode.PLACEMENT_TEST_NOT_FOUND.toException());
-
-        List<PlacementTestAnswer> answers = answerRepository.findBySessionIdOrderByAnsweredAtAsc(session.getId());
+        List<PlacementTestAnswer> answers = Collections.emptyList();
+        if (!Boolean.TRUE.equals(onboarding.getIsPlacementSkipped())) {
+            PlacementTestSession session = sessionRepository
+                    .findTopByStudentIdOrderByStartedAtDesc(userId)
+                    .orElseThrow(() -> ErrorCode.PLACEMENT_TEST_NOT_FOUND.toException());
+            answers = answerRepository.findBySessionIdOrderByAnsweredAtAsc(session.getId());
+        }
 
         SkillScores scores = SkillScores.builder()
                 .vocab(onboarding.getPlacementVocabScore())
@@ -354,82 +470,143 @@ public class PlacementTestService {
                 .pronunciation(onboarding.getPlacementPronunciationScore())
                 .build();
 
+        Map<Skill, CefrLevel> skillCefrs = new EnumMap<>(Skill.class);
+        skillCefrs.put(Skill.VOCABULARY, onboarding.getPlacementVocabCefr() != null
+                ? onboarding.getPlacementVocabCefr() : onboarding.getPlacementCefrLevel());
+        skillCefrs.put(Skill.GRAMMAR, onboarding.getPlacementGrammarCefr() != null
+                ? onboarding.getPlacementGrammarCefr() : onboarding.getPlacementCefrLevel());
+        skillCefrs.put(Skill.READING, onboarding.getPlacementReadingCefr() != null
+                ? onboarding.getPlacementReadingCefr() : onboarding.getPlacementCefrLevel());
+        skillCefrs.put(Skill.LISTENING, onboarding.getPlacementListeningCefr() != null
+                ? onboarding.getPlacementListeningCefr() : onboarding.getPlacementCefrLevel());
+        skillCefrs.put(Skill.PRONUNCIATION, onboarding.getPlacementPronunciationCefr() != null
+                ? onboarding.getPlacementPronunciationCefr() : onboarding.getPlacementCefrLevel());
+
         return resultFactory.buildResponse(
                 onboarding.getPlacementCefrLevel(),
+                skillCefrs,
                 scores,
                 answers,
                 onboarding.getRoadmapJson(),
                 onboarding.getRoadmapJson() != null);
     }
 
-    // CAT Algorithm
-    public void updateCatState(PlacementTestSession session, boolean isCorrect) {
+    // ─── Blueprint & Skill Helpers ────────────────────────────────────────────
+
+    /**
+     * Xác định skill cho câu hỏi tiếp theo (dựa trên answeredCount).
+     * Blueprint cố định: 5 skills xoay vòng round-robin.
+     */
+    public Skill getTargetSkill(int answeredCount) {
+        return SKILL_BLUEPRINT[answeredCount % SKILL_BLUEPRINT.length];
+    }
+
+    /**
+     * Lấy CEFR estimate hiện tại cho một skill cụ thể trong session.
+     */
+    public CefrLevel getSkillEstimate(PlacementTestSession session, Skill skill) {
+        CefrLevel estimate = switch (skill) {
+            case VOCABULARY -> session.getVocabCefrEstimate();
+            case GRAMMAR -> session.getGrammarCefrEstimate();
+            case READING -> session.getReadingCefrEstimate();
+            case LISTENING -> session.getListeningCefrEstimate();
+            case PRONUNCIATION -> session.getPronunciationCefrEstimate();
+        };
+        return estimate != null ? estimate : CefrLevel.A2;
+    }
+
+    /**
+     * Cập nhật CEFR estimate cho một skill cụ thể trong session.
+     */
+    public void setSkillEstimate(PlacementTestSession session, Skill skill, CefrLevel level) {
+        switch (skill) {
+            case VOCABULARY -> session.setVocabCefrEstimate(level);
+            case GRAMMAR -> session.setGrammarCefrEstimate(level);
+            case READING -> session.setReadingCefrEstimate(level);
+            case LISTENING -> session.setListeningCefrEstimate(level);
+            case PRONUNCIATION -> session.setPronunciationCefrEstimate(level);
+        }
+    }
+
+    /**
+     * Lấy tất cả 5 per-skill CEFR estimates từ session.
+     */
+    public Map<Skill, CefrLevel> getAllSkillEstimates(PlacementTestSession session) {
+        Map<Skill, CefrLevel> map = new EnumMap<>(Skill.class);
+        for (Skill s : SKILL_BLUEPRINT) {
+            map.put(s, getSkillEstimate(session, s));
+        }
+        return map;
+    }
+
+    private Map<Skill, CefrLevel> getEvidenceBoundedSkillEstimates(
+            PlacementTestSession session,
+            List<PlacementTestAnswer> answers) {
+        Map<Skill, CefrLevel> estimates = getAllSkillEstimates(session);
+        Map<Skill, CefrLevel> hardestSeen = new EnumMap<>(Skill.class);
+        for (PlacementTestAnswer answer : answers) {
+            if (answer.getQuestion() == null
+                    || answer.getQuestion().getSkill() == null
+                    || answer.getQuestion().getCefrLevel() == null) {
+                continue;
+            }
+            hardestSeen.merge(
+                    answer.getQuestion().getSkill(),
+                    answer.getQuestion().getCefrLevel(),
+                    (left, right) -> left.ordinal() >= right.ordinal() ? left : right);
+        }
+        for (Skill skill : SKILL_BLUEPRINT) {
+            CefrLevel evidenceCeiling = hardestSeen.get(skill);
+            CefrLevel estimate = estimates.get(skill);
+            if (evidenceCeiling != null && estimate.ordinal() > evidenceCeiling.ordinal()) {
+                estimates.put(skill, evidenceCeiling);
+            }
+        }
+        return estimates;
+    }
+
+    /**
+     * Cập nhật CEFR estimate độc lập cho từng skill.
+     * Đúng: +1 bậc (tối đa C2)
+     * Sai: -1 bậc (tối thiểu A1)
+     *
+     * <p><b>Disclaimer:</b> CEFR level được tính từ placement test này là heuristic ước lượng
+     * cho mục tiêu phân loại nhanh trong app học tiếng Anh. Đây không phải chứng nhận CEFR chính thức.
+     */
+    public void updateSkillCatState(PlacementTestSession session, Skill skill, boolean isCorrect) {
         CefrLevel[] levels = CefrLevel.values();
-        // Defensive: fallback về A2 nếu currentCefrEstimate null (session cũ hoặc edge case)
-        CefrLevel current = session.getCurrentCefrEstimate() != null
-                ? session.getCurrentCefrEstimate() : CefrLevel.A2;
+        CefrLevel current = getSkillEstimate(session, skill);
         int idx = current.ordinal();
 
         if (isCorrect) {
-            if (idx < levels.length - 1)
-                session.setCurrentCefrEstimate(levels[idx + 1]);
+            if (idx < levels.length - 1) {
+                setSkillEstimate(session, skill, levels[idx + 1]);
+            }
             session.setCurrentWrongStreak(0);
         } else {
-            if (idx > 0)
-                session.setCurrentCefrEstimate(levels[idx - 1]);
+            if (idx > 0) {
+                setSkillEstimate(session, skill, levels[idx - 1]);
+            }
             session.setCurrentWrongStreak(session.getCurrentWrongStreak() + 1);
         }
 
+        // Progress only; do not expose this value as statistical confidence.
         int answered = session.getCurrentQuestionIndex();
-        int streak = session.getCurrentWrongStreak();
-        double confidence = (answered / (double) maxPlacementQuestions) * 100.0;
-        if (streak >= maxWrongStreak)
-            confidence = 100.0;
-
-        session.setConfidenceScore(BigDecimal.valueOf(Math.min(confidence, 100.0)));
+        double progress = (answered / (double) maxPlacementQuestions) * 100.0;
+        session.setProgressPercent(BigDecimal.valueOf(Math.min(progress, 100.0)));
     }
 
     public int getMaxPlacementQuestions() {
         return maxPlacementQuestions;
     }
 
-    public double getConfidenceThreshold() {
-        return confidenceThreshold;
-    }
-
-    public int getMinQuestionsBeforeEarlyStop() {
-        return minQuestionsBeforeEarlyStop;
-    }
-
-    /**
-     * Kiểm tra xem bài kiểm tra đã đủ điều kiện kết thúc chưa.
-     *
-     * <p>Có 2 điều kiện kết thúc:
-     * <ul>
-     *   <li><b>Normal:</b> Đã trả lời đủ {@code maxPlacementQuestions} câu.
-     *   <li><b>Early stop (CAT):</b> Confidence >= threshold VÀ đã trả lời >= {@code minQuestionsBeforeEarlyStop}.
-     *       Guard tối thiểu ngăn việc kết thúc quá sớm khi user mắc chuỗi sai ngay từ đầu.
-     * </ul>
-     */
-    public boolean shouldFinishEarly(PlacementTestSession session, int answeredCount) {
-        if (answeredCount >= maxPlacementQuestions) return true;
-        return answeredCount >= minQuestionsBeforeEarlyStop
-                && session.getConfidenceScore() != null
-                && session.getConfidenceScore().doubleValue() >= confidenceThreshold;
-    }
-
-    private Question pickNextQuestion(CefrLevel level, List<Long> excludeIds) {
-        CefrLevel[] levels = CefrLevel.values();
-        int idx = level.ordinal();
-
-        return questionRepository.findOneRandomByCefrLevelExcluding(level, excludeIds)
-                .or(() -> idx + 1 < levels.length
-                        ? questionRepository.findOneRandomByCefrLevelExcluding(levels[idx + 1], excludeIds)
-                        : Optional.empty())
-                .or(() -> idx - 1 >= 0
-                        ? questionRepository.findOneRandomByCefrLevelExcluding(levels[idx - 1], excludeIds)
-                        : Optional.empty())
-                .orElse(null);
+    /** Chọn câu gần target nhất bằng một DB round-trip, không load toàn bộ answered IDs. */
+    private Question pickNextQuestion(Long sessionId, Skill skill, CefrLevel level) {
+        return questionRepository.findBestAvailableForPlacement(sessionId, skill.name(), level.ordinal())
+                .orElseThrow(() -> {
+                    log.error("Exhausted all questions for skill {} in session {}", skill, sessionId);
+                    return ErrorCode.PLACEMENT_QUESTION_EXHAUSTED.toException();
+                });
     }
 
     // Private Helpers
@@ -444,27 +621,224 @@ public class PlacementTestService {
         return session;
     }
 
-    private PlacementQuestionResponse buildQuestionResponse(Long sessionId, int answeredCount, Question q) {
-        Map<String, Object> content;
-        try {
-            content = objectMapper.readValue(q.getContentJson(), new TypeReference<>() {
-            });
-        } catch (JsonProcessingException e) {
-            log.error("Failed to parse question content JSON for question {}", q.getId(), e);
-            content = Map.of("raw", q.getContentJson());
+    private PlacementTestAnswer findReplayCandidate(
+            Long sessionId,
+            Long questionId,
+            UUID submissionId,
+            String requestHash,
+            String submissionType) {
+        List<PlacementTestAnswer> candidates = answerRepository.findReplayCandidates(
+                sessionId, submissionId, questionId);
+
+        for (PlacementTestAnswer answer : candidates) {
+            if (submissionId.equals(answer.getSubmissionId())) {
+                if (!answer.getQuestion().getId().equals(questionId)
+                        || !Objects.equals(answer.getRequestHash(), requestHash)
+                        || !Objects.equals(answer.getSubmissionType(), submissionType)) {
+                    throw ErrorCode.IDEMPOTENCY_KEY_REUSED.toException();
+                }
+                return answer;
+            }
         }
 
-        // Section 3.6: Chuẩn hóa metadata cho câu hỏi phát âm
-        if (q.getQuestionType() != null && q.getQuestionType().name().equals("PRONUNCIATION")) {
-            Map<String, Object> enriched = new LinkedHashMap<>(content);
-            if (!enriched.containsKey("ipaTranscription") && enriched.containsKey("ipa")) {
-                enriched.put("ipaTranscription", enriched.get("ipa"));
+        for (PlacementTestAnswer answer : candidates) {
+            if (answer.getQuestion().getId().equals(questionId)) {
+                if (Objects.equals(answer.getRequestHash(), requestHash)
+                        && Objects.equals(answer.getSubmissionType(), submissionType)) {
+                    return answer;
+                }
+                throw ErrorCode.ANSWER_ALREADY_SUBMITTED.toException();
             }
-            if (!enriched.containsKey("instruction")) {
-                enriched.put("instruction", "Đọc to từ bên dưới vào microphone");
-            }
-            content = enriched;
         }
+        return null;
+    }
+
+    private PlacementQuestionResponse replayAnswerResponse(
+            PlacementTestSession session,
+            Long userId,
+            PlacementTestAnswer answer) {
+        if (Boolean.TRUE.equals(session.getIsCompleted())) {
+            return PlacementQuestionResponse.builder()
+                    .sessionId(session.getId())
+                    .submittedQuestionId(answer.getQuestion().getId())
+                    .sessionStatus("COMPLETED")
+                    .isTestCompleted(true)
+                    .placementResult(getResult(userId))
+                    .previousAnswerCorrect(answer.getIsCorrect())
+                    .build();
+        }
+
+        Question next = questionRepository.findById(session.getCurrentQuestionId())
+                .orElseThrow(() -> ErrorCode.SYSTEM_ERROR.toException());
+        PlacementQuestionResponse response = buildQuestionResponse(
+                session.getId(), session.getCurrentQuestionIndex(), next);
+        response.setSubmittedQuestionId(answer.getQuestion().getId());
+        response.setPreviousAnswerCorrect(answer.getIsCorrect());
+        response.setPreviousCorrectAnswer(answer.getQuestion().getCorrectAnswer());
+        return response;
+    }
+
+    private PlacementPronunciationAnswerResponse replayPronunciationResponse(
+            PlacementTestSession session,
+            Long userId,
+            PlacementTestAnswer answer) {
+        PronunciationScoreResult score = pronunciationScoreFrom(answer);
+        if (Boolean.TRUE.equals(session.getIsCompleted())) {
+            return PlacementPronunciationAnswerResponse.builder()
+                    .sessionId(session.getId())
+                    .submittedQuestionId(answer.getQuestion().getId())
+                    .sessionStatus("COMPLETED")
+                    .isTestCompleted(true)
+                    .placementResult(getResult(userId))
+                    .pronunciationResult(score)
+                    .build();
+        }
+
+        Question next = questionRepository.findById(session.getCurrentQuestionId())
+                .orElseThrow(() -> ErrorCode.SYSTEM_ERROR.toException());
+        PlacementQuestionResponse nextResponse = buildQuestionResponse(
+                session.getId(), session.getCurrentQuestionIndex(), next);
+        nextResponse.setSubmittedQuestionId(answer.getQuestion().getId());
+        nextResponse.setPreviousAnswerCorrect(answer.getIsCorrect());
+        return PlacementPronunciationAnswerResponse.builder()
+                .sessionId(session.getId())
+                .submittedQuestionId(answer.getQuestion().getId())
+                .sessionStatus("IN_PROGRESS")
+                .isTestCompleted(false)
+                .pronunciationResult(score)
+                .nextQuestion(nextResponse)
+                .build();
+    }
+
+    private PronunciationScoreResult pronunciationScoreFrom(PlacementTestAnswer answer) {
+        short overall = answer.getPronunciationOverallScore();
+        String color = overall >= 80 ? "GREEN" : overall >= 60 ? "YELLOW" : "RED";
+        String level = overall >= 80 ? "EXCELLENT" : overall >= 60 ? "GOOD" : "NEEDS_PRACTICE";
+        return PronunciationScoreResult.builder()
+                .word(answer.getQuestion().getCorrectAnswer())
+                .overallScore(overall)
+                .accuracyScore(answer.getPronunciationAccuracyScore())
+                .fluencyScore(answer.getPronunciationFluencyScore())
+                .completenessScore(answer.getPronunciationCompletenessScore())
+                .scoreColor(color)
+                .scoreLevel(level)
+                .status("SCORED")
+                .build();
+    }
+
+    private PlacementTestSession requireSessionForUpdate(Long sessionId, Long userId) {
+        PlacementTestSession session = sessionRepository.findByIdWithStudentForUpdate(sessionId)
+                .orElseThrow(() -> ErrorCode.PLACEMENT_TEST_NOT_FOUND.toException());
+        if (!session.getStudent().getId().equals(userId)) {
+            throw ErrorCode.ACCESS_DENIED.toException();
+        }
+        return session;
+    }
+
+    private void ensureSessionCanAcceptAnswer(PlacementTestSession session) {
+        if (Boolean.TRUE.equals(session.getIsCompleted())) {
+            throw ErrorCode.PLACEMENT_TEST_ALREADY_COMPLETED.toException();
+        }
+        if (session.isExpired()) {
+            throw ErrorCode.PLACEMENT_TEST_EXPIRED.toException();
+        }
+        if (session.getCurrentQuestionIndex() >= maxPlacementQuestions) {
+            throw ErrorCode.PLACEMENT_TEST_ALREADY_COMPLETED.toException();
+        }
+    }
+
+    private void rejectAndCommitIfExpired(Long sessionId, Long userId) {
+        if (expiryService.closeIfExpired(sessionId, userId)) {
+            throw ErrorCode.PLACEMENT_TEST_EXPIRED.toException();
+        }
+    }
+
+    private Question requireAssignedQuestion(
+            PlacementTestSession session,
+            Long submittedQuestionId,
+            boolean pronunciationEndpoint) {
+
+        if (session.getCurrentQuestionId() == null
+                || !session.getCurrentQuestionId().equals(submittedQuestionId)) {
+            log.warn("Rejected unassigned question: sessionId={}, expected={}, submitted={}",
+                    session.getId(), session.getCurrentQuestionId(), submittedQuestionId);
+            throw ErrorCode.PLACEMENT_QUESTION_MISMATCH.toException();
+        }
+
+        Question question = questionRepository.findById(submittedQuestionId)
+                .orElseThrow(() -> ErrorCode.SYSTEM_ERROR.toException());
+        Skill expectedSkill = getTargetSkill(session.getCurrentQuestionIndex());
+        boolean isPronunciation = question.getQuestionType() == QuestionType.PRONUNCIATION;
+
+        if (question.getSkill() != expectedSkill || isPronunciation != pronunciationEndpoint) {
+            log.warn("Rejected question with invalid blueprint/type: sessionId={}, questionId={}, "
+                            + "expectedSkill={}, actualSkill={}, type={}",
+                    session.getId(), question.getId(), expectedSkill, question.getSkill(), question.getQuestionType());
+            throw ErrorCode.PLACEMENT_QUESTION_MISMATCH.toException();
+        }
+        return question;
+    }
+
+    /**
+     * Cập nhật state trong memory và preselect câu tiếp theo trước khi persist answer.
+     * Hai skill liền kề trong blueprint luôn khác nhau, nên câu hiện tại chưa flush
+     * không thể bị query chọn lại cho bước kế tiếp.
+     */
+    private Question advanceSessionAndAssignNext(
+            PlacementTestSession session,
+            Question answeredQuestion,
+            boolean isCorrect) {
+
+        int answeredCount = session.getCurrentQuestionIndex() + 1;
+        session.setCurrentQuestionIndex(answeredCount);
+        session.setLastActivityAt(LocalDateTime.now());
+        updateSkillCatState(session, answeredQuestion.getSkill(), isCorrect);
+        session.setCurrentQuestionId(null);
+
+        if (answeredCount == maxPlacementQuestions) {
+            return null;
+        }
+        if (answeredCount > maxPlacementQuestions) {
+            throw ErrorCode.PLACEMENT_TEST_ALREADY_COMPLETED.toException();
+        }
+
+        Skill nextSkill = getTargetSkill(answeredCount);
+        CefrLevel nextLevel = getSkillEstimate(session, nextSkill);
+        Question next = pickNextQuestion(session.getId(), nextSkill, nextLevel);
+        session.setCurrentQuestionId(next.getId());
+        return next;
+    }
+
+    private boolean isLegacySession(PlacementTestSession session) {
+        return session.getVocabCefrEstimate() == null
+                && session.getGrammarCefrEstimate() == null
+                && session.getReadingCefrEstimate() == null
+                && session.getListeningCefrEstimate() == null
+                && session.getPronunciationCefrEstimate() == null;
+    }
+
+    private void ensureQuestionBankCapacity() {
+        Map<Skill, Long> activeBySkill = new EnumMap<>(Skill.class);
+        for (Object[] row : questionRepository.countPlacementReadyGroupBySkill()) {
+            activeBySkill.put((Skill) row[0], ((Number) row[1]).longValue());
+        }
+
+        int fullRounds = maxPlacementQuestions / SKILL_BLUEPRINT.length;
+        int remainder = maxPlacementQuestions % SKILL_BLUEPRINT.length;
+        for (int i = 0; i < SKILL_BLUEPRINT.length; i++) {
+            Skill skill = SKILL_BLUEPRINT[i];
+            long required = fullRounds + (i < remainder ? 1 : 0);
+            long available = activeBySkill.getOrDefault(skill, 0L);
+            if (available < required) {
+                log.error("Insufficient active placement questions: skill={}, required={}, available={}",
+                        skill, required, available);
+                throw ErrorCode.PLACEMENT_QUESTION_EXHAUSTED.toException();
+            }
+        }
+    }
+
+    private PlacementQuestionResponse buildQuestionResponse(Long sessionId, int answeredCount, Question q) {
+        Map<String, Object> content = questionContentMapper.toLearnerContent(q);
 
         // Tạo nested nextQuestion Map để Mobile dễ mapping theo hợp đồng { "nextQuestion": { ... } }
         Map<String, Object> nextMap = new LinkedHashMap<>();
@@ -494,14 +868,32 @@ public class PlacementTestService {
 
     // Tạo session mới — tách riêng để dễ unit test
     private PlacementQuestionResponse startNewSession(Long userId) {
-        com.example.english_app.entity.user.User user = userRepository.findById(userId)
+        // The user row is the aggregate lock for start/skip. Recheck state after acquiring it,
+        // because another request may have created a session or completed placement meanwhile.
+        com.example.english_app.entity.user.User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
+
+        Optional<StudentOnboarding> currentOnboarding = onboardingRepository.findByStudentId(userId);
+        if (currentOnboarding.isPresent() && currentOnboarding.get().getPlacementCefrLevel() != null) {
+            return PlacementQuestionResponse.builder()
+                    .sessionStatus("COMPLETED")
+                    .isTestCompleted(true)
+                    .placementResult(getResult(userId))
+                    .build();
+        }
+
+        Optional<PlacementTestSession> concurrentlyCreated =
+                sessionRepository.findActiveByStudentIdForUpdate(userId);
+        if (concurrentlyCreated.isPresent()) {
+            return getNextQuestion(concurrentlyCreated.get().getId(), userId);
+        }
+
+        ensureQuestionBankCapacity();
 
         PlacementTestSession session = PlacementTestSession.builder()
                 .student(user)
                 .startedAt(LocalDateTime.now())
                 .lastActivityAt(LocalDateTime.now())
-                .currentCefrEstimate(CefrLevel.A2)
                 .build();
 
         session = sessionRepository.save(session);

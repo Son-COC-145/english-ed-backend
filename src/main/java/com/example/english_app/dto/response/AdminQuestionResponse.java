@@ -27,6 +27,7 @@ public class AdminQuestionResponse implements Serializable {
     private String correctAnswer;
     private Integer timeoutSeconds;
     private BigDecimal difficultyIndex;
+    private String placementAudioUrl;
     private Boolean isActive;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

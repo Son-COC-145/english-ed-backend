@@ -15,6 +15,8 @@ import java.util.Map;
 public class PlacementResultResponse {
 
     private String cefrLevel;
+    private String assessmentType;
+    private String assessmentDisclaimer;
     private int totalQuestions;
     private int correctAnswers;
 
@@ -25,6 +27,16 @@ public class PlacementResultResponse {
     private Short pronunciationScore;
 
     private Map<String, Short> radarChartData;
+    private Map<String, SkillResult> skills;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class SkillResult {
+        private String cefr;
+        private Short score;
+    }
 
     private String message;
     private String cefrDescription;
