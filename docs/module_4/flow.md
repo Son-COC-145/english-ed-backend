@@ -89,15 +89,26 @@ sequenceDiagram
 ### 📦 Đặc tả API tương ứng
 
 #### 2.1 Giáo viên Giao bài & Chấm điểm (TeacherAssignmentController)
-- **`POST /api/v1/teacher/courses/{courseId}/assignments`**:
-  - **Body (JSON):** `{"title": "Homework 1", "dueDate": "2023-12-31T23:59:59Z"}`
-- **`GET /api/v1/teacher/courses/{courseId}/assignments/{assignmentId}/submissions`**: Lấy bài nộp.
-- **`PUT /api/v1/teacher/courses/{courseId}/assignments/{assignmentId}/submissions/{submissionId}/grade`**:
-  - **Body (JSON):** `{"score": 9.5, "feedback": "Good job!", "audioFeedbackUrl": "..."}`
+Chỉ role `TEACHER` và là giáo viên phụ trách khóa học mới được gọi (ADMIN không giao/chấm bài). Các ID lồng nhau (`courseId`/`assignmentId`/`submissionId`) phải khớp, nếu không trả 404. Query `page` bắt đầu từ 0; response `currentPage` bắt đầu từ 1.
+
+- **`GET /api/v1/teacher/courses/{courseId}/assignments?keyword=&page=&size=`**: Danh sách bài tập. Mỗi phần tử có `submissionStats` = `{activeStudents, submittedCount, lateCount, gradedCount, notSubmittedCount}` (chỉ tính học viên ACTIVE; `lateCount` là bài nộp trễ chưa chấm).
+- **`POST /api/v1/teacher/courses/{courseId}/assignments`** / **`PUT .../assignments/{assignmentId}`**:
+  - **Body (JSON):** `{"title": "Homework 1", "description": "...", "moduleType": "VOCABULARY", "refId": 3, "deadlineAt": "2026-12-31T23:59:00"}`
+  - `moduleType`: `PRONUNCIATION` (`refId` = id từ ví dụ IPA), `VOCABULARY` (`refId` = topicId), `SPEAKING` (`refId` = scenarioId). `deadlineAt` là LocalDateTime không kèm múi giờ, có thể bỏ trống.
+  - Đổi `moduleType`/`refId` khi đã có bài nộp → `409` mã `9011 ASSIGNMENT_HAS_SUBMISSIONS`.
+- **`DELETE .../assignments/{assignmentId}`**: Xóa bài tập chưa có bài nộp; đã có bài nộp → `409` mã `9011`.
+- **`GET .../assignments/{assignmentId}/submissions?status=&page=&size=`**: Danh sách bài nộp, lọc tùy chọn theo `status` (`SUBMITTED`/`LATE`/`GRADED`). Mỗi bài nộp có `studentInfo` = `{id, fullName, email, avatarUrl}`.
+- **`GET .../assignments/{assignmentId}/submissions/{submissionId}`**: Chi tiết bài nộp `{submission, result}`; `result` tóm tắt kết quả bài làm gốc theo `moduleType` (điểm phát âm, điểm mini-game, điểm phiên speaking…), `null` nếu kết quả đã bị xóa.
+- **`PUT .../assignments/{assignmentId}/submissions/{submissionId}/grade`**: Chấm hoặc chấm lại (mỗi lần tăng `gradingRevision` và gửi thông báo cho học viên).
+  - **Body (JSON):** `{"score": 85.5, "status": "GRADED", "teacherCommentText": "Good job!", "teacherAudioCommentUrl": "https://..."}`
+  - `score` 0–100, tối đa 2 chữ số thập phân; `status` bắt buộc là `GRADED`; `teacherCommentText` tối đa 5000 ký tự; `teacherAudioCommentUrl` phải là URL HTTPS. Khi chấm lại cần gửi lại URL audio cũ nếu muốn giữ.
+- **`POST /api/v1/teacher/upload-audio`** (multipart, field `file`): Tải audio nhận xét (MP3, WAV, WEBM, M4A; tối đa 5 MB), trả `{"url": "https://..."}` để dùng cho `teacherAudioCommentUrl`. Lỗi định dạng/kích thước → `400` mã `4003 INVALID_AUDIO_FILE`.
 
 #### 2.2 Học viên Nộp bài (StudentAssignmentController)
 - **`GET /api/v1/student/courses/{courseId}/assignments`**: Xem bài tập được giao.
-- **`POST /api/v1/student/courses/{courseId}/assignments/{id}/submit`**: (Có thể nhận JSON hoặc Multipart tùy theo cấu hình).
+- **`POST /api/v1/student/courses/{courseId}/assignments/{id}/submit`**:
+  - **Body (JSON):** `{"resultRefId": 123}` — id log luyện phát âm (PRONUNCIATION), kết quả mini-game (VOCABULARY) hoặc phiên speaking đã COMPLETED (SPEAKING) của chính học viên và đúng `refId` của bài tập.
+  - Nộp sau `deadlineAt` → trạng thái `LATE`. Bài đã `GRADED` không nộp lại được.
 
 ---
 

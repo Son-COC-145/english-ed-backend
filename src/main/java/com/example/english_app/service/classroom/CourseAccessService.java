@@ -28,6 +28,16 @@ public class CourseAccessService {
         return actor;
     }
 
+    /** Assignments and grading belong to the course's own teacher only; admins are intentionally excluded. */
+    public User requireCourseTeacher(Long actorId, Course course) {
+        User actor = userRepository.findById(actorId)
+                .orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
+        if (actor.getRole() != Role.TEACHER || !course.getTeacher().getId().equals(actorId)) {
+            throw ErrorCode.COURSE_ACCESS_DENIED.toException();
+        }
+        return actor;
+    }
+
     public CourseStudent requireActiveStudent(Long studentId, Course course) {
         if (!Boolean.TRUE.equals(course.getIsActive())) {
             throw ErrorCode.COURSE_ACCESS_DENIED.toException();

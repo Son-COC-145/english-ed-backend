@@ -9,6 +9,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.*;
 
 import com.example.english_app.dto.request.classroom.CourseStudentRequest;
+import com.example.english_app.dto.request.classroom.UpdateCourseStudentStatusRequest;
 import com.example.english_app.dto.response.ApiResponse;
 import com.example.english_app.dto.response.PageResponse;
 import com.example.english_app.dto.response.UserResponse;
@@ -51,6 +52,12 @@ public class TeacherCourseController {
                 ApiResponse.success(courseService.getCoursesByTeacher(teacher.getId(), pageable)));
     }
 
+    @Operation(summary = "Xem chi tiết một khóa học (giáo viên phụ trách hoặc admin)")
+    @GetMapping("/{courseId}")
+    public ResponseEntity<ApiResponse<CourseResponse>> getCourse(@PathVariable Long courseId) {
+        return ResponseEntity.ok(ApiResponse.success(courseService.getCourse(getCurrentTeacher().getId(), courseId)));
+    }
+
     @Operation(summary = "Lấy danh sách học viên trong khóa học")
     @GetMapping("/{courseId}/students")
     public ResponseEntity<ApiResponse<PageResponse<CourseStudentDetailResponse>>> getStudentsInCourse(
@@ -80,6 +87,16 @@ public class TeacherCourseController {
             @Valid @RequestBody CourseStudentRequest request) {
         return ResponseEntity.ok(ApiResponse.success(courseStudentService.addStudentToCourse(
                 getCurrentTeacher().getId(), courseId, request)));
+    }
+
+    @Operation(summary = "Cập nhật trạng thái học viên trong khóa học (ACTIVE / INACTIVE)")
+    @PatchMapping("/{courseId}/students/{studentId}/status")
+    public ResponseEntity<ApiResponse<CourseStudentResponse>> updateStudentStatus(
+            @PathVariable Long courseId,
+            @PathVariable Long studentId,
+            @Valid @RequestBody UpdateCourseStudentStatusRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(courseStudentService.updateStudentStatus(
+                getCurrentTeacher().getId(), courseId, studentId, request)));
     }
 
     @Operation(summary = "Xóa học viên khỏi khóa học")

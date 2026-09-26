@@ -1,5 +1,6 @@
 package com.example.english_app.service.classroom;
 
+import com.example.english_app.dto.response.classroom.SubmissionResultResponse;
 import com.example.english_app.entity.classroom.Assignment;
 import com.example.english_app.entity.enums.ModuleType;
 import com.example.english_app.entity.enums.PracticeType;
@@ -14,6 +15,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.EnumSet;
+import java.util.Optional;
+import java.util.Set;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -24,6 +29,9 @@ public class AssignmentReferenceService {
     private final PronunciationPracticeLogRepository practiceRepository;
     private final MinigameResultRepository gameRepository;
     private final SpeakingSessionRepository sessionRepository;
+
+    /** Practice logs whose refId points to an IPA example word; IPA practice currently writes IPA_PHONEME. */
+    private static final Set<PracticeType> WORD_PRACTICE_TYPES = EnumSet.of(PracticeType.WORD, PracticeType.IPA_PHONEME);
 
     public void validateTarget(ModuleType moduleType, Long refId) {
         if (moduleType == null || refId == null || refId <= 0) throw ErrorCode.INVALID_REQUEST.toException();
@@ -40,7 +48,7 @@ public class AssignmentReferenceService {
         boolean matches = switch (assignment.getModuleType()) {
             case PRONUNCIATION -> practiceRepository.findById(resultId)
                     .filter(result -> result.getStudent().getId().equals(studentId)
-                            && result.getPracticeType() == PracticeType.WORD
+                            && WORD_PRACTICE_TYPES.contains(result.getPracticeType())
                             && result.getRefId().equals(assignment.getRefId())).isPresent();
             case VOCABULARY -> gameRepository.findById(resultId)
                     .filter(result -> result.getStudent().getId().equals(studentId)
@@ -52,5 +60,46 @@ public class AssignmentReferenceService {
                             && "COMPLETED".equals(result.getStatus())).isPresent();
         };
         if (!matches) throw ErrorCode.INVALID_REQUEST.toException();
+    }
+
+    /** Loads the learning result behind a submission for teacher review; empty if it was removed. */
+    public Optional<SubmissionResultResponse> describeResult(ModuleType moduleType, Long resultId) {
+        if (moduleType == null || resultId == null) {
+            return Optional.empty();
+        }
+        return switch (moduleType) {
+            case PRONUNCIATION -> practiceRepository.findById(resultId).map(log -> SubmissionResultResponse.builder()
+                    .moduleType(moduleType)
+                    .resultId(log.getId())
+                    .completedAt(log.getPracticedAt())
+                    .overallScore(toInteger(log.getOverallScore()))
+                    .fluencyScore(toInteger(log.getFluencyScore()))
+                    .completenessScore(toInteger(log.getCompletenessScore()))
+                    .stressCorrect(log.getStressCorrect())
+                    .studentAudioUrl(log.getAudioUrl())
+                    .build());
+            case VOCABULARY -> gameRepository.findById(resultId).map(game -> SubmissionResultResponse.builder()
+                    .moduleType(moduleType)
+                    .resultId(game.getId())
+                    .completedAt(game.getPlayedAt())
+                    .overallScore(toInteger(game.getScore()))
+                    .gameType(game.getGameType() != null ? game.getGameType().name() : null)
+                    .durationSeconds(game.getDurationSeconds())
+                    .xpEarned(toInteger(game.getXpEarned()))
+                    .build());
+            case SPEAKING -> sessionRepository.findById(resultId).map(session -> SubmissionResultResponse.builder()
+                    .moduleType(moduleType)
+                    .resultId(session.getId())
+                    .completedAt(session.getEndedAt())
+                    .taskCompletionScore(toInteger(session.getTaskCompletionScore()))
+                    .fluencyScore(toInteger(session.getFluencyScore()))
+                    .intonationScore(toInteger(session.getIntonationScore()))
+                    .xpEarned(toInteger(session.getXpEarned()))
+                    .build());
+        };
+    }
+
+    private static Integer toInteger(Short value) {
+        return value != null ? value.intValue() : null;
     }
 }

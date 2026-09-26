@@ -49,6 +49,39 @@ class CourseAccessServiceTest {
     }
 
     @Test
+    void courseTeacherCheckRejectsAdmin() {
+        Course course = Course.builder().id(10L)
+                .teacher(User.builder().id(1L).role(Role.TEACHER).build()).build();
+        when(userRepository.findById(2L)).thenReturn(Optional.of(User.builder().id(2L).role(Role.ADMIN).build()));
+
+        AppException error = assertThrows(AppException.class,
+                () -> accessService.requireCourseTeacher(2L, course));
+
+        assertEquals(ErrorCode.COURSE_ACCESS_DENIED, error.getErrorCode());
+    }
+
+    @Test
+    void courseTeacherCheckRejectsTeacherOfAnotherCourse() {
+        Course course = Course.builder().id(10L)
+                .teacher(User.builder().id(1L).role(Role.TEACHER).build()).build();
+        when(userRepository.findById(2L)).thenReturn(Optional.of(User.builder().id(2L).role(Role.TEACHER).build()));
+
+        AppException error = assertThrows(AppException.class,
+                () -> accessService.requireCourseTeacher(2L, course));
+
+        assertEquals(ErrorCode.COURSE_ACCESS_DENIED, error.getErrorCode());
+    }
+
+    @Test
+    void courseTeacherCheckAllowsOwner() {
+        User owner = User.builder().id(1L).role(Role.TEACHER).build();
+        Course course = Course.builder().id(10L).teacher(owner).build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(owner));
+
+        assertSame(owner, accessService.requireCourseTeacher(1L, course));
+    }
+
+    @Test
     void rejectsInactiveEnrollment() {
         Course course = Course.builder().id(10L).isActive(true).build();
         when(courseStudentRepository.findByCourseIdAndStudentId(10L, 7L))

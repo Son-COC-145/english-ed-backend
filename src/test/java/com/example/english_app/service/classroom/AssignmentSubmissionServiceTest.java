@@ -2,7 +2,9 @@ package com.example.english_app.service.classroom;
 
 import com.example.english_app.dto.request.classroom.AssignmentSubmissionRequest;
 import com.example.english_app.dto.request.classroom.GradeSubmissionRequest;
+import com.example.english_app.dto.response.classroom.AssignmentSubmissionDetailResponse;
 import com.example.english_app.dto.response.classroom.AssignmentSubmissionResponse;
+import com.example.english_app.dto.response.classroom.SubmissionResultResponse;
 import com.example.english_app.entity.classroom.Assignment;
 import com.example.english_app.entity.classroom.AssignmentSubmission;
 import com.example.english_app.entity.classroom.Course;
@@ -24,7 +26,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -104,6 +110,51 @@ class AssignmentSubmissionServiceTest {
         assertEquals(new BigDecimal("95"),submission.getScore());
         assertEquals(2L,submission.getGradingRevision());
         verify(notificationOutboxService).enqueue(eq(7L),any(),any(),any(),eq("submission-graded:4:2"));
+    }
+
+    @Test
+    void listSubmissionsFiltersByStatusWhenRequested() {
+        Assignment assignment = assignment(3L, 10L);
+        Pageable pageable = PageRequest.of(0, 10);
+        when(assignmentRepository.findById(3L)).thenReturn(Optional.of(assignment));
+        when(submissionRepository.findAllByAssignmentIdAndStatus(3L, AssignmentSubmissionStatus.LATE, pageable))
+                .thenReturn(new PageImpl<>(List.of(), pageable, 0));
+
+        service.getSubmissionsByAssignment(1L, 10L, 3L, AssignmentSubmissionStatus.LATE, pageable);
+
+        verify(courseAccessService).requireCourseTeacher(1L, assignment.getCourse());
+        verify(submissionRepository, never()).findAllByAssignmentId(any(), any());
+    }
+
+    @Test
+    void submissionDetailRejectsSubmissionFromAnotherAssignment() {
+        AssignmentSubmission submission = AssignmentSubmission.builder().id(4L).assignment(assignment(5L, 10L))
+                .student(User.builder().id(7L).build()).build();
+        when(submissionRepository.findById(4L)).thenReturn(Optional.of(submission));
+
+        AppException error = assertThrows(AppException.class, () -> service.getSubmissionDetail(1L, 10L, 3L, 4L));
+
+        assertEquals(ErrorCode.SUBMISSION_NOT_FOUND, error.getErrorCode());
+        verifyNoInteractions(courseAccessService, referenceService);
+    }
+
+    @Test
+    void submissionDetailIncludesLearningResult() {
+        Assignment assignment = assignment(3L, 10L);
+        AssignmentSubmission submission = AssignmentSubmission.builder().id(4L).assignment(assignment)
+                .student(User.builder().id(7L).build()).resultRefId(8L).build();
+        SubmissionResultResponse result = SubmissionResultResponse.builder()
+                .moduleType(ModuleType.VOCABULARY).resultId(8L).overallScore(80).build();
+        when(submissionRepository.findById(4L)).thenReturn(Optional.of(submission));
+        when(referenceService.describeResult(ModuleType.VOCABULARY, 8L)).thenReturn(Optional.of(result));
+        when(classroomMapper.toAssignmentSubmissionResponse(submission))
+                .thenReturn(AssignmentSubmissionResponse.builder().id(4L).build());
+
+        AssignmentSubmissionDetailResponse detail = service.getSubmissionDetail(1L, 10L, 3L, 4L);
+
+        verify(courseAccessService).requireCourseTeacher(1L, assignment.getCourse());
+        assertEquals(4L, detail.getSubmission().getId());
+        assertSame(result, detail.getResult());
     }
 
     private Assignment assignment(Long assignmentId, Long courseId) {

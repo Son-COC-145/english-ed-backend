@@ -13,6 +13,7 @@ public class AssignmentSubmissionResponse {
     private Long id;
     private Long assignmentId;
     private Long studentId;
+    private SubmissionStudentResponse studentInfo;
     private Long resultRefId;
     private BigDecimal score;
     private AssignmentSubmissionStatus status;

@@ -1,6 +1,10 @@
 package com.example.english_app.service.classroom;
 
+import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
@@ -11,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.example.english_app.dto.request.classroom.AssignmentRequest;
 import com.example.english_app.dto.response.PageResponse;
 import com.example.english_app.dto.response.classroom.AssignmentResponse;
+import com.example.english_app.dto.response.classroom.AssignmentSubmissionStatsResponse;
+import com.example.english_app.entity.enums.AssignmentSubmissionStatus;
 import com.example.english_app.entity.classroom.Assignment;
 import com.example.english_app.entity.classroom.Course;
 import com.example.english_app.entity.user.User;
@@ -45,7 +51,7 @@ public class AssignmentService {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> ErrorCode.COURSE_NOT_FOUND.toException());
 
-        courseAccessService.requireTeacherOrAdmin(teacherId, course);
+        courseAccessService.requireCourseTeacher(teacherId, course);
         referenceService.validateTarget(request.getModuleType(), request.getRefId());
         User teacher = course.getTeacher();
 
@@ -76,8 +82,16 @@ public class AssignmentService {
             Pageable pageable) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> ErrorCode.COURSE_NOT_FOUND.toException());
-        courseAccessService.requireTeacherOrAdmin(teacherId, course);
-        return getAssignments(courseId, keyword, pageable);
+        courseAccessService.requireCourseTeacher(teacherId, course);
+        Page<Assignment> pageResult = assignmentRepository.findAllByCourseIdWithKeyword(courseId, keyword, pageable);
+        long activeStudents = courseStudentRepository.countByCourseIdAndStatus(courseId, ClassStudentStatus.ACTIVE);
+        Map<Long, Map<AssignmentSubmissionStatus, Long>> counts = countSubmissions(pageResult.getContent());
+        return toPageResponse(pageResult, assignment -> {
+            AssignmentResponse response = classroomMapper.toAssignmentResponse(assignment);
+            response.setSubmissionStats(buildStats(activeStudents,
+                    counts.getOrDefault(assignment.getId(), Map.of())));
+            return response;
+        });
     }
 
     public PageResponse<AssignmentResponse> getAssignmentsForStudent(Long studentId, Long courseId, String keyword,
@@ -90,8 +104,41 @@ public class AssignmentService {
 
     private PageResponse<AssignmentResponse> getAssignments(Long courseId, String keyword, Pageable pageable) {
         Page<Assignment> pageResult = assignmentRepository.findAllByCourseIdWithKeyword(courseId, keyword, pageable);
+        return toPageResponse(pageResult, classroomMapper::toAssignmentResponse);
+    }
+
+    private Map<Long, Map<AssignmentSubmissionStatus, Long>> countSubmissions(List<Assignment> assignments) {
+        if (assignments.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> ids = assignments.stream().map(Assignment::getId).toList();
+        Map<Long, Map<AssignmentSubmissionStatus, Long>> counts = new HashMap<>();
+        for (AssignmentSubmissionRepository.SubmissionStatusCount row
+                : submissionRepository.countByAssignmentIdsAndStatus(ids, ClassStudentStatus.ACTIVE)) {
+            counts.computeIfAbsent(row.getAssignmentId(), id -> new EnumMap<>(AssignmentSubmissionStatus.class))
+                    .put(row.getStatus(), row.getTotal());
+        }
+        return counts;
+    }
+
+    private AssignmentSubmissionStatsResponse buildStats(long activeStudents,
+            Map<AssignmentSubmissionStatus, Long> byStatus) {
+        long submitted = byStatus.getOrDefault(AssignmentSubmissionStatus.SUBMITTED, 0L);
+        long late = byStatus.getOrDefault(AssignmentSubmissionStatus.LATE, 0L);
+        long graded = byStatus.getOrDefault(AssignmentSubmissionStatus.GRADED, 0L);
+        return AssignmentSubmissionStatsResponse.builder()
+                .activeStudents(activeStudents)
+                .submittedCount(submitted + late + graded)
+                .lateCount(late)
+                .gradedCount(graded)
+                .notSubmittedCount(Math.max(0L, activeStudents - submitted - late - graded))
+                .build();
+    }
+
+    private PageResponse<AssignmentResponse> toPageResponse(Page<Assignment> pageResult,
+            Function<Assignment, AssignmentResponse> mapper) {
         List<AssignmentResponse> content = pageResult.getContent().stream()
-                .map(classroomMapper::toAssignmentResponse)
+                .map(mapper)
                 .collect(Collectors.toList());
         return PageResponse.<AssignmentResponse>builder()
                 .content(content)
@@ -109,11 +156,11 @@ public class AssignmentService {
         if (!assignment.getCourse().getId().equals(courseId)) {
             throw ErrorCode.ASSIGNMENT_NOT_FOUND.toException();
         }
-        courseAccessService.requireTeacherOrAdmin(teacherId, assignment.getCourse());
+        courseAccessService.requireCourseTeacher(teacherId, assignment.getCourse());
         referenceService.validateTarget(request.getModuleType(), request.getRefId());
         if ((assignment.getModuleType() != request.getModuleType() || !assignment.getRefId().equals(request.getRefId()))
                 && submissionRepository.existsByAssignmentId(assignmentId)) {
-            throw ErrorCode.CLASSROOM_RESOURCE_IN_USE.toException();
+            throw ErrorCode.ASSIGNMENT_HAS_SUBMISSIONS.toException();
         }
         assignment.setTitle(request.getTitle());
         assignment.setDescription(request.getDescription());
@@ -130,9 +177,9 @@ public class AssignmentService {
         if (!assignment.getCourse().getId().equals(courseId)) {
             throw ErrorCode.ASSIGNMENT_NOT_FOUND.toException();
         }
-        courseAccessService.requireTeacherOrAdmin(teacherId, assignment.getCourse());
+        courseAccessService.requireCourseTeacher(teacherId, assignment.getCourse());
         if (submissionRepository.existsByAssignmentId(assignmentId)) {
-            throw ErrorCode.CLASSROOM_RESOURCE_IN_USE.toException();
+            throw ErrorCode.ASSIGNMENT_HAS_SUBMISSIONS.toException();
         }
         assignmentRepository.delete(assignment);
     }

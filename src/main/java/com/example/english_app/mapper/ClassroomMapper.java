@@ -92,10 +92,17 @@ public class ClassroomMapper {
     public AssignmentSubmissionResponse toAssignmentSubmissionResponse(AssignmentSubmission entity) {
         if (entity == null)
             return null;
+        User student = entity.getStudent();
         return AssignmentSubmissionResponse.builder()
                 .id(entity.getId())
                 .assignmentId(entity.getAssignment() != null ? entity.getAssignment().getId() : null)
-                .studentId(entity.getStudent() != null ? entity.getStudent().getId() : null)
+                .studentId(student != null ? student.getId() : null)
+                .studentInfo(student != null ? SubmissionStudentResponse.builder()
+                        .id(student.getId())
+                        .fullName(student.getFullName())
+                        .email(student.getEmail())
+                        .avatarUrl(student.getAvatarUrl())
+                        .build() : null)
                 .resultRefId(entity.getResultRefId())
                 .score(entity.getScore())
                 .status(entity.getStatus())
