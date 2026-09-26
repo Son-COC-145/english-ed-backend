@@ -2,6 +2,7 @@ package com.example.english_app.service.auth;
 
 import com.example.english_app.dto.request.ChangePasswordRequest;
 import com.example.english_app.dto.request.LoginRequest;
+import com.example.english_app.dto.request.OAuth2ExchangeRequest;
 import com.example.english_app.dto.request.RegisterRequest;
 import com.example.english_app.dto.response.AuthResponse;
 import com.example.english_app.dto.response.UserResponse;
@@ -77,6 +78,48 @@ public class AuthService {
         if (!passwordEncoder.matches(
                 request.getPassword(), user.getPassword())) {
             throw  ErrorCode.INVALID_CREDENTIALS.toException();
+        }
+
+        String accessToken = tokenService.generateAccessToken(user);
+        String refreshToken = tokenService.generateRefreshToken(user);
+
+        redisTemplate.opsForValue().set(
+                "refresh_token:" + refreshToken,
+                user.getEmail(),
+                Duration.ofSeconds(refreshTokenExpiration));
+
+        return AuthResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .tokenType("Bearer")
+                .expiresIn(accessTokenExpiration)
+                .userId(user.getId())
+                .email(user.getEmail())
+                .fullName(user.getFullName())
+                .avatarUrl(user.getAvatarUrl())
+                .role(user.getRole() != null ? user.getRole().name() : null)
+                .provider(user.getProvider() != null ? user.getProvider().name() : null)
+                .build();
+    }
+
+    public AuthResponse exchangeOAuth2Code(OAuth2ExchangeRequest request) {
+        String key = "oauth2_code:" + request.getCode().trim();
+        String userIdStr = redisTemplate.opsForValue().get(key);
+        if (userIdStr == null) {
+            throw ErrorCode.INVALID_OAUTH2_CODE.toException();
+        }
+
+        Boolean deleted = redisTemplate.delete(key);
+        if (Boolean.FALSE.equals(deleted)) {
+            throw ErrorCode.INVALID_OAUTH2_CODE.toException();
+        }
+
+        Long userId = Long.valueOf(userIdStr);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
+
+        if (!user.getIsActive()) {
+            throw ErrorCode.ACCOUNT_LOCKED.toException();
         }
 
         String accessToken = tokenService.generateAccessToken(user);

@@ -24,6 +24,7 @@ public enum ErrorCode {
     // Google OAuth
     GOOGLE_LOGIN_RESTRICTED(3001, "Tài khoản này chỉ được đăng nhập bằng Google", HttpStatus.BAD_REQUEST),
     GOOGLE_PASSWORD_RESET_NOT_ALLOWED(3002, "Tài khoản Google không thể đặt lại mật khẩu", HttpStatus.BAD_REQUEST),
+    INVALID_OAUTH2_CODE(3003, "Mã xác thực OAuth2 không hợp lệ hoặc đã hết hạn", HttpStatus.BAD_REQUEST),
 
     // Validation
     INVALID_REQUEST(4001, "Dữ liệu không hợp lệ", HttpStatus.BAD_REQUEST),
@@ -71,6 +72,9 @@ public enum ErrorCode {
     /** attemptId đã được xử lý – trả 200 với cached result thay vì 409 để Mobile retry an toàn */
     DUPLICATE_ATTEMPT(8008, "Attempt này đã được xử lý", HttpStatus.OK),
     DUPLICATE_ATTEMPT_CONFLICT(8009, "AttemptId đã được dùng cho payload khác", HttpStatus.CONFLICT),
+    MINIGAME_ROUND_NOT_FOUND(8010, "Lượt chơi mini-game không tồn tại", HttpStatus.NOT_FOUND),
+    MINIGAME_ROUND_CLOSED(8011, "Lượt chơi mini-game đã kết thúc", HttpStatus.CONFLICT),
+    MINIGAME_ROUND_EMPTY(8012, "Lượt chơi chưa có câu trả lời nào", HttpStatus.BAD_REQUEST),
 
     // Speaking Coach
     SCENARIO_NOT_FOUND(8101, "Kịch bản giao tiếp không tồn tại", HttpStatus.NOT_FOUND),

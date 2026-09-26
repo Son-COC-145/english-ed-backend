@@ -2,6 +2,7 @@ package com.example.english_app.controller;
 
 import com.example.english_app.dto.request.ChangePasswordRequest;
 import com.example.english_app.dto.request.LoginRequest;
+import com.example.english_app.dto.request.OAuth2ExchangeRequest;
 import com.example.english_app.dto.request.RegisterRequest;
 import com.example.english_app.dto.response.ApiResponse;
 import com.example.english_app.dto.response.AuthResponse;
@@ -34,6 +35,12 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(ApiResponse.success(authService.login(request)));
+    }
+
+    @Operation(summary = "Đổi mã xác thực OAuth2 lấy token")
+    @PostMapping("/oauth2/exchange")
+    public ResponseEntity<ApiResponse<AuthResponse>> exchangeOAuth2Code(@Valid @RequestBody OAuth2ExchangeRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(authService.exchangeOAuth2Code(request)));
     }
 
     @Operation(summary = "Quên mật khẩu (Yêu cầu gửi email)")
