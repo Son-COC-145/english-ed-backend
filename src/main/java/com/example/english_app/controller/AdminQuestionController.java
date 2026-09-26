@@ -58,14 +58,6 @@ public class AdminQuestionController {
         return ResponseEntity.ok(ApiResponse.success(adminQuestionService.getStats()));
     }
 
-    // ─── Generate Audio ────────────────────────────────────────────────────────
-    
-    @Operation(summary = "Tự động sinh audio cho các câu hỏi LISTENING/PRONUNCIATION chưa có audio (hoặc xài link giả)")
-    @PostMapping("/generate-missing-audio")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> generateMissingAudio() {
-        return ResponseEntity.ok(ApiResponse.success(adminQuestionService.generateMissingAudio()));
-    }
-
     // ─── Create / Update / Delete ──────────────────────────────────────────────
 
     @Operation(summary = "Thêm câu hỏi mới vào ngân hàng đề thi")
