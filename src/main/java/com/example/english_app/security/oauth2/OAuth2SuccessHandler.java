@@ -1,7 +1,6 @@
 package com.example.english_app.security.oauth2;
 
 import com.example.english_app.entity.user.User;
-import com.example.english_app.service.auth.TokenService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -15,19 +14,15 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
 public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
-    private final TokenService tokenService;
+    private static final long CODE_EXPIRATION_SECONDS = 60;
+
     private final RedisTemplate<String, String> redisTemplate;
-
-    @Value("${jwt.access-token-expiration}")
-    private long accessTokenExpiration;
-
-    @Value("${jwt.refresh-token-expiration}")
-    private long refreshTokenExpiration;
 
     @Value("${spring.security.oauth2.redirect-uri}")
     private String redirectUri;
@@ -50,27 +45,16 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
             return;
         }
 
-        String accessToken = tokenService.generateAccessToken(user);
-        String refreshToken = tokenService.generateRefreshToken(user);
-
+        String code = UUID.randomUUID().toString();
         redisTemplate.opsForValue().set(
-                "refresh_token:" + refreshToken,
-                user.getEmail(),
-                Duration.ofSeconds(refreshTokenExpiration)
+                "oauth2_code:" + code,
+                String.valueOf(user.getId()),
+                Duration.ofSeconds(CODE_EXPIRATION_SECONDS)
         );
 
         String redirectUrl = UriComponentsBuilder
                 .fromUriString(redirectUri)
-                .queryParam("accessToken", accessToken)
-                .queryParam("refreshToken", refreshToken)
-                .queryParam("expiresIn", accessTokenExpiration)
-                .queryParam("userId", user.getId())
-                .queryParam("email", user.getEmail())
-                .queryParam("fullName", user.getFullName())
-                .queryParam("phone", user.getPhone())
-                .queryParam("avatarUrl", user.getAvatarUrl())
-                .queryParam("provider", user.getProvider().name())
-                .queryParam("role", user.getRole().name())
+                .queryParam("code", code)
                 .build()
                 .encode(java.nio.charset.StandardCharsets.UTF_8)
                 .toUriString();

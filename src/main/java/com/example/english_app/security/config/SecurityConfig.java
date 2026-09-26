@@ -73,6 +73,7 @@ public class SecurityConfig {
                                                                 "/api/v1/auth/forgot-password",
                                                                 "/api/v1/auth/reset-password",
                                                                 "/api/v1/auth/refresh-token",
+                                                                "/api/v1/auth/oauth2/exchange",
                                                                 "/api/v1/payments/vnpay-return",
                                                                 "/api/v1/payments/vnpay-ipn",
                                                                 "/actuator/health")
