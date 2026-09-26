@@ -28,6 +28,7 @@ public enum ErrorCode {
     // Validation
     INVALID_REQUEST(4001, "Dữ liệu không hợp lệ", HttpStatus.BAD_REQUEST),
     INVALID_IMAGE_FILE(4002, "File tải lên phải là ảnh hợp lệ và không vượt quá 5 MB", HttpStatus.BAD_REQUEST),
+    INVALID_AUDIO_FILE(4003, "File âm thanh phải là MP3, WAV, WEBM hoặc M4A hợp lệ và không vượt quá 5 MB", HttpStatus.BAD_REQUEST),
 
     // Onboarding
     ONBOARDING_ALREADY_COMPLETED(5001, "Bạn đã hoàn thành quá trình Onboarding", HttpStatus.BAD_REQUEST),
@@ -87,6 +88,8 @@ public enum ErrorCode {
     STUDENT_NOT_IN_COURSE(9007, "Học viên không thuộc khóa học này", HttpStatus.FORBIDDEN),
     COURSE_ACCESS_DENIED(9008, "Bạn không có quyền truy cập vào khóa học này", HttpStatus.FORBIDDEN),
     COURSE_HAS_STUDENTS(9010, "Không thể hủy kích hoạt khóa học đang có học viên đăng ký", HttpStatus.BAD_REQUEST),
+    MATERIAL_CONTENT_UNAVAILABLE(9012, "Không thể tải nội dung tài liệu từ kho lưu trữ. Vui lòng tải lại tài liệu", HttpStatus.BAD_GATEWAY),
+    ASSIGNMENT_HAS_SUBMISSIONS(9011, "Bài tập đã có bài nộp nên không thể xóa hoặc đổi nội dung được giao", HttpStatus.CONFLICT),
 
     // IPA Module
     PHONEME_NOT_FOUND(9101, "Không tìm thấy âm IPA với id đã cho", HttpStatus.NOT_FOUND),

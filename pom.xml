@@ -193,6 +193,10 @@
 						</exclude>
 					</excludes>
 					<jvmArguments>-Xms128m -Xmx256m -XX:+UseSerialGC</jvmArguments>
+					<!-- Only affects `mvn spring-boot:run`; the packaged jar used for deployment is not changed. -->
+					<profiles>
+						<profile>dev</profile>
+					</profiles>
 				</configuration>
 			</plugin>
 			<plugin>

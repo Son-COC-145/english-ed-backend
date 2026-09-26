@@ -108,4 +108,16 @@ public class TeachingMaterialController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    @Operation(summary = "Thay file tài liệu (có thể đổi tên cùng lúc)")
+    @PutMapping(value = "/{materialId}/file", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
+    public ResponseEntity<ApiResponse<TeachingMaterialResponse>> replaceMaterialFile(
+            @PathVariable Long courseId,
+            @PathVariable Long materialId,
+            @RequestPart("file") MultipartFile file,
+            @RequestPart(value = "title", required = false) String title) {
+        return ResponseEntity.ok(ApiResponse.success(teachingMaterialService.replaceMaterialFile(
+                materialId, getCurrentTeacher().getId(), courseId, file, title)));
+    }
+
 }

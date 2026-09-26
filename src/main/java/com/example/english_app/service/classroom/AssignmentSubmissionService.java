@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.example.english_app.dto.request.classroom.AssignmentSubmissionRequest;
 import com.example.english_app.dto.request.classroom.GradeSubmissionRequest;
 import com.example.english_app.dto.response.PageResponse;
+import com.example.english_app.dto.response.classroom.AssignmentSubmissionDetailResponse;
 import com.example.english_app.dto.response.classroom.AssignmentSubmissionResponse;
 import com.example.english_app.entity.classroom.Assignment;
 import com.example.english_app.entity.classroom.AssignmentSubmission;
@@ -87,7 +88,7 @@ public class AssignmentSubmissionService {
                 || !submission.getAssignment().getCourse().getId().equals(courseId)) {
             throw ErrorCode.SUBMISSION_NOT_FOUND.toException();
         }
-        courseAccessService.requireTeacherOrAdmin(teacherId, submission.getAssignment().getCourse());
+        courseAccessService.requireCourseTeacher(teacherId, submission.getAssignment().getCourse());
         if (request.getStatus() != AssignmentSubmissionStatus.GRADED || request.getScore() == null
                 || request.getScore().signum() < 0 || request.getScore().compareTo(BigDecimal.valueOf(100)) > 0) {
             throw ErrorCode.INVALID_REQUEST.toException();
@@ -111,14 +112,16 @@ public class AssignmentSubmissionService {
     }
 
     public PageResponse<AssignmentSubmissionResponse> getSubmissionsByAssignment(Long teacherId, Long courseId,
-            Long assignmentId, Pageable pageable) {
+            Long assignmentId, AssignmentSubmissionStatus status, Pageable pageable) {
         Assignment assignment = assignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> ErrorCode.ASSIGNMENT_NOT_FOUND.toException());
         if (!assignment.getCourse().getId().equals(courseId)) {
             throw ErrorCode.ASSIGNMENT_NOT_FOUND.toException();
         }
-        courseAccessService.requireTeacherOrAdmin(teacherId, assignment.getCourse());
-        Page<AssignmentSubmission> pageResult = submissionRepository.findAllByAssignmentId(assignmentId, pageable);
+        courseAccessService.requireCourseTeacher(teacherId, assignment.getCourse());
+        Page<AssignmentSubmission> pageResult = status == null
+                ? submissionRepository.findAllByAssignmentId(assignmentId, pageable)
+                : submissionRepository.findAllByAssignmentIdAndStatus(assignmentId, status, pageable);
         List<AssignmentSubmissionResponse> content = pageResult.getContent().stream()
                 .map(classroomMapper::toAssignmentSubmissionResponse)
                 .collect(Collectors.toList());
@@ -128,6 +131,22 @@ public class AssignmentSubmissionService {
                 .pageSize(pageResult.getSize())
                 .totalElements(pageResult.getTotalElements())
                 .totalPages(pageResult.getTotalPages())
+                .build();
+    }
+
+    public AssignmentSubmissionDetailResponse getSubmissionDetail(Long teacherId, Long courseId, Long assignmentId,
+            Long submissionId) {
+        AssignmentSubmission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> ErrorCode.SUBMISSION_NOT_FOUND.toException());
+        Assignment assignment = submission.getAssignment();
+        if (!assignment.getId().equals(assignmentId) || !assignment.getCourse().getId().equals(courseId)) {
+            throw ErrorCode.SUBMISSION_NOT_FOUND.toException();
+        }
+        courseAccessService.requireCourseTeacher(teacherId, assignment.getCourse());
+        return AssignmentSubmissionDetailResponse.builder()
+                .submission(classroomMapper.toAssignmentSubmissionResponse(submission))
+                .result(referenceService.describeResult(assignment.getModuleType(), submission.getResultRefId())
+                        .orElse(null))
                 .build();
     }
 

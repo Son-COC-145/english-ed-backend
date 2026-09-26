@@ -1,6 +1,7 @@
 package com.example.english_app.service.classroom;
 
 import com.example.english_app.dto.request.classroom.CourseStudentRequest;
+import com.example.english_app.dto.request.classroom.UpdateCourseStudentStatusRequest;
 import com.example.english_app.dto.response.PageResponse;
 import com.example.english_app.dto.response.StudentStatResponse;
 import com.example.english_app.dto.response.UserResponse;
@@ -77,6 +78,19 @@ public class CourseStudentService {
         courseStudentRepository.delete(courseStudent);
     }
 
+    /** Suspends or re-activates a student's enrollment; INACTIVE students keep their history but lose course access. */
+    @Transactional
+    public CourseStudentResponse updateStudentStatus(Long actorId, Long courseId, Long studentId,
+            UpdateCourseStudentStatusRequest request) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> ErrorCode.COURSE_NOT_FOUND.toException());
+        courseAccessService.requireTeacherOrAdmin(actorId, course);
+        CourseStudent courseStudent = courseStudentRepository.findByCourseIdAndStudentId(courseId, studentId)
+                .orElseThrow(() -> ErrorCode.STUDENT_NOT_IN_COURSE.toException());
+        courseStudent.setStatus(request.getStatus());
+        return classroomMapper.toCourseStudentResponse(courseStudentRepository.save(courseStudent));
+    }
+
     public PageResponse<CourseStudentDetailResponse> getStudentsByCourseWithStats(Long actorId, Long courseId, String keyword,
             ClassStudentStatus status, Pageable pageable) {
         Course course = courseRepository.findById(courseId)
@@ -125,7 +139,8 @@ public class CourseStudentService {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> ErrorCode.COURSE_NOT_FOUND.toException());
         courseAccessService.requireTeacherOrAdmin(actorId, course);
-        Page<User> userPage = userRepository.searchUsers(keyword, Role.STUDENT, pageable);
+        String normalizedKeyword = keyword == null || keyword.isBlank() ? null : keyword.trim();
+        Page<User> userPage = userRepository.searchEnrollmentCandidates(normalizedKeyword, Role.STUDENT, courseId, pageable);
         List<UserResponse> content = userPage.getContent().stream()
                 .map(student -> UserResponse.builder()
                         .id(student.getId())

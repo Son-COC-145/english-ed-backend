@@ -19,4 +19,6 @@ public class AssignmentResponse {
     private LocalDateTime deadlineAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    /** Only filled for teacher views; null for students. */
+    private AssignmentSubmissionStatsResponse submissionStats;
 }

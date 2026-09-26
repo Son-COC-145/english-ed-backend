@@ -29,6 +29,15 @@ public class CourseService {
     private final CourseRepository courseRepository;
     private final CourseStudentRepository courseStudentRepository;
     private final ClassroomMapper classroomMapper;
+    private final CourseAccessService courseAccessService;
+
+    /** One course for its teacher or an admin (course detail/edit pages). */
+    public CourseResponse getCourse(Long actorId, Long id) {
+        Course course = courseRepository.findById(id)
+                .orElseThrow(() -> ErrorCode.COURSE_NOT_FOUND.toException());
+        courseAccessService.requireTeacherOrAdmin(actorId, course);
+        return classroomMapper.toCourseResponse(course);
+    }
 
     @Transactional
     public CourseResponse createCourse(CourseRequest request) {

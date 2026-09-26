@@ -16,7 +16,7 @@ class CourseServiceTest {
     @Test void courseWithDependentDataCannotBeDeleted() {
         CourseRepository repository = mock(CourseRepository.class);
         CourseStudentRepository courseStudentRepository = mock(CourseStudentRepository.class);
-        CourseService service = new CourseService(mock(UserRepository.class), repository, courseStudentRepository, mock(ClassroomMapper.class));
+        CourseService service = new CourseService(mock(UserRepository.class), repository, courseStudentRepository, mock(ClassroomMapper.class), mock(CourseAccessService.class));
         when(repository.findByIdForUpdate(1L)).thenReturn(Optional.of(Course.builder().id(1L).build()));
         when(repository.hasDependentData(1L)).thenReturn(true);
         AppException error = assertThrows(AppException.class, () -> service.deleteCourse(1L));
@@ -27,7 +27,7 @@ class CourseServiceTest {
     @Test void courseWithStudentsCannotBeDeactivated() {
         CourseRepository repository = mock(CourseRepository.class);
         CourseStudentRepository courseStudentRepository = mock(CourseStudentRepository.class);
-        CourseService service = new CourseService(mock(UserRepository.class), repository, courseStudentRepository, mock(ClassroomMapper.class));
+        CourseService service = new CourseService(mock(UserRepository.class), repository, courseStudentRepository, mock(ClassroomMapper.class), mock(CourseAccessService.class));
         when(repository.findById(1L)).thenReturn(Optional.of(Course.builder().id(1L).isActive(true).build()));
         when(courseStudentRepository.existsByCourseId(1L)).thenReturn(true);
 
@@ -40,7 +40,7 @@ class CourseServiceTest {
         CourseRepository repository = mock(CourseRepository.class);
         CourseStudentRepository courseStudentRepository = mock(CourseStudentRepository.class);
         ClassroomMapper mapper = mock(ClassroomMapper.class);
-        CourseService service = new CourseService(mock(UserRepository.class), repository, courseStudentRepository, mapper);
+        CourseService service = new CourseService(mock(UserRepository.class), repository, courseStudentRepository, mapper, mock(CourseAccessService.class));
         Course course = Course.builder().id(1L).isActive(true).build();
         when(repository.findById(1L)).thenReturn(Optional.of(course));
         when(courseStudentRepository.existsByCourseId(1L)).thenReturn(false);
@@ -49,5 +49,25 @@ class CourseServiceTest {
         service.deactivate(1L);
         assertFalse(course.getIsActive());
         verify(repository).save(course);
+    }
+
+    @Test void getCourseChecksTeacherOwnership() {
+        CourseRepository repository = mock(CourseRepository.class);
+        CourseAccessService access = mock(CourseAccessService.class);
+        ClassroomMapper mapper = mock(ClassroomMapper.class);
+        CourseService service = new CourseService(mock(UserRepository.class), repository, mock(CourseStudentRepository.class), mapper, access);
+        Course course = Course.builder().id(4L).build();
+        when(repository.findById(4L)).thenReturn(Optional.of(course));
+        service.getCourse(9L, 4L);
+        verify(access).requireTeacherOrAdmin(9L, course);
+        verify(mapper).toCourseResponse(course);
+    }
+
+    @Test void getCourseRejectsUnknownId() {
+        CourseRepository repository = mock(CourseRepository.class);
+        CourseService service = new CourseService(mock(UserRepository.class), repository, mock(CourseStudentRepository.class), mock(ClassroomMapper.class), mock(CourseAccessService.class));
+        when(repository.findById(4L)).thenReturn(Optional.empty());
+        AppException error = assertThrows(AppException.class, () -> service.getCourse(9L, 4L));
+        assertEquals(ErrorCode.COURSE_NOT_FOUND, error.getErrorCode());
     }
 }

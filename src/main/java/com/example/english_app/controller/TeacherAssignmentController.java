@@ -20,7 +20,9 @@ import com.example.english_app.dto.request.classroom.GradeSubmissionRequest;
 import com.example.english_app.dto.response.ApiResponse;
 import com.example.english_app.dto.response.PageResponse;
 import com.example.english_app.dto.response.classroom.AssignmentResponse;
+import com.example.english_app.dto.response.classroom.AssignmentSubmissionDetailResponse;
 import com.example.english_app.dto.response.classroom.AssignmentSubmissionResponse;
+import com.example.english_app.entity.enums.AssignmentSubmissionStatus;
 import com.example.english_app.entity.user.User;
 import com.example.english_app.exception.ErrorCode;
 import com.example.english_app.repository.user.UserRepository;
@@ -36,7 +38,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/v1/teacher/courses/{courseId}/assignments")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
+@PreAuthorize("hasRole('TEACHER')")
 @Tag(name = "Teacher Assignment", description = "Teacher Assignment API")
 public class TeacherAssignmentController {
     private final AssignmentService assignmentService;
@@ -93,10 +95,21 @@ public class TeacherAssignmentController {
     public ResponseEntity<ApiResponse<PageResponse<AssignmentSubmissionResponse>>> getSubmissions(
             @PathVariable Long courseId,
             @PathVariable Long assignmentId,
+            @RequestParam(required = false) AssignmentSubmissionStatus status,
             @PageableDefault(sort = "submittedAt", direction = Sort.Direction.DESC) Pageable pageable) {
         return ResponseEntity
                 .ok(ApiResponse.success(submissionService.getSubmissionsByAssignment(
-                        getCurrentTeacher().getId(), courseId, assignmentId, pageable)));
+                        getCurrentTeacher().getId(), courseId, assignmentId, status, pageable)));
+    }
+
+    @Operation(summary = "Xem chi tiết bài nộp kèm kết quả bài làm của học viên")
+    @GetMapping("/{assignmentId}/submissions/{submissionId}")
+    public ResponseEntity<ApiResponse<AssignmentSubmissionDetailResponse>> getSubmissionDetail(
+            @PathVariable Long courseId,
+            @PathVariable Long assignmentId,
+            @PathVariable Long submissionId) {
+        return ResponseEntity.ok(ApiResponse.success(submissionService.getSubmissionDetail(
+                getCurrentTeacher().getId(), courseId, assignmentId, submissionId)));
     }
 
     @Operation(summary = "Chấm điểm bài nộp")
