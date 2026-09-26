@@ -1,0 +1,1 @@
+UPDATE questions SET placement_audio_url = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' WHERE skill IN ('LISTENING', 'PRONUNCIATION') AND placement_audio_url IS NULL;
