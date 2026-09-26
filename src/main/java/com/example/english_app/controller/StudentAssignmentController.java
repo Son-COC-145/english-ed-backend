@@ -4,6 +4,7 @@ import com.example.english_app.dto.request.classroom.AssignmentSubmissionRequest
 import com.example.english_app.dto.response.ApiResponse;
 import com.example.english_app.dto.response.PageResponse;
 import com.example.english_app.dto.response.classroom.AssignmentResponse;
+import com.example.english_app.dto.response.classroom.AssignmentSubmissionDetailResponse;
 import com.example.english_app.dto.response.classroom.AssignmentSubmissionResponse;
 import com.example.english_app.entity.user.User;
 import com.example.english_app.exception.ErrorCode;
@@ -48,6 +49,15 @@ public class StudentAssignmentController {
         return ResponseEntity
                 .ok(ApiResponse.success(assignmentService.getAssignmentsForStudent(
                         getCurrentStudent().getId(), courseId, keyword, pageable)));
+    }
+
+    @Operation(summary = "Xem bài nộp của chính học viên", description = "Trạng thái, kết quả bài làm; điểm và nhận xét chỉ có khi đã GRADED. 404 (9006) nếu chưa nộp")
+    @GetMapping("/{assignmentId}/my-submission")
+    public ResponseEntity<ApiResponse<AssignmentSubmissionDetailResponse>> getMySubmission(
+            @PathVariable Long courseId,
+            @PathVariable Long assignmentId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                submissionService.getMySubmission(getCurrentStudent().getId(), courseId, assignmentId)));
     }
 
     @Operation(summary = "Nộp kết quả bài tập")

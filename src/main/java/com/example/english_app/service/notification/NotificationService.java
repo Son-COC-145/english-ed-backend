@@ -76,6 +76,13 @@ public class NotificationService {
         return PageResponse.of(page);
     }
 
+    /** Unread badge for the web/app header, without loading the list. */
+    @Transactional(readOnly = true)
+    public long countUnread() {
+        Long userId = getCurrentUserId();
+        return userId == null ? 0 : notificationRepository.countByUserIdAndIsReadFalse(userId);
+    }
+
     @Transactional
     public void markAsRead(Long notificationId) {
         Long userId = getCurrentUserId();

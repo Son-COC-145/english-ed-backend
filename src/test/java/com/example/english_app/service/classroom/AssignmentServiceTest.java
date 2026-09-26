@@ -5,6 +5,8 @@ import com.example.english_app.dto.response.PageResponse;
 import com.example.english_app.dto.response.classroom.AssignmentResponse;
 import com.example.english_app.dto.response.classroom.AssignmentSubmissionStatsResponse;
 import com.example.english_app.entity.classroom.Assignment;
+import com.example.english_app.entity.classroom.AssignmentSubmission;
+import com.example.english_app.entity.enums.StudentAssignmentFilter;
 import com.example.english_app.entity.classroom.Course;
 import com.example.english_app.entity.enums.AssignmentSubmissionStatus;
 import com.example.english_app.entity.enums.ClassStudentStatus;
@@ -31,6 +33,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -102,6 +105,39 @@ class AssignmentServiceTest {
 
         assertEquals(ErrorCode.ASSIGNMENT_HAS_SUBMISSIONS, error.getErrorCode());
         verify(assignmentRepository, never()).save(any());
+    }
+
+    @Test
+    void studentTodoListAttachesOwnSubmissionAndCourseName() {
+        Course course = Course.builder().id(10L).name("Giao tiếp").build();
+        Assignment open = assignment(3L, course);
+        Pageable pageable = PageRequest.of(0, 20);
+        AssignmentSubmission graded = AssignmentSubmission.builder().id(9L).assignment(open)
+                .status(AssignmentSubmissionStatus.GRADED).score(java.math.BigDecimal.valueOf(85))
+                .teacherCommentText("Tốt").build();
+        when(assignmentRepository.findForStudentBySubmissionStatus(eq(7L), any(), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(open), pageable, 1));
+        when(submissionRepository.findAllByStudentIdAndAssignmentIdIn(7L, List.of(3L))).thenReturn(List.of(graded));
+        when(classroomMapper.toAssignmentResponse(open)).thenReturn(AssignmentResponse.builder().id(3L).build());
+
+        PageResponse<AssignmentResponse> page = service.getStudentAssignments(7L, StudentAssignmentFilter.GRADED, pageable);
+
+        AssignmentResponse row = page.getContent().get(0);
+        assertEquals("Giao tiếp", row.getCourseName());
+        assertEquals(AssignmentSubmissionStatus.GRADED, row.getMySubmission().getStatus());
+        assertEquals(0, java.math.BigDecimal.valueOf(85).compareTo(row.getMySubmission().getScore()));
+        assertTrue(row.getMySubmission().isHasTeacherComment());
+    }
+
+    @Test
+    void studentTodoFilterUsesNotSubmittedQuery() {
+        Pageable pageable = PageRequest.of(0, 20);
+        when(assignmentRepository.findNotSubmittedForStudent(7L, pageable)).thenReturn(new PageImpl<>(List.of(), pageable, 0));
+
+        PageResponse<AssignmentResponse> page = service.getStudentAssignments(7L, StudentAssignmentFilter.TODO, pageable);
+
+        assertTrue(page.getContent().isEmpty());
+        verify(submissionRepository, never()).findAllByStudentIdAndAssignmentIdIn(any(), any());
     }
 
     private Assignment assignment(Long id, Course course) {

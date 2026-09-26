@@ -15,6 +15,8 @@ public class NotificationResponse {
     private boolean isRead;
     private LocalDateTime createdAt;
     private String type;
+    /** Optional in-app link the notification points to. */
+    private String refUrl;
 
     public static NotificationResponse fromEntity(Notification entity) {
         return NotificationResponse.builder()
@@ -23,6 +25,8 @@ public class NotificationResponse {
                 .message(entity.getBody())
                 .isRead(entity.getIsRead())
                 .createdAt(entity.getCreatedAt())
+                .type(entity.getType() != null ? entity.getType().name() : null)
+                .refUrl(entity.getRefUrl())
                 .build();
     }
 }

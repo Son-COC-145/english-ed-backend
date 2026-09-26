@@ -53,6 +53,8 @@ public interface AssignmentSubmissionRepository extends JpaRepository<Assignment
 
     Optional<AssignmentSubmission> findByAssignmentIdAndStudentId(Long assignmentId, Long studentId);
 
+    List<AssignmentSubmission> findAllByStudentIdAndAssignmentIdIn(Long studentId, Collection<Long> assignmentIds);
+
     // Học sinh xem lịch sử làm bài của mình trong khoá học
     Page<AssignmentSubmission> findAllByStudentId(Long studentId, Pageable pageable);
 }

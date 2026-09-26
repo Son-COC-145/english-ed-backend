@@ -1,6 +1,7 @@
 package com.example.english_app.service.classroom;
 
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,6 +17,9 @@ import com.example.english_app.dto.request.classroom.AssignmentRequest;
 import com.example.english_app.dto.response.PageResponse;
 import com.example.english_app.dto.response.classroom.AssignmentResponse;
 import com.example.english_app.dto.response.classroom.AssignmentSubmissionStatsResponse;
+import com.example.english_app.dto.response.classroom.MySubmissionResponse;
+import com.example.english_app.entity.classroom.AssignmentSubmission;
+import com.example.english_app.entity.enums.StudentAssignmentFilter;
 import com.example.english_app.entity.enums.AssignmentSubmissionStatus;
 import com.example.english_app.entity.classroom.Assignment;
 import com.example.english_app.entity.classroom.Course;
@@ -99,12 +103,54 @@ public class AssignmentService {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> ErrorCode.COURSE_NOT_FOUND.toException());
         courseAccessService.requireActiveStudent(studentId, course);
-        return getAssignments(courseId, keyword, pageable);
+        Page<Assignment> pageResult = assignmentRepository.findAllByCourseIdWithKeyword(courseId, keyword, pageable);
+        return toStudentPage(studentId, pageResult, false);
     }
 
-    private PageResponse<AssignmentResponse> getAssignments(Long courseId, String keyword, Pageable pageable) {
-        Page<Assignment> pageResult = assignmentRepository.findAllByCourseIdWithKeyword(courseId, keyword, pageable);
-        return toPageResponse(pageResult, classroomMapper::toAssignmentResponse);
+    /** Assignments of every course the student is ACTIVE in, nearest deadline first, filtered by the student's progress. */
+    public PageResponse<AssignmentResponse> getStudentAssignments(Long studentId, StudentAssignmentFilter filter,
+            Pageable pageable) {
+        Page<Assignment> pageResult = switch (filter == null ? StudentAssignmentFilter.ALL : filter) {
+            case ALL -> assignmentRepository.findAllForStudent(studentId, pageable);
+            case TODO -> assignmentRepository.findNotSubmittedForStudent(studentId, pageable);
+            case SUBMITTED -> assignmentRepository.findForStudentBySubmissionStatus(studentId,
+                    EnumSet.of(AssignmentSubmissionStatus.SUBMITTED, AssignmentSubmissionStatus.LATE), pageable);
+            case GRADED -> assignmentRepository.findForStudentBySubmissionStatus(studentId,
+                    EnumSet.of(AssignmentSubmissionStatus.GRADED), pageable);
+        };
+        return toStudentPage(studentId, pageResult, true);
+    }
+
+    private PageResponse<AssignmentResponse> toStudentPage(Long studentId, Page<Assignment> pageResult,
+            boolean withCourseName) {
+        List<Long> ids = pageResult.getContent().stream().map(Assignment::getId).toList();
+        Map<Long, AssignmentSubmission> mine = ids.isEmpty() ? Map.of()
+                : submissionRepository.findAllByStudentIdAndAssignmentIdIn(studentId, ids).stream()
+                        .collect(Collectors.toMap(submission -> submission.getAssignment().getId(), Function.identity()));
+        return toPageResponse(pageResult, assignment -> {
+            AssignmentResponse response = classroomMapper.toAssignmentResponse(assignment);
+            response.setMySubmission(toMySubmission(mine.get(assignment.getId())));
+            if (withCourseName) {
+                response.setCourseName(assignment.getCourse().getName());
+            }
+            return response;
+        });
+    }
+
+    private MySubmissionResponse toMySubmission(AssignmentSubmission submission) {
+        if (submission == null) {
+            return null;
+        }
+        boolean graded = submission.getStatus() == AssignmentSubmissionStatus.GRADED;
+        return MySubmissionResponse.builder()
+                .id(submission.getId())
+                .status(submission.getStatus())
+                .score(graded ? submission.getScore() : null)
+                .submittedAt(submission.getSubmittedAt())
+                .commentedAt(submission.getCommentedAt())
+                .hasTeacherComment(graded && (submission.getTeacherCommentText() != null
+                        || submission.getTeacherAudioCommentUrl() != null))
+                .build();
     }
 
     private Map<Long, Map<AssignmentSubmissionStatus, Long>> countSubmissions(List<Assignment> assignments) {

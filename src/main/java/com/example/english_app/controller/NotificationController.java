@@ -43,6 +43,12 @@ public class NotificationController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    @GetMapping("/unread-count")
+    @Operation(summary = "Count unread notifications of the current user")
+    public ResponseEntity<ApiResponse<Long>> countUnread() {
+        return ResponseEntity.ok(ApiResponse.success(notificationService.countUnread()));
+    }
+
     @PatchMapping("/{id}/read")
     @Operation(summary = "Mark a specific notification as read")
     public ResponseEntity<ApiResponse<String>> markAsRead(@PathVariable Long id) {
