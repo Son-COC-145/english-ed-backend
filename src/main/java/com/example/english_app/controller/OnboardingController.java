@@ -7,7 +7,7 @@ import com.example.english_app.dto.response.ApiResponse;
 import com.example.english_app.dto.response.OnboardingStatusResponse;
 import com.example.english_app.dto.response.PlacementQuestionResponse;
 import com.example.english_app.dto.response.PlacementResultResponse;
-import com.example.english_app.dto.response.PronunciationScoreResult;
+import com.example.english_app.dto.response.RoadmapGenerationStatusResponse;
 import com.example.english_app.dto.response.roadmap.RoadmapProgressResponse;
 import com.example.english_app.dto.response.roadmap.RoadmapResponse;
 import com.example.english_app.service.onboarding.OnboardingLifecycleService;
@@ -17,6 +17,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -25,9 +26,12 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/v1/onboarding")
 @RequiredArgsConstructor
+@Slf4j
 @PreAuthorize("isAuthenticated()")
 @Tag(name = "Onboarding", description = "Module 0: Onboarding & Placement Test")
 public class OnboardingController {
@@ -70,7 +74,8 @@ public class OnboardingController {
             - Dùng `POST /placement-test/start` → đã trả luôn `firstQuestion`
             - Dùng `POST /placement-test/submit-answer` → đã trả luôn `nextQuestion` trong cùng response
 
-            Thiết kế đúng: 1 bài 20 câu chỉ cần **22 requests** (1 start + 20 submit + 1 result),
+            Thiết kế đúng: 1 bài 20 câu chỉ cần **21 requests** (1 start + 20 submit),
+            vì submit câu thứ 20 đã trả luôn placementResult,
             không phải 40+ requests.
             """, deprecated = true)
     @GetMapping("/placement-test/next-question")
@@ -90,19 +95,34 @@ public class OnboardingController {
                 placementTestService.submitAnswer(userId(auth), request)));
     }
 
-    @Operation(summary = "Nộp câu trả lời phát âm (audio) — trả kèm điểm số và câu tiếp theo")
+    @Operation(summary = "Nộp câu trả lời phát âm (audio) — trả kèm điểm số và câu tiếp theo",
+            description = """
+                    Nhận multipart/form-data gồm các **form fields** (không phải query params):
+                    - `sessionId` (Long, bắt buộc): ID phiên làm bài
+                    - `questionId` (Long, bắt buộc): ID câu hỏi hiện tại
+                    - `submissionId` (UUID, bắt buộc): Flutter giữ nguyên UUID cho mọi retry của cùng bản ghi âm
+                    - `audioFile` (MultipartFile, bắt buộc): File ghi âm WAV/WebM/OGG
+                    """)
     @PostMapping(value = "/placement-test/pronunciation/submit-answer", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<com.example.english_app.dto.response.PlacementPronunciationAnswerResponse>> submitPronunciationAnswer(
             Authentication auth,
             @RequestParam("sessionId") Long sessionId,
             @RequestParam("questionId") Long questionId,
-            @RequestPart("audioFile") MultipartFile audioFile,
-            @RequestParam("word") String word,
-            @RequestParam(value = "wordIndex", defaultValue = "0") int wordIndex) {
+            @RequestParam("submissionId") UUID submissionId,
+            @RequestPart("audioFile") MultipartFile audioFile) {
+
+        // Validate: audioFile phải có dữ liệu
+        if (audioFile == null || audioFile.isEmpty()) {
+            throw new com.example.english_app.exception.AppException(
+                    com.example.english_app.exception.ErrorCode.AUDIO_EMPTY_OR_CORRUPT);
+        }
+
+        log.debug("[PronunciationSubmit] userId={}, sessionId={}, questionId={}, submissionId={}, audioSize={}B",
+                userId(auth), sessionId, questionId, submissionId, audioFile.getSize());
 
         com.example.english_app.dto.response.PlacementPronunciationAnswerResponse result =
                 pronunciationService.submitPronunciationWithProgression(
-                        userId(auth), sessionId, questionId, audioFile, word, wordIndex);
+                        userId(auth), sessionId, questionId, submissionId, audioFile);
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
@@ -135,6 +155,20 @@ public class OnboardingController {
     public ResponseEntity<ApiResponse<RoadmapResponse>> getRoadmap(Authentication auth) {
         return ResponseEntity.ok(ApiResponse.success(
                 lifecycleService.getRoadmap(userId(auth))));
+    }
+
+    @Operation(summary = "Lấy trạng thái tạo lộ trình để client polling")
+    @GetMapping("/roadmap/status")
+    public ResponseEntity<ApiResponse<RoadmapGenerationStatusResponse>> getRoadmapStatus(Authentication auth) {
+        return ResponseEntity.ok(ApiResponse.success(
+                lifecycleService.getRoadmapGenerationStatus(userId(auth))));
+    }
+
+    @Operation(summary = "Yêu cầu tạo lại lộ trình sau khi worker thất bại")
+    @PostMapping("/roadmap/retry")
+    public ResponseEntity<ApiResponse<RoadmapGenerationStatusResponse>> retryRoadmap(Authentication auth) {
+        return ResponseEntity.ok(ApiResponse.success(
+                lifecycleService.retryRoadmap(userId(auth))));
     }
 
     @Operation(summary = "Lấy tiến độ hoàn thành lộ trình học tập")

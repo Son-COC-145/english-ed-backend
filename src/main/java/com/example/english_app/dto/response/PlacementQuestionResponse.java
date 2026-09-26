@@ -10,7 +10,7 @@ import java.util.Map;
 /**
  * Response câu hỏi Placement Test.
  *
- * <p>Khi bài thi hoàn tất (đủ số câu hoặc confidence đạt ngưỡng),
+ * <p>Khi bài thi hoàn tất đủ 20 câu,
  * {@code isTestCompleted=true} và {@code placementResult} sẽ được điền.
  * Frontend kiểm tra flag này để biết chuyển sang màn hình kết quả.
  */
@@ -47,20 +47,22 @@ public class PlacementQuestionResponse {
      */
     private Map<String, Object> nextQuestion;
 
-    // ─── Completion signal ─────────────────────────────────────────────────────
-    /** true khi bài thi vừa hoàn tất trong lần submit này. */
+    // ─── Completion signal ───────────────────────────────────────────────────────────
+    /**
+     * true khi bài thi vừa hoàn tất trong lần submit này.
+     * Key JSON bắt buộc là "isTestCompleted" theo hợp đồng FE.
+     */
     @Builder.Default
+    @com.fasterxml.jackson.annotation.JsonProperty("isTestCompleted")
     private boolean isTestCompleted = false;
-
-    public boolean isCompleted() {
-        return isTestCompleted;
-    }
 
     /** Điền sẵn kết quả khi isTestCompleted=true, null nếu còn tiếp tục làm. */
     private PlacementResultResponse placementResult;
 
     // ─── Feedback for previous answer (Gamification) ───────────────────────────
     private Boolean previousAnswerCorrect;
+    /** Retained for backward-compatible JSON shape; placement never exposes answer keys. */
+    @Deprecated
     private String previousCorrectAnswer;
     private String previousExplanation;
 }

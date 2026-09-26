@@ -21,6 +21,7 @@ public class NotificationOutboxService {
 
     private final NotificationOutboxRepository outboxRepository;
     private final UserRepository userRepository;
+    private final org.springframework.context.ApplicationEventPublisher publisher;
 
     @Transactional
     public void enqueue(Long recipientId, NotificationType type, String title, String body, String idempotencyKey) {
@@ -37,6 +38,7 @@ public class NotificationOutboxService {
                 .status(OutboxEventStatus.PENDING)
                 .availableAt(LocalDateTime.now())
                 .build());
+        publisher.publishEvent(new NotificationOutboxEventCreatedEvent(this));
     }
 
     @Transactional

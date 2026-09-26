@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
  * <p>status = "SCORED"      → overallScore không null, scoreColor được set.
  * <p>status = "UNAVAILABLE" → tất cả score fields là null, scoreColor = "NONE".
  *   Trường hợp này xảy ra khi Azure timeout hoặc không khả dụng.
- *   Luồng Placement Test vẫn tiếp tục bình thường.
+ *   Placement Test không thay đổi state và client có thể retry cùng câu hỏi.
  */
 @Data
 @Builder

@@ -62,7 +62,8 @@ public class AdminQuestionRequest {
             **LISTENING:**
             ```json
             {
-              "audioUrl": "https://storage.../listening_q1.mp3",
+              "transcript": "Internal source text used only to pre-generate audio.",
+              "audioUrl": "https://storage.../optional-pre-generated.mp3",
               "question": "What did the speaker say about the weather?",
               "options": ["It is sunny", "It is rainy", "It is cold", "It is hot"],
               "explanation": "The speaker mentioned it was raining."
@@ -87,7 +88,7 @@ public class AdminQuestionRequest {
             Đáp án đúng của câu hỏi.
             - MULTIPLE_CHOICE / READING / LISTENING: một trong các giá trị trong mảng options. VD: "went"
             - FILL_BLANK: chuỗi đáp án. VD: "went"
-            - PRONUNCIATION: chữ phiên âm IPA chuẩn. VD: "/ˈkʌmf.tə.bəl/"
+            - PRONUNCIATION: từ tham chiếu mà người học cần đọc. VD: "comfortable"
             """,
             example = "went")
     private String correctAnswer;

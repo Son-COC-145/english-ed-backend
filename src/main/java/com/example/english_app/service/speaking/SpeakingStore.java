@@ -43,6 +43,7 @@ public class SpeakingStore {
     private final SpeakingJobRepository jobs;
     private final SpeakingRewardRepository rewards;
     private final SpeakingJson json;
+    private final org.springframework.context.ApplicationEventPublisher publisher;
 
     public SpeakingSession owned(Long id, Long userId) {
         SpeakingSession s = sessions.findById(id).orElseThrow(ErrorCode.SESSION_NOT_FOUND::toException);
@@ -262,6 +263,7 @@ public class SpeakingStore {
 
     private void enqueue(Long sessionId, Long turnId, String kind) {
         jobs.enqueue(sessionId, turnId, kind);
+        publisher.publishEvent(new SpeakingJobCreatedEvent(this));
     }
 
     public record Job(

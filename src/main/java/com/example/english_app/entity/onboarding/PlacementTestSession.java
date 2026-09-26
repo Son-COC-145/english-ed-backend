@@ -42,12 +42,20 @@ public class PlacementTestSession {
     @Builder.Default
     private Integer currentQuestionIndex = 0;
 
+    /**
+     * Câu hỏi đã được server cấp và đang chờ câu trả lời.
+     * Persist ID này giúp GET next-question idempotent và ngăn client nộp một questionId tùy ý.
+     */
+    @Column(name = "current_question_id")
+    private Long currentQuestionId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "current_cefr_estimate")
     private CefrLevel currentCefrEstimate;
 
-    @Column(name = "confidence_score", precision = 5, scale = 2)
-    private BigDecimal confidenceScore;
+    /** Completion progress only; this is not a psychometric confidence measure. */
+    @Column(name = "progress_percent", precision = 5, scale = 2)
+    private BigDecimal progressPercent;
 
     /**
      * Số lần trả lời sai liên tiếp tính đến câu hỏi hiện tại.
@@ -57,6 +65,35 @@ public class PlacementTestSession {
     @Column(name = "current_wrong_streak", nullable = false)
     @Builder.Default
     private Integer currentWrongStreak = 0;
+
+    // ── Per-skill adaptive CEFR estimates ─────────────────────────────────────
+    // Mỗi skill có estimate độc lập, bắt đầu từ A2, cập nhật sau mỗi câu trả lời.
+    // current_cefr_estimate (cũ) không còn được write — giữ nguyên trong DB để compat.
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "vocab_cefr_estimate")
+    @Builder.Default
+    private CefrLevel vocabCefrEstimate = CefrLevel.A2;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "grammar_cefr_estimate")
+    @Builder.Default
+    private CefrLevel grammarCefrEstimate = CefrLevel.A2;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "reading_cefr_estimate")
+    @Builder.Default
+    private CefrLevel readingCefrEstimate = CefrLevel.A2;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "listening_cefr_estimate")
+    @Builder.Default
+    private CefrLevel listeningCefrEstimate = CefrLevel.A2;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "pronunciation_cefr_estimate")
+    @Builder.Default
+    private CefrLevel pronunciationCefrEstimate = CefrLevel.A2;
 
     /**
      * Kiểm tra session có hết hạn chưa (quá SESSION_TIMEOUT_MINUTES không hoạt động).

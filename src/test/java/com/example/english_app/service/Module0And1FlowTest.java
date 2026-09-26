@@ -40,7 +40,9 @@ import com.example.english_app.service.ipa.IpaServiceImpl;
 import com.example.english_app.service.onboarding.OnboardingLifecycleService;
 import com.example.english_app.service.onboarding.PlacementResultFactory;
 import com.example.english_app.service.onboarding.PlacementTestService;
-import com.example.english_app.service.onboarding.RoadmapGenerationService;
+import com.example.english_app.service.onboarding.PlacementQuestionContentMapper;
+import com.example.english_app.service.onboarding.PlacementSessionExpiryService;
+import com.example.english_app.service.onboarding.RoadmapJobService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -77,9 +79,11 @@ class Module0And1FlowTest {
     @Mock private QuestionRepository questionRepository;
     @Mock private DailyGoalRepository dailyGoalRepository;
     @Mock private StudentStatRepository studentStatRepository;
-    @Mock private RoadmapGenerationService roadmapGenerationService;
     @Spy  private ObjectMapper objectMapper = new ObjectMapper();
     @Spy  private PlacementResultFactory resultFactory = new PlacementResultFactory(new ObjectMapper());
+    @Mock private PlacementQuestionContentMapper questionContentMapper;
+    @Mock private PlacementSessionExpiryService expiryService;
+    @Mock private RoadmapJobService roadmapJobService;
 
     @InjectMocks private OnboardingLifecycleService lifecycleService;
     @InjectMocks private PlacementTestService placementTestService;
@@ -154,22 +158,10 @@ class Module0And1FlowTest {
         @Test
         @DisplayName("Luồng 0.3: Fast-Track Skip Test (Người mới bắt đầu) -> Gán A1 & Điểm sàn 20 & Sinh Roadmap")
         void testSkipPlacementTest() {
-            given(userRepository.findById(1L)).willReturn(Optional.of(mockUser));
+            given(userRepository.findByIdForUpdate(1L)).willReturn(Optional.of(mockUser));
             StudentOnboarding ob = StudentOnboarding.builder().student(mockUser).goalSurveyJson("{}").build();
             given(onboardingRepository.findByStudentId(1L)).willReturn(Optional.of(ob));
-            given(sessionRepository.findTopByStudentIdAndIsCompletedFalseOrderByStartedAtDesc(1L)).willReturn(Optional.empty());
-
-            RoadmapResponse mockRoadmap = RoadmapResponse.builder()
-                    .cefrLevel("A1")
-                    .totalWeeks(4)
-                    .milestones(List.of(
-                            RoadmapMilestone.builder().weekNumber(1).title("Tuần 1: Khởi đầu").modules(List.of(
-                                    RoadmapModule.builder().type("VOCABULARY").title("Từ vựng cơ bản").build(),
-                                    RoadmapModule.builder().type("IPA_PRONUNCIATION").title("Nền tảng phát âm IPA").build()
-                            )).build()
-                    ))
-                    .build();
-            given(roadmapGenerationService.generateAndPersist(eq(1L), eq(CefrLevel.A1), anyString())).willReturn(mockRoadmap);
+            given(sessionRepository.findActiveByStudentIdForUpdate(1L)).willReturn(Optional.empty());
 
             PlacementResultResponse result = placementTestService.skipTest(1L);
 
@@ -177,13 +169,14 @@ class Module0And1FlowTest {
             assertThat(result.getVocabScore()).isEqualTo((short) 20);
             assertThat(result.getGrammarScore()).isEqualTo((short) 20);
             assertThat(result.getPronunciationScore()).isEqualTo((short) 20);
-            assertThat(result.isRoadmapGenerated()).isTrue();
+            assertThat(result.isRoadmapGenerated()).isFalse();
             assertThat(result.getDiagnosticTips()).isNotEmpty();
 
             verify(onboardingRepository, atLeastOnce()).save(argThat(saved ->
                     saved.getPlacementCefrLevel() == CefrLevel.A1 &&
                     saved.getPlacementVocabScore() == 20
             ));
+            verify(roadmapJobService).enqueue(1L, 1, CefrLevel.A1, "{}");
         }
 
         @Test
@@ -226,6 +219,7 @@ class Module0And1FlowTest {
                     .goalSurveyJson("{}")
                     .placementCefrLevel(CefrLevel.A1)
                     .dailyGoalXp((short) 20)
+                    .roadmapJson("{\"cefrLevel\":\"A1\",\"milestones\":[]}") // P1-B: roadmapJson phải tồn tại
                     .onboardingCompleted(false)
                     .build();
             given(onboardingRepository.findByStudentId(1L)).willReturn(Optional.of(ob));
@@ -243,6 +237,58 @@ class Module0And1FlowTest {
             lifecycleService.completeOnboarding(1L);
             assertThat(ob.getOnboardingCompleted()).isTrue();
             assertThat(ob.getOnboardingCompletedAt()).isNotNull();
+        }
+
+        @Test
+        @DisplayName("Luồng 0.6: getStatus trả về đúng isPlacementSkipped và SKIPPED status")
+        void testOnboardingStatus_WhenPlacementSkipped() {
+            StudentOnboarding ob = StudentOnboarding.builder()
+                    .student(mockUser)
+                    .goalSurveyJson("{\"learningPurpose\":\"WORK\"}")
+                    .placementCefrLevel(CefrLevel.A1)
+                    .isPlacementSkipped(true)
+                    .dailyGoalXp((short) 20)
+                    .onboardingCompleted(false)
+                    .build();
+
+            given(onboardingRepository.findByStudentIdWithUser(1L)).willReturn(Optional.of(ob));
+            given(sessionRepository.findTopByStudentIdAndIsCompletedFalseOrderByStartedAtDesc(1L)).willReturn(Optional.empty());
+
+            OnboardingStatusResponse status = lifecycleService.getStatus(1L);
+
+            assertThat(status.isPlacementSkipped()).isTrue();
+            assertThat(status.getPlacementTestStatus()).isEqualTo("SKIPPED");
+            assertThat(status.isPlacementTestCompleted()).isTrue();
+        }
+
+        @Test
+        @DisplayName("Luồng 0.7: resetOnboarding phải reset cả goalSurveyJson và isPlacementSkipped")
+        void testResetOnboarding_ShouldResetGoalSurveyAndSkippedState() {
+            StudentOnboarding ob = StudentOnboarding.builder()
+                    .student(mockUser)
+                    .goalSurveyJson("{\"learningPurpose\":\"WORK\"}")
+                    .placementCefrLevel(CefrLevel.B1)
+                    .placementVocabScore((short) 70)
+                    .isPlacementSkipped(true)
+                    .roadmapJson("{\"milestones\":[]}")
+                    .roadmapGenerationVersion(3)
+                    .onboardingCompleted(true)
+                    .build();
+
+            given(userRepository.findByIdForUpdate(1L)).willReturn(Optional.of(mockUser));
+            given(onboardingRepository.findByStudentId(1L)).willReturn(Optional.of(ob));
+            given(sessionRepository.findActiveByStudentIdForUpdate(1L)).willReturn(Optional.empty());
+
+            lifecycleService.resetOnboarding(1L);
+
+            assertThat(ob.getGoalSurveyJson()).isNull();
+            assertThat(ob.getIsPlacementSkipped()).isFalse();
+            assertThat(ob.getPlacementCefrLevel()).isNull();
+            assertThat(ob.getPlacementVocabScore()).isNull();
+            assertThat(ob.getRoadmapJson()).isNull();
+            assertThat(ob.getRoadmapGenerationVersion()).isEqualTo(4);
+            assertThat(ob.getOnboardingCompleted()).isFalse();
+            verify(onboardingRepository).save(ob);
         }
     }
 

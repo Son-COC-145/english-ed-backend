@@ -90,9 +90,16 @@ server:
 
 onboarding:
   placement:
-    max-questions: 30
-    confidence-threshold: 85.0
-    max-wrong-streak: 3
+    max-questions: 20
+  roadmap:
+    poll-ms: ${ONBOARDING_ROADMAP_POLL_MS:1800000}
+    max-jobs-per-poll: ${ONBOARDING_ROADMAP_MAX_JOBS_PER_POLL:10}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics
 
 vnpay:
   tmn-code: ${VNPAY_TMN_CODE:}
@@ -116,6 +123,7 @@ speaking:
   provider: ${SPEAKING_PROVIDER:gemini}
   worker:
     pool-size: ${SPEAKING_WORKER_POOL_SIZE:4}
+    poll-ms: 1800000 # 30 phút
   openai:
     api-key: ${OPENAI_API_KEY:}
     base-url: ${SPEAKING_OPENAI_BASE_URL:https://api.openai.com/v1}

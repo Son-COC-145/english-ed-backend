@@ -10,6 +10,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.beans.factory.annotation.Value;
 import java.util.List;
+import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.Async;
 
 @Component
 @RequiredArgsConstructor
@@ -21,7 +23,7 @@ public class NotificationOutboxScheduler {
     @Value("${notification.outbox.max-events-per-poll:50}")
     private int maxEventsPerPoll;
 
-    @Scheduled(fixedDelayString = "${notification.outbox.poll-ms:5000}")
+    @Scheduled(fixedDelayString = "${notification.outbox.poll-ms:1800000}")
     public void dispatchPendingNotifications() {
         for (int index = 0; index < maxEventsPerPoll; index++) {
             List<NotificationOutboxEvent> claimed = outboxService.claimBatch(1);
@@ -36,5 +38,11 @@ public class NotificationOutboxScheduler {
                 outboxService.markFailure(event, exception);
             }
         }
+    }
+
+    @EventListener(com.example.english_app.service.notification.NotificationOutboxEventCreatedEvent.class)
+    @Async
+    public void triggerOnNewJob() {
+        dispatchPendingNotifications();
     }
 }

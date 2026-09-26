@@ -1,5 +1,6 @@
 package com.example.english_app.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -13,12 +14,16 @@ public class OnboardingStatusResponse {
 
     private boolean goalSurveyCompleted;
     private boolean placementTestCompleted;
+
+    @JsonProperty("isPlacementSkipped")
+    private boolean isPlacementSkipped;
+
     private boolean settingsCompleted;
     private boolean onboardingCompleted;
 
     /**
-     * Bước tiếp theo cần thực hiện:
-     * GOAL_SURVEY | PLACEMENT_TEST | SETTINGS | COMPLETE | COMPLETED
+     * Bước tiếp theo cần thực hiện: GOAL_SURVEY | PLACEMENT_TEST | ROADMAP_GENERATING |
+     * ROADMAP_FAILED | SETTINGS | COMPLETE | COMPLETED.
      */
     private String nextStep;
 
@@ -41,4 +46,6 @@ public class OnboardingStatusResponse {
     private String placementCefrLevel;
     private Short dailyGoalXp;
     private boolean roadmapGenerated;
+    private String roadmapStatus;
+    private Long roadmapRetryAfterMs;
 }

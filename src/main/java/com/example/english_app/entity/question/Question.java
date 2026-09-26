@@ -51,6 +51,13 @@ public class Question {
     @Column(name = "difficulty_index", precision = 4, scale = 3)
     private BigDecimal difficultyIndex;
 
+    /**
+     * Pre-generated media URL for placement listening questions. The transcript stays server-side
+     * in contentJson and is never included in a learner-facing response.
+     */
+    @Column(name = "placement_audio_url", length = 1000)
+    private String placementAudioUrl;
+
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private Boolean isActive = true;
