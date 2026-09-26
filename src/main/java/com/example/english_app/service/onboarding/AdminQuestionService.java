@@ -20,4 +20,7 @@ public interface AdminQuestionService {
 
     /** Thống kê ngân hàng câu hỏi (breakdown theo level × skill). */
     QuestionBankStatsResponse getStats();
+
+    /** Tự động sinh audio cho các câu hỏi bị thiếu (ví dụ seed data xài link giả) */
+    java.util.Map<String, Object> generateMissingAudio();
 }
