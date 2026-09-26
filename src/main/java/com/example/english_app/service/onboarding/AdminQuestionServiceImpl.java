@@ -11,6 +11,8 @@ import com.example.english_app.entity.question.Question;
 import com.example.english_app.exception.AppException;
 import com.example.english_app.exception.ErrorCode;
 import com.example.english_app.repository.question.QuestionRepository;
+import com.example.english_app.service.audio.AzureTtsService;
+import com.example.english_app.service.storage.AzureBlobStorageService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -32,6 +34,8 @@ public class AdminQuestionServiceImpl implements AdminQuestionService {
 
     private final QuestionRepository questionRepository;
     private final ObjectMapper objectMapper;
+    private final AzureTtsService azureTtsService;
+    private final AzureBlobStorageService azureBlobStorageService;
 
     // ─── List / Detail ─────────────────────────────────────────────────────────
 
@@ -326,6 +330,58 @@ public class AdminQuestionServiceImpl implements AdminQuestionService {
     }
 
     private record NormalizedContent(String contentJson, String audioUrl) {
+    }
+
+    @Override
+    @Transactional
+    public Map<String, Object> generateMissingAudio() {
+        List<Question> questions = questionRepository.findAll();
+        int generatedCount = 0;
+        int errorCount = 0;
+
+        for (Question q : questions) {
+            if ((q.getQuestionType() == QuestionType.LISTENING || q.getQuestionType() == QuestionType.PRONUNCIATION)) {
+                String currentUrl = q.getPlacementAudioUrl();
+                // Check if missing or dummy
+                if (currentUrl == null || currentUrl.contains("soundhelix")) {
+                    try {
+                        byte[] audioBytes = null;
+                        JsonNode root = objectMapper.readTree(q.getContentJson());
+                        
+                        if (q.getQuestionType() == QuestionType.LISTENING) {
+                            // Synthesize the correct answer
+                            String answer = q.getCorrectAnswer();
+                            if (answer != null) {
+                                audioBytes = azureTtsService.synthesizeWord(answer, AzureTtsService.VOICE_FEMALE_US);
+                            }
+                        } else if (q.getQuestionType() == QuestionType.PRONUNCIATION) {
+                            // Synthesize the word
+                            String word = root.has("word") ? root.get("word").asText() : q.getCorrectAnswer();
+                            if (word != null) {
+                                audioBytes = azureTtsService.synthesizeWord(word, AzureTtsService.VOICE_FEMALE_US);
+                            }
+                        }
+
+                        if (audioBytes != null && audioBytes.length > 0) {
+                            String blobPath = "audio/placement/q_" + q.getId() + ".mp3";
+                            String blobUrl = azureBlobStorageService.uploadAudio(blobPath, audioBytes, "audio/mpeg");
+                            q.setPlacementAudioUrl(blobUrl);
+                            questionRepository.save(q);
+                            generatedCount++;
+                        }
+                    } catch (Exception e) {
+                        log.error("Failed to generate audio for question {}: {}", q.getId(), e.getMessage());
+                        errorCount++;
+                    }
+                }
+            }
+        }
+
+        return Map.of(
+            "message", "Quá trình sinh audio hoàn tất",
+            "generatedCount", generatedCount,
+            "errorCount", errorCount
+        );
     }
 
     private void requireField(JsonNode root, String field, QuestionType type) {
