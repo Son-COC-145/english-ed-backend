@@ -28,15 +28,17 @@ public class PlacementListeningMediaService {
     private final ObjectMapper objectMapper;
 
     public Map<String, Object> generateMissingAudio() {
-        List<Question> questions = questionRepository.findBySkillAndQuestionType(
-                Skill.LISTENING, QuestionType.LISTENING);
+        List<Question> questions = questionRepository.findAll();
 
         int generated = 0;
         int skipped = 0;
         Map<Long, String> failures = new LinkedHashMap<>();
 
         for (Question question : questions) {
-            if (question.getPlacementAudioUrl() != null && !question.getPlacementAudioUrl().isBlank()) {
+            if (question.getQuestionType() != QuestionType.LISTENING && question.getQuestionType() != QuestionType.PRONUNCIATION) {
+                continue;
+            }
+            if (question.getPlacementAudioUrl() != null && !question.getPlacementAudioUrl().isBlank() && !question.getPlacementAudioUrl().contains("soundhelix")) {
                 skipped++;
                 continue;
             }
@@ -47,7 +49,7 @@ public class PlacementListeningMediaService {
                         ? AzureTtsService.VOICE_FEMALE_US
                         : AzureTtsService.VOICE_MALE_US;
                 byte[] audio = ttsService.synthesizeWord(transcript, voice);
-                String blobPath = "audio/placement/listening/question-" + question.getId() + ".mp3";
+                String blobPath = "audio/placement/q_" + question.getId() + ".mp3";
                 String url = blobStorageService.uploadAudio(blobPath, audio, "audio/mpeg");
 
                 question.setPlacementAudioUrl(url);
@@ -64,7 +66,7 @@ public class PlacementListeningMediaService {
         }
 
         Map<String, Object> report = new LinkedHashMap<>();
-        report.put("total", questions.size());
+        report.put("total", generated + skipped + failures.size());
         report.put("generated", generated);
         report.put("skipped", skipped);
         report.put("failed", failures.size());
@@ -74,10 +76,24 @@ public class PlacementListeningMediaService {
 
     private String extractTranscript(Question question) throws Exception {
         JsonNode root = objectMapper.readTree(question.getContentJson());
-        JsonNode transcript = root.get("transcript");
-        if (transcript == null || transcript.asText().isBlank()) {
-            throw new IllegalStateException("Listening question is missing its internal transcript");
+        if (question.getQuestionType() == QuestionType.LISTENING) {
+            JsonNode transcript = root.get("transcript");
+            if (transcript != null && !transcript.asText().isBlank()) {
+                return transcript.asText().trim();
+            }
+            if (question.getCorrectAnswer() != null && !question.getCorrectAnswer().isBlank()) {
+                return question.getCorrectAnswer().trim();
+            }
+            throw new IllegalStateException("Listening question is missing its internal transcript and correct answer");
+        } else {
+            JsonNode word = root.get("word");
+            if (word != null && !word.asText().isBlank()) {
+                return word.asText().trim();
+            }
+            if (question.getCorrectAnswer() != null && !question.getCorrectAnswer().isBlank()) {
+                return question.getCorrectAnswer().trim();
+            }
+            throw new IllegalStateException("Pronunciation question is missing its word and correct answer");
         }
-        return transcript.asText().trim();
     }
 }

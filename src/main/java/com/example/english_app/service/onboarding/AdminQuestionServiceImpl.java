@@ -332,58 +332,6 @@ public class AdminQuestionServiceImpl implements AdminQuestionService {
     private record NormalizedContent(String contentJson, String audioUrl) {
     }
 
-    @Override
-    @Transactional
-    public Map<String, Object> generateMissingAudio() {
-        List<Question> questions = questionRepository.findAll();
-        int generatedCount = 0;
-        int errorCount = 0;
-
-        for (Question q : questions) {
-            if ((q.getQuestionType() == QuestionType.LISTENING || q.getQuestionType() == QuestionType.PRONUNCIATION)) {
-                String currentUrl = q.getPlacementAudioUrl();
-                // Check if missing or dummy
-                if (currentUrl == null || currentUrl.contains("soundhelix")) {
-                    try {
-                        byte[] audioBytes = null;
-                        JsonNode root = objectMapper.readTree(q.getContentJson());
-                        
-                        if (q.getQuestionType() == QuestionType.LISTENING) {
-                            // Synthesize the correct answer
-                            String answer = q.getCorrectAnswer();
-                            if (answer != null) {
-                                audioBytes = azureTtsService.synthesizeWord(answer, AzureTtsService.VOICE_FEMALE_US);
-                            }
-                        } else if (q.getQuestionType() == QuestionType.PRONUNCIATION) {
-                            // Synthesize the word
-                            String word = root.has("word") ? root.get("word").asText() : q.getCorrectAnswer();
-                            if (word != null) {
-                                audioBytes = azureTtsService.synthesizeWord(word, AzureTtsService.VOICE_FEMALE_US);
-                            }
-                        }
-
-                        if (audioBytes != null && audioBytes.length > 0) {
-                            String blobPath = "audio/placement/q_" + q.getId() + ".mp3";
-                            String blobUrl = azureBlobStorageService.uploadAudio(blobPath, audioBytes, "audio/mpeg");
-                            q.setPlacementAudioUrl(blobUrl);
-                            questionRepository.save(q);
-                            generatedCount++;
-                        }
-                    } catch (Exception e) {
-                        log.error("Failed to generate audio for question {}: {}", q.getId(), e.getMessage());
-                        errorCount++;
-                    }
-                }
-            }
-        }
-
-        return Map.of(
-            "message", "Quá trình sinh audio hoàn tất",
-            "generatedCount", generatedCount,
-            "errorCount", errorCount
-        );
-    }
-
     private void requireField(JsonNode root, String field, QuestionType type) {
         if (!root.has(field) || root.get(field).isNull()) {
             throw new AppException(ErrorCode.INVALID_REQUEST,
