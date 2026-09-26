@@ -74,7 +74,15 @@ public class AssignmentSubmissionService {
                 : AssignmentSubmissionStatus.SUBMITTED);
         submission.setSubmittedAt(submittedAt);
 
-        return classroomMapper.toAssignmentSubmissionResponse(submissionRepository.save(submission));
+        AssignmentSubmission saved = submissionRepository.save(submission);
+        if (assignment.getTeacher() != null) {
+            boolean late = saved.getStatus() == AssignmentSubmissionStatus.LATE;
+            notificationOutboxService.enqueue(assignment.getTeacher().getId(), NotificationType.ASSIGNMENT,
+                    late ? "Bài nộp trễ" : "Bài nộp mới",
+                    student.getFullName() + " đã nộp bài \"" + assignment.getTitle() + "\"" + (late ? " (sau hạn nộp)." : "."),
+                    "submission-received:" + saved.getId() + ":" + submittedAt);
+        }
+        return classroomMapper.toAssignmentSubmissionResponse(saved);
     }
 
     @Transactional
@@ -145,6 +153,29 @@ public class AssignmentSubmissionService {
         courseAccessService.requireCourseTeacher(teacherId, assignment.getCourse());
         return AssignmentSubmissionDetailResponse.builder()
                 .submission(classroomMapper.toAssignmentSubmissionResponse(submission))
+                .result(referenceService.describeResult(assignment.getModuleType(), submission.getResultRefId())
+                        .orElse(null))
+                .build();
+    }
+
+    /** The student's own submission with the learning result behind it; teacher score/comments only once GRADED. */
+    public AssignmentSubmissionDetailResponse getMySubmission(Long studentId, Long courseId, Long assignmentId) {
+        Assignment assignment = assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> ErrorCode.ASSIGNMENT_NOT_FOUND.toException());
+        if (!assignment.getCourse().getId().equals(courseId)) {
+            throw ErrorCode.ASSIGNMENT_NOT_FOUND.toException();
+        }
+        AssignmentSubmission submission = submissionRepository.findByAssignmentIdAndStudentId(assignmentId, studentId)
+                .orElseThrow(() -> ErrorCode.SUBMISSION_NOT_FOUND.toException());
+        AssignmentSubmissionResponse response = classroomMapper.toAssignmentSubmissionResponse(submission);
+        if (submission.getStatus() != AssignmentSubmissionStatus.GRADED) {
+            response.setScore(null);
+            response.setTeacherCommentText(null);
+            response.setTeacherAudioCommentUrl(null);
+            response.setCommentedAt(null);
+        }
+        return AssignmentSubmissionDetailResponse.builder()
+                .submission(response)
                 .result(referenceService.describeResult(assignment.getModuleType(), submission.getResultRefId())
                         .orElse(null))
                 .build();

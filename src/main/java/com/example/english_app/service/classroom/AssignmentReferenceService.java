@@ -2,13 +2,14 @@ package com.example.english_app.service.classroom;
 
 import com.example.english_app.dto.response.classroom.SubmissionResultResponse;
 import com.example.english_app.entity.classroom.Assignment;
+import com.example.english_app.entity.enums.MinigameRoundStatus;
 import com.example.english_app.entity.enums.ModuleType;
 import com.example.english_app.entity.enums.PracticeType;
 import com.example.english_app.exception.ErrorCode;
 import com.example.english_app.repository.ipa.IpaExampleWordRepository;
 import com.example.english_app.repository.ipa.PronunciationPracticeLogRepository;
 import com.example.english_app.repository.vocabulary.TopicRepository;
-import com.example.english_app.repository.gamification.MinigameResultRepository;
+import com.example.english_app.repository.gamification.MinigameRoundRepository;
 import com.example.english_app.repository.speaking.SpeakingScenarioRepository;
 import com.example.english_app.repository.speaking.SpeakingSessionRepository;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +28,8 @@ public class AssignmentReferenceService {
     private final TopicRepository topicRepository;
     private final SpeakingScenarioRepository scenarioRepository;
     private final PronunciationPracticeLogRepository practiceRepository;
-    private final MinigameResultRepository gameRepository;
+    /** VOCABULARY results are whole mini-game rounds, not single answers. */
+    private final MinigameRoundRepository roundRepository;
     private final SpeakingSessionRepository sessionRepository;
 
     /** Practice logs whose refId points to an IPA example word; IPA practice currently writes IPA_PHONEME. */
@@ -50,10 +52,10 @@ public class AssignmentReferenceService {
                     .filter(result -> result.getStudent().getId().equals(studentId)
                             && WORD_PRACTICE_TYPES.contains(result.getPracticeType())
                             && result.getRefId().equals(assignment.getRefId())).isPresent();
-            case VOCABULARY -> gameRepository.findById(resultId)
-                    .filter(result -> result.getStudent().getId().equals(studentId)
-                            && result.getTopic() != null
-                            && result.getTopic().getId().longValue() == assignment.getRefId()).isPresent();
+            case VOCABULARY -> roundRepository.findById(resultId)
+                    .filter(round -> round.getStudent().getId().equals(studentId)
+                            && round.getTopic().getId().longValue() == assignment.getRefId()
+                            && round.getStatus() == MinigameRoundStatus.COMPLETED).isPresent();
             case SPEAKING -> sessionRepository.findById(resultId)
                     .filter(result -> result.getStudent().getId().equals(studentId)
                             && result.getScenario().getId().longValue() == assignment.getRefId()
@@ -78,14 +80,16 @@ public class AssignmentReferenceService {
                     .stressCorrect(log.getStressCorrect())
                     .studentAudioUrl(log.getAudioUrl())
                     .build());
-            case VOCABULARY -> gameRepository.findById(resultId).map(game -> SubmissionResultResponse.builder()
+            case VOCABULARY -> roundRepository.findById(resultId).map(round -> SubmissionResultResponse.builder()
                     .moduleType(moduleType)
-                    .resultId(game.getId())
-                    .completedAt(game.getPlayedAt())
-                    .overallScore(toInteger(game.getScore()))
-                    .gameType(game.getGameType() != null ? game.getGameType().name() : null)
-                    .durationSeconds(game.getDurationSeconds())
-                    .xpEarned(toInteger(game.getXpEarned()))
+                    .resultId(round.getId())
+                    .completedAt(round.getCompletedAt())
+                    .overallScore(toInteger(round.getScore()))
+                    .correctCount(round.getCorrectCount())
+                    .totalQuestions(round.getTotalQuestions())
+                    .gameType(round.getGameType() != null ? round.getGameType().name() : null)
+                    .durationSeconds(round.getDurationSeconds())
+                    .xpEarned(round.getXpEarned())
                     .build());
             case SPEAKING -> sessionRepository.findById(resultId).map(session -> SubmissionResultResponse.builder()
                     .moduleType(moduleType)

@@ -41,6 +41,7 @@ import com.example.english_app.entity.gamification.StudentStat;
 import com.example.english_app.entity.user.User;
 import com.example.english_app.entity.vocabulary.MinigameResult;
 import com.example.english_app.entity.vocabulary.StudentVocabularyProgress;
+import com.example.english_app.entity.vocabulary.MinigameRound;
 import com.example.english_app.entity.vocabulary.Vocabulary;
 import com.example.english_app.entity.classroom.Course;
 import com.example.english_app.exception.ErrorCode;
@@ -76,6 +77,7 @@ public class GameficationService {
     private final SyllabusItemRepository syllabusItemRepository;
     private final IdempotencyKeyRepository idempotencyKeyRepository;
     private final VocabularyService vocabularyService;
+    private final MinigameRoundService minigameRoundService;
 
     private final ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule());
@@ -94,7 +96,7 @@ public class GameficationService {
     public MinigameSubmitResponse procesGameSubmit(MinigameSubmitRequest request) {
         User user = getCurrentUser();
         String hash = hashRequest(MINIGAME_SUBMIT, request.getVocabularyId(), request.getGameType(),
-                request.getIsCorrect(), request.getDurationSeconds());
+                request.getIsCorrect(), request.getDurationSeconds(), request.getRoundId());
         claimOrGet(user.getId(), MINIGAME_SUBMIT, request.getAttemptId(), hash,
                 MinigameSubmitResponse.class, () -> processMinigameSubmit(request));
         return readCachedResult(user.getId(), MINIGAME_SUBMIT, request.getAttemptId(),
@@ -106,6 +108,10 @@ public class GameficationService {
 
         Vocabulary vocabulary = vocabularyRepository.findById(request.getVocabularyId())
                 .orElseThrow(() -> ErrorCode.VOCABULARY_NOT_FOUND.toException());
+
+        // Validate the round before writing XP/progress so a rejected answer leaves no side effects.
+        MinigameRound round = request.getRoundId() == null ? null
+                : minigameRoundService.lockOpenRound(user.getId(), request.getRoundId(), vocabulary, request.getGameType());
 
         // Cập nhật thống kê người học & tính xp
         StudentStat stat = studentStatRepository.findByStudentId(user.getId())
@@ -137,8 +143,12 @@ public class GameficationService {
                 .score((short) (request.getIsCorrect() ? 100 : 0))
                 .xpEarned(xpEarned)
                 .durationSeconds(request.getDurationSeconds())
+                .round(round)
                 .build();
         minigameResultRepository.save(result);
+        if (round != null) {
+            minigameRoundService.recordAnswer(round, request.getIsCorrect(), xpEarned, request.getDurationSeconds());
+        }
 
         MinigameSubmitResponse response = MinigameSubmitResponse.builder()
                 .xpEarned(xpEarned)
@@ -146,12 +156,13 @@ public class GameficationService {
                 .currentStreak(stat.getCurrentStreak())
                 .newVocabularyStatus(progress.getStatus())
                 .resultId(result.getId())
+                .roundId(round != null ? round.getId() : null)
                 .build();
 
         // Cache idempotency result
         cacheIdempotencyResult(user.getId(), MINIGAME_SUBMIT, request.getAttemptId(),
                 hashRequest(MINIGAME_SUBMIT, request.getVocabularyId(), request.getGameType(),
-                        request.getIsCorrect(), request.getDurationSeconds()), response);
+                        request.getIsCorrect(), request.getDurationSeconds(), request.getRoundId()), response);
 
         return response;
     }

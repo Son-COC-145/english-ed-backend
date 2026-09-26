@@ -21,4 +21,6 @@ public class MinigameSubmitRequest {
     @NotBlank(message = "attemptId is required")
     @Pattern(regexp = "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$", message = "attemptId must be a valid UUID")
     private String attemptId;
+    /** Optional: attach this answer to an IN_PROGRESS round (see POST /vocabularies/minigames/rounds). */
+    private Long roundId;
 }

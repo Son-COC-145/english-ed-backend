@@ -33,6 +33,11 @@ public class MinigameResult {
     @JoinColumn(name = "topic_id")
     private Topic topic;
 
+    /** Round this answer belongs to; null for answers given outside a round. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "round_id")
+    private MinigameRound round;
+
     @Column(nullable = false)
     private Short score;
 

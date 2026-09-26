@@ -21,4 +21,8 @@ public class AssignmentResponse {
     private LocalDateTime updatedAt;
     /** Only filled for teacher views; null for students. */
     private AssignmentSubmissionStatsResponse submissionStats;
+    /** Filled in the student cross-course list (GET /student/assignments). */
+    private String courseName;
+    /** Only filled for student views: the student's own submission, null when not submitted yet. */
+    private MySubmissionResponse mySubmission;
 }

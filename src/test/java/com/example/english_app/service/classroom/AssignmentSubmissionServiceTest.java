@@ -79,6 +79,27 @@ class AssignmentSubmissionServiceTest {
     }
 
     @Test
+    void submitNotifiesTheCourseTeacher() {
+        Assignment assignment = assignment(3L, 10L);
+        assignment.setTeacher(User.builder().id(2L).build());
+        User student = User.builder().id(7L).fullName("Trần Thị Bình").build();
+        when(assignmentRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(assignment));
+        when(userRepository.findById(7L)).thenReturn(Optional.of(student));
+        when(submissionRepository.findByAssignmentIdAndStudentId(3L, 7L)).thenReturn(Optional.empty());
+        when(submissionRepository.save(any(AssignmentSubmission.class))).thenAnswer(invocation -> {
+            AssignmentSubmission saved = invocation.getArgument(0);
+            saved.setId(5L);
+            return saved;
+        });
+        when(classroomMapper.toAssignmentSubmissionResponse(any())).thenReturn(AssignmentSubmissionResponse.builder().build());
+
+        service.submitAssignment(7L, 10L, 3L, AssignmentSubmissionRequest.builder().resultRefId(8L).build());
+
+        verify(notificationOutboxService).enqueue(eq(2L), eq(com.example.english_app.entity.enums.NotificationType.ASSIGNMENT),
+                eq("Bài nộp mới"), argThat(body -> body.contains("Trần Thị Bình")), argThat(key -> key.startsWith("submission-received:5:")));
+    }
+
+    @Test
     void gradePersistsAudioAndEnqueuesIdempotentEvent() {
         Assignment assignment = assignment(3L, 10L);
         AssignmentSubmission submission = AssignmentSubmission.builder().id(4L).assignment(assignment)
@@ -155,6 +176,35 @@ class AssignmentSubmissionServiceTest {
         verify(courseAccessService).requireCourseTeacher(1L, assignment.getCourse());
         assertEquals(4L, detail.getSubmission().getId());
         assertSame(result, detail.getResult());
+    }
+
+    @Test
+    void mySubmissionHidesScoreUntilGraded() {
+        Assignment assignment = assignment(3L, 10L);
+        AssignmentSubmission submission = AssignmentSubmission.builder().id(4L).assignment(assignment)
+                .student(User.builder().id(7L).build()).resultRefId(8L).status(AssignmentSubmissionStatus.SUBMITTED)
+                .score(BigDecimal.TEN).teacherCommentText("draft").build();
+        when(assignmentRepository.findById(3L)).thenReturn(Optional.of(assignment));
+        when(submissionRepository.findByAssignmentIdAndStudentId(3L, 7L)).thenReturn(Optional.of(submission));
+        when(classroomMapper.toAssignmentSubmissionResponse(submission)).thenReturn(AssignmentSubmissionResponse.builder()
+                .id(4L).status(AssignmentSubmissionStatus.SUBMITTED).score(BigDecimal.TEN).teacherCommentText("draft").build());
+        when(referenceService.describeResult(ModuleType.VOCABULARY, 8L)).thenReturn(Optional.empty());
+
+        AssignmentSubmissionDetailResponse detail = service.getMySubmission(7L, 10L, 3L);
+
+        assertEquals(4L, detail.getSubmission().getId());
+        assertNull(detail.getSubmission().getScore());
+        assertNull(detail.getSubmission().getTeacherCommentText());
+    }
+
+    @Test
+    void mySubmissionIsNotFoundBeforeSubmitting() {
+        when(assignmentRepository.findById(3L)).thenReturn(Optional.of(assignment(3L, 10L)));
+        when(submissionRepository.findByAssignmentIdAndStudentId(3L, 7L)).thenReturn(Optional.empty());
+
+        AppException error = assertThrows(AppException.class, () -> service.getMySubmission(7L, 10L, 3L));
+
+        assertEquals(ErrorCode.SUBMISSION_NOT_FOUND, error.getErrorCode());
     }
 
     private Assignment assignment(Long assignmentId, Long courseId) {
