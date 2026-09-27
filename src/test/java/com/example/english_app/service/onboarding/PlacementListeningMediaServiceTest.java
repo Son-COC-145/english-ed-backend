@@ -40,8 +40,7 @@ class PlacementListeningMediaServiceTest {
                 .contentJson("{\"transcript\":\"Welcome to the station\"}")
                 .build();
         byte[] mp3 = new byte[]{1, 2, 3};
-        when(questionRepository.findBySkillAndQuestionType(Skill.LISTENING, QuestionType.LISTENING))
-                .thenReturn(List.of(question));
+        when(questionRepository.findAll()).thenReturn(List.of(question));
         when(ttsService.synthesizeWord("Welcome to the station", AzureTtsService.VOICE_FEMALE_US))
                 .thenReturn(mp3);
         when(blobStorageService.uploadAudio(anyString(), org.mockito.ArgumentMatchers.same(mp3),

@@ -7,12 +7,13 @@ import com.example.english_app.service.onboarding.RoadmapJobService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.util.List;
-import org.springframework.context.event.EventListener;
-import org.springframework.scheduling.annotation.Async;
 
 @Slf4j
 @Component
@@ -43,9 +44,9 @@ public class RoadmapGenerationScheduler {
         }
     }
 
-    @EventListener(com.example.english_app.service.onboarding.RoadmapJobCreatedEvent.class)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Async
-    public void triggerOnNewJob() {
+    public void triggerOnNewJob(com.example.english_app.service.onboarding.RoadmapJobCreatedEvent event) {
         generatePendingRoadmaps();
     }
 }

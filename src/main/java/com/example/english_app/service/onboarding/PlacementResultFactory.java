@@ -117,10 +117,33 @@ public class PlacementResultFactory {
             String roadmapJson,
             boolean roadmapGenerated) {
 
+        return buildResponse(
+                cefrLevel,
+                skillCefrs,
+                scores,
+                answers,
+                roadmapJson,
+                roadmapGenerated,
+                false);
+    }
+
+    public PlacementResultResponse buildResponse(
+            CefrLevel cefrLevel,
+            Map<Skill, CefrLevel> skillCefrs,
+            SkillScores scores,
+            List<PlacementTestAnswer> answers,
+            String roadmapJson,
+            boolean roadmapGenerated,
+            boolean skipped) {
+
         Map<String, Short> radarData = buildSkillScoreMap(scores);
         Map<String, PlacementResultResponse.SkillResult> skillsMap = buildSkillsMap(skillCefrs, scores);
         List<String> suggestedModules = extractSuggestedModules(roadmapJson, cefrLevel);
-        List<String> diagnosticTips = buildDiagnosticTips(scores, cefrLevel);
+        List<String> strengths = skipped ? Collections.emptyList() : getTopSkills(radarData, true);
+        List<String> weaknesses = skipped ? Collections.emptyList() : getTopSkills(radarData, false);
+        List<String> diagnosticTips = skipped
+                ? List.of("Bạn đã chọn bắt đầu lộ trình dành cho người mới. Hệ thống sẽ xây dựng nền tảng tiếng Anh từ những bước cơ bản nhất.")
+                : buildDiagnosticTips(scores, cefrLevel);
 
         int totalCorrect = answers != null
                 ? (int) answers.stream().filter(PlacementTestAnswer::getIsCorrect).count()
@@ -129,8 +152,10 @@ public class PlacementResultFactory {
 
         return PlacementResultResponse.builder()
                 .cefrLevel(cefrLevel.name())
-                .assessmentType("ESTIMATED_PLACEMENT")
-                .assessmentDisclaimer("Ước lượng trình độ đầu vào để cá nhân hóa lộ trình; không phải chứng chỉ CEFR chính thức.")
+                .assessmentType(skipped ? "SKIPPED_PLACEMENT" : "ESTIMATED_PLACEMENT")
+                .assessmentDisclaimer(skipped
+                        ? "Học viên chọn bắt đầu lại từ đầu. Lộ trình được thiết kế dành cho người mới bắt đầu."
+                        : "Ước lượng trình độ đầu vào để cá nhân hóa lộ trình; không phải chứng chỉ CEFR chính thức.")
                 .totalQuestions(totalQuestions)
                 .correctAnswers(totalCorrect)
                 .vocabScore(scores.getVocab())
@@ -142,8 +167,8 @@ public class PlacementResultFactory {
                 .skills(skillsMap)
                 .message(buildResultMessage(cefrLevel))
                 .cefrDescription(buildCefrDescription(cefrLevel))
-                .strengths(getTopSkills(radarData, true))
-                .weaknesses(getTopSkills(radarData, false))
+                .strengths(strengths)
+                .weaknesses(weaknesses)
                 .roadmapGenerated(roadmapGenerated)
                 .suggestedModules(suggestedModules)
                 .diagnosticTips(diagnosticTips)
@@ -158,6 +183,23 @@ public class PlacementResultFactory {
             String roadmapJson,
             boolean roadmapGenerated) {
         return buildResponse(cefrLevel, Collections.emptyMap(), scores, answers, roadmapJson, roadmapGenerated);
+    }
+
+    public PlacementResultResponse buildResponse(
+            CefrLevel cefrLevel,
+            SkillScores scores,
+            List<PlacementTestAnswer> answers,
+            String roadmapJson,
+            boolean roadmapGenerated,
+            boolean skipped) {
+        return buildResponse(
+                cefrLevel,
+                Collections.emptyMap(),
+                scores,
+                answers,
+                roadmapJson,
+                roadmapGenerated,
+                skipped);
     }
 
     // ─── Private Helpers ──────────────────────────────────────────────────────

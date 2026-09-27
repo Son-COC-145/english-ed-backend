@@ -304,6 +304,28 @@ class PlacementResultFactoryTest {
             assertThat(resp.getSkills().get("LISTENING").getCefr()).isEqualTo("A2");
             assertThat(resp.getSkills().get("LISTENING").getScore()).isEqualTo((short) 25);
         }
+
+        @Test
+        @DisplayName("Skipped placement không tạo strengths/weaknesses giả từ điểm sàn")
+        void skippedPlacementHasDedicatedAssessmentMetadata() {
+            SkillScores scores = SkillScores.builder()
+                    .vocab((short) 20).grammar((short) 20)
+                    .reading((short) 20).listening((short) 20).pronunciation((short) 20)
+                    .build();
+
+            PlacementResultResponse response = factory.buildResponse(
+                    CefrLevel.A1,
+                    scores,
+                    List.of(),
+                    null,
+                    false,
+                    true);
+
+            assertThat(response.getAssessmentType()).isEqualTo("SKIPPED_PLACEMENT");
+            assertThat(response.getStrengths()).isEmpty();
+            assertThat(response.getWeaknesses()).isEmpty();
+            assertThat(response.getDiagnosticTips()).hasSize(1);
+        }
     }
 
     // ─── calculateFinalCefrMedian ────────────────────────────────────────────

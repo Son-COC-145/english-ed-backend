@@ -159,7 +159,14 @@ public class PlacementTestService {
             skillCefrs.put(s, CefrLevel.A1);
         }
 
-        return resultFactory.buildResponse(CefrLevel.A1, skillCefrs, scores, Collections.emptyList(), null, false);
+        return resultFactory.buildResponse(
+                CefrLevel.A1,
+                skillCefrs,
+                scores,
+                Collections.emptyList(),
+                null,
+                false,
+                true);
     }
 
     public PlacementQuestionResponse getNextQuestion(Long sessionId, Long userId) {
@@ -488,7 +495,8 @@ public class PlacementTestService {
                 scores,
                 answers,
                 onboarding.getRoadmapJson(),
-                onboarding.getRoadmapJson() != null);
+                onboarding.getRoadmapJson() != null,
+                Boolean.TRUE.equals(onboarding.getIsPlacementSkipped()));
     }
 
     // ─── Blueprint & Skill Helpers ────────────────────────────────────────────
