@@ -58,6 +58,14 @@ public class User {
     @Builder.Default
     private Boolean isActive = true;
 
+    /**
+     * Read-optimized onboarding summary returned by authentication APIs.
+     * Detailed progress remains in student_onboarding.
+     */
+    @Column(name = "onboarding_completed", nullable = false)
+    @Builder.Default
+    private Boolean onboardingCompleted = false;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

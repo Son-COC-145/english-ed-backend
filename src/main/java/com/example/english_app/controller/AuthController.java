@@ -12,6 +12,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.CacheControl;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -34,13 +36,17 @@ public class AuthController {
     @Operation(summary = "Đăng nhập hệ thống")
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
-        return ResponseEntity.ok(ApiResponse.success(authService.login(request)));
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(ApiResponse.success(authService.login(request)));
     }
 
     @Operation(summary = "Đổi mã xác thực OAuth2 lấy token")
-    @PostMapping("/oauth2/exchange")
+    @PostMapping(value = "/oauth2/exchange", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponse<AuthResponse>> exchangeOAuth2Code(@Valid @RequestBody OAuth2ExchangeRequest request) {
-        return ResponseEntity.ok(ApiResponse.success(authService.exchangeOAuth2Code(request)));
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(ApiResponse.success(authService.exchangeOAuth2Code(request)));
     }
 
     @Operation(summary = "Quên mật khẩu (Yêu cầu gửi email)")
@@ -72,7 +78,9 @@ public class AuthController {
     @Operation(summary = "Làm mới Access Token")
     @PostMapping("/refresh-token")
     public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(@RequestParam String refreshToken) {
-        return ResponseEntity.ok(ApiResponse.success(authService.refreshToken(refreshToken)));
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(ApiResponse.success(authService.refreshToken(refreshToken)));
     }
 
     @Operation(summary = "Đăng xuất hệ thống")
