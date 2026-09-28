@@ -112,20 +112,21 @@ class AuthServiceTest {
     }
 
     @Test
-    void exchangeOAuth2CodeRejectsStaffEvenIfAValidCodeExists() {
+    void exchangeOAuth2CodeKeepsOriginalRoleAndOmitsStudentOnboardingForStaff() {
         User teacher = student(AuthProvider.LOCAL);
         teacher.setRole(Role.TEACHER);
         OAuth2ExchangeRequest request = OAuth2ExchangeRequest.builder().code("staff-code").build();
 
         when(exchangeCodeService.consume("staff-code")).thenReturn(teacher.getId());
         when(userRepository.findById(teacher.getId())).thenReturn(Optional.of(teacher));
+        when(tokenService.generateAccessToken(teacher)).thenReturn("access");
+        when(tokenService.generateRefreshToken(teacher)).thenReturn("refresh");
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
 
-        assertThatThrownBy(() -> authService.exchangeOAuth2Code(request))
-                .isInstanceOf(AppException.class)
-                .satisfies(error -> assertThat(((AppException) error).getErrorCode())
-                        .isEqualTo(ErrorCode.ACCESS_DENIED));
+        AuthResponse response = authService.exchangeOAuth2Code(request);
 
-        verify(tokenService, never()).generateAccessToken(any());
+        assertThat(response.getRole()).isEqualTo("TEACHER");
+        assertThat(response.getOnboardingCompleted()).isNull();
     }
 
     @Test

@@ -1,6 +1,5 @@
 package com.example.english_app.service.user;
 
-import java.util.Locale;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
@@ -12,7 +11,6 @@ import com.example.english_app.dto.request.UserCreateRequest;
 import com.example.english_app.dto.request.UserUpdateRequest;
 import com.example.english_app.dto.response.PageResponse;
 import com.example.english_app.dto.response.UserResponse;
-import com.example.english_app.entity.enums.AuthProvider;
 import com.example.english_app.entity.enums.Role;
 import com.example.english_app.entity.user.User;
 import com.example.english_app.exception.ErrorCode;
@@ -39,20 +37,17 @@ public class AdminUserService {
     }
 
     public UserResponse create(UserCreateRequest request) {
-        String normalizedEmail = request.getEmail().trim().toLowerCase(Locale.ROOT);
-        if (userRepository.existsByEmail(normalizedEmail)) {
+        if (userRepository.existsByEmail(request.getEmail())) {
             throw ErrorCode.EMAIL_ALREADY_EXISTS.toException();
         }
 
         User user = User.builder()
-                .email(normalizedEmail)
+                .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .fullName(request.getFullName())
                 .phone(request.getPhone())
                 .role(request.getRole())
-                .provider(AuthProvider.LOCAL)
                 .isActive(true)
-                .onboardingCompleted(false)
                 .build();
 
         return toUserResponse(userRepository.save(user));

@@ -2,26 +2,27 @@ package com.example.english_app.security.oauth2;
 
 import com.example.english_app.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class OAuth2ExchangeCodeService {
 
-    static final String KEY_PREFIX = "oauth2_exchange:";
+    static final String KEY_PREFIX = "oauth2_code:";
+    private static final Duration CODE_TTL = Duration.ofSeconds(60);
 
-    private final StringRedisTemplate redisTemplate;
-    private final OAuth2Properties properties;
+    private final RedisTemplate<String, String> redisTemplate;
 
     public String issue(Long userId) {
         String code = UUID.randomUUID().toString();
         redisTemplate.opsForValue().set(
                 KEY_PREFIX + code,
                 userId.toString(),
-                properties.getExchangeCodeTtl());
+                CODE_TTL);
         return code;
     }
 

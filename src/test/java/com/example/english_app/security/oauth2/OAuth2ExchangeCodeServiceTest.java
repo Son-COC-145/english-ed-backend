@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
 import java.time.Duration;
@@ -23,17 +23,14 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class OAuth2ExchangeCodeServiceTest {
 
-    @Mock private StringRedisTemplate redisTemplate;
+    @Mock private RedisTemplate<String, String> redisTemplate;
     @Mock private ValueOperations<String, String> valueOperations;
 
     private OAuth2ExchangeCodeService service;
 
     @BeforeEach
     void setUp() {
-        OAuth2Properties properties = new OAuth2Properties();
-        properties.setPostLoginUri("englishapp://oauth2/redirect");
-        properties.setExchangeCodeTtl(Duration.ofMinutes(2));
-        service = new OAuth2ExchangeCodeService(redisTemplate, properties);
+        service = new OAuth2ExchangeCodeService(redisTemplate);
     }
 
     @Test
@@ -46,7 +43,7 @@ class OAuth2ExchangeCodeServiceTest {
         verify(valueOperations).set(
                 eq(OAuth2ExchangeCodeService.KEY_PREFIX + code),
                 eq("42"),
-                eq(Duration.ofMinutes(2)));
+                eq(Duration.ofSeconds(60)));
     }
 
     @Test
