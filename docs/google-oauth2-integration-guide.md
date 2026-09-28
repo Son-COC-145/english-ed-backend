@@ -1,40 +1,47 @@
-# Google OAuth2 integration for Flutter students
+# Hướng dẫn tích hợp Google OAuth2
 
-## Scope
+## Phạm vi
 
-- Google login is available only to `STUDENT` accounts in the Flutter app.
-- `ADMIN` and `TEACHER` accounts are provisioned by an Admin and use email/password login.
-- Flutter uses the backend web-server OAuth flow. It does not send a Google ID token from a native Google Sign-In SDK.
-- The backend never places an access token or refresh token in a redirect URL.
+Luồng đăng nhập Google giữ nguyên thiết kế ban đầu:
 
-## Login flow
+- Client mở OAuth URL của backend.
+- Backend thực hiện web-server OAuth flow với Google.
+- Backend không đưa access token hoặc refresh token vào redirect URL.
+- Backend trả một one-time code ngắn hạn; client đổi code này lấy JWT của ứng dụng.
+- Học viên vẫn có thể đăng ký tài khoản LOCAL bằng email/password qua `/api/v1/auth/register`.
 
-1. Flutter opens the system browser at:
+## Luồng đăng nhập
+
+1. Client mở trình duyệt tại:
 
    ```text
    GET {BACKEND_URL}/oauth2/authorization/google
    ```
 
-2. Google redirects to Spring Security's backend callback:
+2. Google callback về backend:
 
    ```text
    GET {BACKEND_URL}/login/oauth2/code/google
    ```
 
-3. The backend validates the Google profile and account:
+3. Backend tìm user theo email Google:
 
-   - the email must be verified;
-   - the account must be active;
-   - an existing account must have role `STUDENT`;
-   - a new Google account is always created as `STUDENT`.
+   - Nếu email đã tồn tại, backend sử dụng user hiện có.
+   - Nếu email chưa tồn tại, backend tạo user `GOOGLE/STUDENT`.
 
-4. The backend stores an opaque, short-lived, single-use exchange code in Redis and redirects to:
+4. Backend sinh UUID, lưu vào Redis trong 60 giây:
 
    ```text
-   englishapp://oauth2/redirect?code={oneTimeCode}
+   oauth2_code:{code} -> userId
    ```
 
-5. Flutter exchanges the code for application tokens:
+5. Backend redirect về URI đã cấu hình:
+
+   ```text
+   {SPRING_SECURITY_OAUTH2_REDIRECT_URI}?code={oneTimeCode}
+   ```
+
+6. Client đổi code lấy token:
 
    ```http
    POST /api/v1/auth/oauth2/exchange
@@ -43,11 +50,9 @@
    {"code":"{oneTimeCode}"}
    ```
 
-6. Redis consumes the code atomically. Reusing, racing or submitting an expired code returns `INVALID_OAUTH2_CODE`.
+Redis consume code bằng thao tác `GETDEL` atomic. Code hết hạn, đã dùng hoặc bị hai request sử dụng đồng thời sẽ trả `INVALID_OAUTH2_CODE`.
 
 ## Authentication response
-
-The login and refresh responses include:
 
 ```json
 {
@@ -65,64 +70,40 @@ The login and refresh responses include:
 }
 ```
 
-For `ADMIN` and `TEACHER`, `onboardingCompleted` is `null`. Flutter should call `/api/v1/onboarding/status` only when the authenticated Student has `onboardingCompleted=false`.
+`onboardingCompleted` là trạng thái tóm tắt lấy từ bảng `users`:
 
-The response intentionally has no `nextStep` and no `loginClient` field.
+- `false`: Flutter gọi `/api/v1/onboarding/status` để tiếp tục đúng bước.
+- `true`: Flutter có thể đi thẳng vào luồng chính.
+- `null`: role hiện tại không phải `STUDENT`.
 
-## Staff accounts
+Response không chứa `nextStep`; trạng thái chi tiết vẫn thuộc `/api/v1/onboarding/status`.
 
-An Admin creates a staff account through:
+## Cấu hình Google Cloud
 
-```http
-POST /api/v1/admin/users
-Authorization: Bearer {adminAccessToken}
-```
-
-The account is stored with `provider=LOCAL` and logs in through:
-
-```http
-POST /api/v1/auth/login
-```
-
-Google OAuth rejects an existing `ADMIN` or `TEACHER` email with `student_role_required`.
-
-## Google Cloud Console
-
-Use an OAuth client of type **Web application**. Register the exact backend callback URI, for example:
+OAuth client dùng loại **Web application**. Authorized redirect URI là callback của backend, ví dụ:
 
 ```text
 https://english-app-backend-fvhdetejdng4aceg.japaneast-01.azurewebsites.net/login/oauth2/code/google
 ```
 
-For local development:
+Local development:
 
 ```text
 http://localhost:8080/login/oauth2/code/google
 ```
 
-The Flutter deep link is not a Google redirect URI. Google redirects to the backend; the backend then redirects to Flutter.
+URI Flutter/frontend nhận one-time code không phải Google redirect URI; đó là redirect thứ hai do backend thực hiện.
 
-## Backend environment variables
+## Environment variables
 
 ```text
 GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
-OAUTH2_FLUTTER_POST_LOGIN_URI=englishapp://oauth2/redirect
-OAUTH2_EXCHANGE_CODE_TTL=2m
-OAUTH2_SESSION_TIMEOUT=10m
-SESSION_COOKIE_SECURE=true
+SPRING_SECURITY_OAUTH2_REDIRECT_URI=englishapp://oauth2/redirect
 REDIS_HOST=...
 REDIS_PORT=6379
 REDIS_PASSWORD=...
 REDIS_SSL=true
 ```
 
-`SESSION_COOKIE_SECURE` may be `false` for local HTTP development but must be `true` behind production HTTPS.
-
-## Flutter requirements
-
-- Open the authorization URL with the system browser, Chrome Custom Tabs or `ASWebAuthenticationSession`; do not use an embedded WebView.
-- Register the `englishapp` custom scheme on Android and iOS.
-- Keep the returned exchange code only long enough to call the exchange endpoint.
-- Store access and refresh tokens in Android Keystore/iOS Keychain-backed secure storage.
-- Preserve the same login attempt while the system browser is open; do not launch multiple OAuth sessions concurrently.
+Nếu sử dụng trang web thay vì Flutter để nhận code, đặt `SPRING_SECURITY_OAUTH2_REDIRECT_URI` thành trang callback tương ứng của frontend.
