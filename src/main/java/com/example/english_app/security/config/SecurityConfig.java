@@ -3,7 +3,6 @@ package com.example.english_app.security.config;
 import org.springframework.http.HttpMethod;
 
 import com.example.english_app.security.oauth2.CustomOAuth2UserService;
-import com.example.english_app.security.oauth2.OAuth2FailureHandler;
 import com.example.english_app.security.oauth2.OAuth2SuccessHandler;
 import com.example.english_app.security.userdetails.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
@@ -44,7 +43,6 @@ public class SecurityConfig {
         private final CustomUserDetailsService userDetailsService;
         private final CustomOAuth2UserService oAuth2UserService;
         private final OAuth2SuccessHandler oAuth2SuccessHandler;
-        private final OAuth2FailureHandler oAuth2FailureHandler;
 
         @Value("${app.cors.allowed-origins}")
         private List<String> allowedOrigins;
@@ -91,8 +89,7 @@ public class SecurityConfig {
                                 .oauth2Login(oauth2 -> oauth2
                                                 .userInfoEndpoint(userInfo -> userInfo
                                                                 .userService(oAuth2UserService))
-                                                .successHandler(oAuth2SuccessHandler)
-                                                .failureHandler(oAuth2FailureHandler))
+                                                .successHandler(oAuth2SuccessHandler))
                                 // ← Thêm converter vào đây
                                 .oauth2ResourceServer(resource -> resource
                                                 .jwt(jwt -> jwt

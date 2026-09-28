@@ -10,12 +10,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.authentication.TestingAuthenticationToken;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -27,9 +26,8 @@ class OAuth2SuccessHandlerTest {
 
     @BeforeEach
     void setUp() {
-        OAuth2Properties properties = new OAuth2Properties();
-        properties.setPostLoginUri("englishapp://oauth2/redirect");
-        handler = new OAuth2SuccessHandler(exchangeCodeService, properties);
+        handler = new OAuth2SuccessHandler(exchangeCodeService);
+        ReflectionTestUtils.setField(handler, "redirectUri", "englishapp://oauth2/redirect");
     }
 
     @Test
@@ -43,13 +41,13 @@ class OAuth2SuccessHandlerTest {
     }
 
     @Test
-    void staffAccountIsRejectedBeforeCodeIssuance() throws Exception {
+    void activeStaffAccountKeepsTheOriginalOAuthBehavior() throws Exception {
         User teacher = user(Role.TEACHER, true);
+        when(exchangeCodeService.issue(teacher.getId())).thenReturn("staff-code");
         MockHttpServletResponse response = authenticate(teacher);
 
         assertThat(response.getRedirectedUrl())
-                .isEqualTo("englishapp://oauth2/redirect?error=student_role_required");
-        verify(exchangeCodeService, never()).issue(teacher.getId());
+                .isEqualTo("englishapp://oauth2/redirect?code=staff-code");
     }
 
     private MockHttpServletResponse authenticate(User user) throws Exception {

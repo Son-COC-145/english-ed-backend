@@ -36,11 +36,6 @@ spring:
       ssl:
         enabled: ${REDIS_SSL:false}
 
-  session:
-    timeout: ${OAUTH2_SESSION_TIMEOUT:10m}
-    redis:
-      namespace: english-app:oauth2-session
-
   ai:
     openai:
       api-key: ${SPRING_AI_OPENAI_API_KEY:${OPENAI_API_KEY:dummy-openai-key}}
@@ -61,6 +56,7 @@ spring:
 
   security:
     oauth2:
+      redirect-uri: ${SPRING_SECURITY_OAUTH2_REDIRECT_URI:${app.frontend-url}/oauth2/redirect}
       client:
         registration:
           google:
@@ -93,12 +89,6 @@ jwt:
 server:
   port: ${PORT:8080}
   forward-headers-strategy: framework
-  servlet:
-    session:
-      cookie:
-        http-only: true
-        same-site: lax
-        secure: ${SESSION_COOKIE_SECURE:false}
 
 onboarding:
   placement:
@@ -122,10 +112,6 @@ vnpay:
 
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:3000}
-  oauth2:
-    # Fixed Flutter deep link. Never accept a post-login redirect URI from a request.
-    post-login-uri: ${OAUTH2_FLUTTER_POST_LOGIN_URI:englishapp://oauth2/redirect}
-    exchange-code-ttl: ${OAUTH2_EXCHANGE_CODE_TTL:2m}
   cors:
     # Danh sách origin được phép gọi API. Thêm domain production vào đây.
     # VD: https://yourdomain.com,http://localhost:3000

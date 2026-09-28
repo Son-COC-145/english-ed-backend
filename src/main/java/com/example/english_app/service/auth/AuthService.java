@@ -21,7 +21,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
-import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -44,13 +43,13 @@ public class AuthService {
     public UserResponse register(RegisterRequest request) {
 
         if (userRepository.findByEmail(
-                normalizeEmail(request.getEmail()))
+                request.getEmail().toLowerCase().trim())
                 .isPresent()) {
             throw ErrorCode.EMAIL_ALREADY_EXISTS.toException();
         }
 
         User user = new User();
-        user.setEmail(normalizeEmail(request.getEmail()));
+        user.setEmail(request.getEmail().toLowerCase().trim());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setFullName(request.getFullName());
         user.setPhone(request.getPhone());
@@ -68,14 +67,14 @@ public class AuthService {
 
     public AuthResponse login(LoginRequest request) {
 
-        User user = userRepository.findByEmail(normalizeEmail(request.getEmail()))
+        User user = userRepository.findByEmail(request.getEmail().toLowerCase().trim())
                 .orElseThrow(() -> ErrorCode.INVALID_CREDENTIALS.toException());
 
-        if (!AuthProvider.LOCAL.equals(user.getProvider())) {
+        if (AuthProvider.GOOGLE.equals(user.getProvider())) {
             throw ErrorCode.GOOGLE_LOGIN_RESTRICTED.toException();
         }
 
-        if (!Boolean.TRUE.equals(user.getIsActive())) {
+        if(!user.getIsActive()) {
             throw ErrorCode.ACCOUNT_LOCKED.toException();
         }
 
@@ -100,13 +99,9 @@ public class AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
 
-        if (!Boolean.TRUE.equals(user.getIsActive())) {
+        if (!user.getIsActive()) {
             throw ErrorCode.ACCOUNT_LOCKED.toException();
         }
-        if (!Role.STUDENT.equals(user.getRole())) {
-            throw ErrorCode.ACCESS_DENIED.toException();
-        }
-
         String accessToken = tokenService.generateAccessToken(user);
         String refreshToken = tokenService.generateRefreshToken(user);
 
@@ -121,7 +116,7 @@ public class AuthService {
     public void forgotPassword(String email) {
 
         User user = userRepository
-                .findByEmail(normalizeEmail(email))
+                .findByEmail(email.toLowerCase().trim())
                 .orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
 
         if (AuthProvider.GOOGLE.equals(user.getProvider())) {
@@ -195,7 +190,7 @@ public class AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
 
-        if (!Boolean.TRUE.equals(user.getIsActive())) {
+        if (!user.getIsActive()) {
             throw ErrorCode.ACCOUNT_LOCKED.toException();
         }
 
@@ -229,10 +224,6 @@ public class AuthService {
                         ? Boolean.TRUE.equals(user.getOnboardingCompleted())
                         : null)
                 .build();
-    }
-
-    private String normalizeEmail(String email) {
-        return email.trim().toLowerCase(Locale.ROOT);
     }
 
     private UserResponse toUserResponse(User user) {
