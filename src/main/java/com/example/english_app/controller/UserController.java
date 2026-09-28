@@ -36,4 +36,14 @@ public class UserController {
             @Valid @RequestBody UpdateProfileRequest request) {
         return ResponseEntity.ok(ApiResponse.success(userService.updateProfile(authentication.getName(), request)));
     }
+
+    @Operation(summary = "Xóa tài khoản cá nhân")
+    @PreAuthorize("isAuthenticated()")
+    @DeleteMapping("/me")
+    public ResponseEntity<ApiResponse<Void>> deleteAccount(
+            Authentication authentication,
+            @RequestParam(required = false) String refreshToken) {
+        userService.deleteAccount(authentication.getName(), refreshToken);
+        return ResponseEntity.ok(ApiResponse.success("Xóa tài khoản thành công"));
+    }
 }
