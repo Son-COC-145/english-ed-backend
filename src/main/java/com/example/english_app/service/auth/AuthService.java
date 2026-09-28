@@ -11,6 +11,7 @@ import com.example.english_app.entity.enums.Role;
 import com.example.english_app.entity.user.User;
 import com.example.english_app.exception.ErrorCode;
 import com.example.english_app.repository.user.UserRepository;
+import com.example.english_app.security.oauth2.OAuth2ExchangeCodeService;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -20,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -37,23 +39,25 @@ public class AuthService {
     private final TokenService tokenService;
     private final EmailService emailService;
     private final RedisTemplate<String, String> redisTemplate;
+    private final OAuth2ExchangeCodeService oAuth2ExchangeCodeService;
 
     public UserResponse register(RegisterRequest request) {
 
         if (userRepository.findByEmail(
-                request.getEmail().toLowerCase().trim())
+                normalizeEmail(request.getEmail()))
                 .isPresent()) {
             throw ErrorCode.EMAIL_ALREADY_EXISTS.toException();
         }
 
         User user = new User();
-        user.setEmail(request.getEmail().toLowerCase().trim());
+        user.setEmail(normalizeEmail(request.getEmail()));
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setFullName(request.getFullName());
         user.setPhone(request.getPhone());
         user.setRole(Role.STUDENT);
         user.setProvider(AuthProvider.LOCAL);
         user.setIsActive(true);
+        user.setOnboardingCompleted(false);
 
         userRepository.save(user);
 
@@ -64,14 +68,14 @@ public class AuthService {
 
     public AuthResponse login(LoginRequest request) {
 
-        User user = userRepository.findByEmail(request.getEmail().toLowerCase().trim())
+        User user = userRepository.findByEmail(normalizeEmail(request.getEmail()))
                 .orElseThrow(() -> ErrorCode.INVALID_CREDENTIALS.toException());
 
-        if (AuthProvider.GOOGLE.equals(user.getProvider())) {
+        if (!AuthProvider.LOCAL.equals(user.getProvider())) {
             throw ErrorCode.GOOGLE_LOGIN_RESTRICTED.toException();
         }
 
-        if(!user.getIsActive()) {
+        if (!Boolean.TRUE.equals(user.getIsActive())) {
             throw ErrorCode.ACCOUNT_LOCKED.toException();
         }
 
@@ -88,38 +92,19 @@ public class AuthService {
                 user.getEmail(),
                 Duration.ofSeconds(refreshTokenExpiration));
 
-        return AuthResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .tokenType("Bearer")
-                .expiresIn(accessTokenExpiration)
-                .userId(user.getId())
-                .email(user.getEmail())
-                .fullName(user.getFullName())
-                .avatarUrl(user.getAvatarUrl())
-                .role(user.getRole() != null ? user.getRole().name() : null)
-                .provider(user.getProvider() != null ? user.getProvider().name() : null)
-                .build();
+        return buildAuthResponse(user, accessToken, refreshToken);
     }
 
     public AuthResponse exchangeOAuth2Code(OAuth2ExchangeRequest request) {
-        String key = "oauth2_code:" + request.getCode().trim();
-        String userIdStr = redisTemplate.opsForValue().get(key);
-        if (userIdStr == null) {
-            throw ErrorCode.INVALID_OAUTH2_CODE.toException();
-        }
-
-        Boolean deleted = redisTemplate.delete(key);
-        if (Boolean.FALSE.equals(deleted)) {
-            throw ErrorCode.INVALID_OAUTH2_CODE.toException();
-        }
-
-        Long userId = Long.valueOf(userIdStr);
+        Long userId = oAuth2ExchangeCodeService.consume(request.getCode());
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
 
-        if (!user.getIsActive()) {
+        if (!Boolean.TRUE.equals(user.getIsActive())) {
             throw ErrorCode.ACCOUNT_LOCKED.toException();
+        }
+        if (!Role.STUDENT.equals(user.getRole())) {
+            throw ErrorCode.ACCESS_DENIED.toException();
         }
 
         String accessToken = tokenService.generateAccessToken(user);
@@ -130,24 +115,13 @@ public class AuthService {
                 user.getEmail(),
                 Duration.ofSeconds(refreshTokenExpiration));
 
-        return AuthResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .tokenType("Bearer")
-                .expiresIn(accessTokenExpiration)
-                .userId(user.getId())
-                .email(user.getEmail())
-                .fullName(user.getFullName())
-                .avatarUrl(user.getAvatarUrl())
-                .role(user.getRole() != null ? user.getRole().name() : null)
-                .provider(user.getProvider() != null ? user.getProvider().name() : null)
-                .build();
+        return buildAuthResponse(user, accessToken, refreshToken);
     }
 
     public void forgotPassword(String email) {
 
         User user = userRepository
-                .findByEmail(email.toLowerCase().trim())
+                .findByEmail(normalizeEmail(email))
                 .orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
 
         if (AuthProvider.GOOGLE.equals(user.getProvider())) {
@@ -221,15 +195,27 @@ public class AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
 
-        if (!user.getIsActive()) {
+        if (!Boolean.TRUE.equals(user.getIsActive())) {
             throw ErrorCode.ACCOUNT_LOCKED.toException();
         }
 
         String newAccessToken = tokenService
                 .generateAccessToken(user);
 
+        return buildAuthResponse(user, newAccessToken, refreshToken);
+    }
+
+    public void logout(String refreshToken) {
+        if (!tokenService.isTokenValid(refreshToken)) {
+            throw ErrorCode.INVALID_TOKEN.toException();
+        }
+
+        redisTemplate.delete("refresh_token:" + refreshToken);
+    }
+
+    private AuthResponse buildAuthResponse(User user, String accessToken, String refreshToken) {
         return AuthResponse.builder()
-                .accessToken(newAccessToken)
+                .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .tokenType("Bearer")
                 .expiresIn(accessTokenExpiration)
@@ -239,15 +225,14 @@ public class AuthService {
                 .avatarUrl(user.getAvatarUrl())
                 .role(user.getRole() != null ? user.getRole().name() : null)
                 .provider(user.getProvider() != null ? user.getProvider().name() : null)
+                .onboardingCompleted(Role.STUDENT.equals(user.getRole())
+                        ? Boolean.TRUE.equals(user.getOnboardingCompleted())
+                        : null)
                 .build();
     }
 
-    public void logout(String refreshToken) {
-        if (!tokenService.isTokenValid(refreshToken)) {
-            throw ErrorCode.INVALID_TOKEN.toException();
-        }
-
-        redisTemplate.delete("refresh_token:" + refreshToken);
+    private String normalizeEmail(String email) {
+        return email.trim().toLowerCase(Locale.ROOT);
     }
 
     private UserResponse toUserResponse(User user) {

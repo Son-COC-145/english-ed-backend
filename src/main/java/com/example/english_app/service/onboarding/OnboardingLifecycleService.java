@@ -13,6 +13,7 @@ import com.example.english_app.entity.gamification.StudentStat;
 import com.example.english_app.entity.onboarding.PlacementTestSession;
 import com.example.english_app.entity.onboarding.StudentOnboarding;
 import com.example.english_app.entity.enums.RoadmapGenerationStatus;
+import com.example.english_app.entity.enums.Role;
 import com.example.english_app.entity.user.User;
 import com.example.english_app.exception.ErrorCode;
 import com.example.english_app.repository.gamification.DailyGoalRepository;
@@ -384,10 +385,13 @@ public class OnboardingLifecycleService {
      * Pre-condition: goalSurvey + placementTest + settings đều phải xong.
      */
     public void completeOnboarding(Long userId) {
+        User user = userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
+        requireStudent(user);
         StudentOnboarding ob = onboardingRepository.findByStudentId(userId)
                 .orElseThrow(() -> ErrorCode.SYSTEM_ERROR.toException());
 
-        if (ob.getOnboardingCompleted()) {
+        if (Boolean.TRUE.equals(ob.getOnboardingCompleted())) {
             throw ErrorCode.ONBOARDING_ALREADY_COMPLETED.toException();
         }
 
@@ -411,7 +415,9 @@ public class OnboardingLifecycleService {
 
         ob.setOnboardingCompleted(true);
         ob.setOnboardingCompletedAt(LocalDateTime.now());
+        user.setOnboardingCompleted(true);
         onboardingRepository.save(ob);
+        userRepository.save(user);
         log.info("Onboarding completed for user {}", userId);
     }
 
@@ -423,8 +429,9 @@ public class OnboardingLifecycleService {
     public void resetOnboarding(Long userId) {
         // Serialize reset with start/skip and lock the active session so an in-flight final answer
         // cannot republish placement state after the reset.
-        userRepository.findByIdForUpdate(userId)
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
+        requireStudent(user);
         Optional<PlacementTestSession> activeSession =
                 sessionRepository.findActiveByStudentIdForUpdate(userId);
 
@@ -460,6 +467,9 @@ public class OnboardingLifecycleService {
             log.info("Onboarding reset for user {}", userId);
         });
 
+        user.setOnboardingCompleted(false);
+        userRepository.save(user);
+
         activeSession.ifPresent(s -> {
             s.setIsCompleted(true);
             s.setCurrentQuestionId(null);
@@ -472,6 +482,12 @@ public class OnboardingLifecycleService {
     private User findUser(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
+    }
+
+    private void requireStudent(User user) {
+        if (!Role.STUDENT.equals(user.getRole())) {
+            throw ErrorCode.INVALID_REQUEST.toException();
+        }
     }
 
     private boolean isRoadmapReady(StudentOnboarding onboarding) {

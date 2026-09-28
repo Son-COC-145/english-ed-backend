@@ -18,6 +18,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -32,7 +33,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/onboarding")
 @RequiredArgsConstructor
 @Slf4j
-@PreAuthorize("isAuthenticated()")
+@PreAuthorize("hasRole('STUDENT')")
 @Tag(name = "Onboarding", description = "Module 0: Onboarding & Placement Test")
 public class OnboardingController {
 
@@ -44,8 +45,9 @@ public class OnboardingController {
     @Operation(summary = "Lấy trạng thái onboarding hiện tại")
     @GetMapping("/status")
     public ResponseEntity<ApiResponse<OnboardingStatusResponse>> getStatus(Authentication auth) {
-        return ResponseEntity.ok(ApiResponse.success(
-                lifecycleService.getStatus(userId(auth))));
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(ApiResponse.success(lifecycleService.getStatus(userId(auth))));
     }
 
     // Goal Survey
@@ -193,15 +195,6 @@ public class OnboardingController {
     public ResponseEntity<ApiResponse<Void>> completeOnboarding(Authentication auth) {
         lifecycleService.completeOnboarding(userId(auth));
         return ResponseEntity.ok(ApiResponse.success("Chúc mừng bạn đã hoàn thành onboarding!"));
-    }
-
-    @Operation(summary = "Reset Onboarding (Chỉ dành cho ADMIN)")
-    @PreAuthorize("hasRole('ADMIN')")
-    @PostMapping("/reset")
-    public ResponseEntity<ApiResponse<Void>> resetOnboarding(
-            @RequestParam Long targetUserId) {
-        lifecycleService.resetOnboarding(targetUserId);
-        return ResponseEntity.ok(ApiResponse.success("Reset onboarding cho userId=" + targetUserId + " thành công."));
     }
 
     // Helper

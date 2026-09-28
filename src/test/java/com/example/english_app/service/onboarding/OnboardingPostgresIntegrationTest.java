@@ -41,6 +41,7 @@ class OnboardingPostgresIntegrationTest {
         assertThat(columnExists("placement_test_sessions", "confidence_score")).isFalse();
         assertThat(columnExists("placement_test_answers", "submission_id")).isTrue();
         assertThat(columnExists("placement_test_answers", "pronunciation_overall_score")).isTrue();
+        assertThat(columnExists("users", "onboarding_completed")).isTrue();
         assertThat(tableExists("roadmap_generation_jobs")).isTrue();
         assertThat(tableExists("placement_pronunciation_submissions")).isTrue();
 

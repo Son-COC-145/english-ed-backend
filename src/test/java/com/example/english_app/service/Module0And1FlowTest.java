@@ -214,6 +214,7 @@ class Module0And1FlowTest {
         @DisplayName("Luồng 0.5: Lưu Cài đặt & Hoàn tất Onboarding")
         void testSaveSettingsAndCompleteOnboarding() {
             given(userRepository.findById(1L)).willReturn(Optional.of(mockUser));
+            given(userRepository.findByIdForUpdate(1L)).willReturn(Optional.of(mockUser));
             StudentOnboarding ob = StudentOnboarding.builder()
                     .student(mockUser)
                     .goalSurveyJson("{}")
@@ -237,6 +238,7 @@ class Module0And1FlowTest {
             lifecycleService.completeOnboarding(1L);
             assertThat(ob.getOnboardingCompleted()).isTrue();
             assertThat(ob.getOnboardingCompletedAt()).isNotNull();
+            assertThat(mockUser.getOnboardingCompleted()).isTrue();
         }
 
         @Test
@@ -288,6 +290,7 @@ class Module0And1FlowTest {
             assertThat(ob.getRoadmapJson()).isNull();
             assertThat(ob.getRoadmapGenerationVersion()).isEqualTo(4);
             assertThat(ob.getOnboardingCompleted()).isFalse();
+            assertThat(mockUser.getOnboardingCompleted()).isFalse();
             verify(onboardingRepository).save(ob);
         }
     }

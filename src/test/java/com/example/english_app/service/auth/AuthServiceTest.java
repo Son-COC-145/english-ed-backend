@@ -1,5 +1,6 @@
 package com.example.english_app.service.auth;
 
+import com.example.english_app.dto.request.LoginRequest;
 import com.example.english_app.dto.request.OAuth2ExchangeRequest;
 import com.example.english_app.dto.response.AuthResponse;
 import com.example.english_app.entity.enums.AuthProvider;
@@ -8,8 +9,8 @@ import com.example.english_app.entity.user.User;
 import com.example.english_app.exception.AppException;
 import com.example.english_app.exception.ErrorCode;
 import com.example.english_app.repository.user.UserRepository;
+import com.example.english_app.security.oauth2.OAuth2ExchangeCodeService;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -27,31 +28,22 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
 
-    @Mock
-    private UserRepository userRepository;
+    @Mock private UserRepository userRepository;
+    @Mock private PasswordEncoder passwordEncoder;
+    @Mock private TokenService tokenService;
+    @Mock private EmailService emailService;
+    @Mock private RedisTemplate<String, String> redisTemplate;
+    @Mock private ValueOperations<String, String> valueOperations;
+    @Mock private OAuth2ExchangeCodeService exchangeCodeService;
 
-    @Mock
-    private PasswordEncoder passwordEncoder;
-
-    @Mock
-    private TokenService tokenService;
-
-    @Mock
-    private EmailService emailService;
-
-    @Mock
-    private RedisTemplate<String, String> redisTemplate;
-
-    @Mock
-    private ValueOperations<String, String> valueOperations;
-
-    @InjectMocks
-    private AuthService authService;
+    @InjectMocks private AuthService authService;
 
     @BeforeEach
     void setUp() {
@@ -60,103 +52,107 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("Exchange OAuth2 code thành công -> trả về AuthResponse và lưu refreshToken")
-    void exchangeOAuth2Code_success() {
-        String code = "test-auth-code";
-        String key = "oauth2_code:" + code;
-        Long userId = 10L;
+    void localStudentLoginReturnsPersistedOnboardingSummary() {
+        User student = student(AuthProvider.LOCAL);
+        student.setOnboardingCompleted(true);
+        LoginRequest request = new LoginRequest();
+        request.setEmail(student.getEmail());
+        request.setPassword("Password1!");
 
-        User user = new User();
-        user.setId(userId);
-        user.setEmail("google.user@example.com");
-        user.setFullName("Google User");
-        user.setRole(Role.STUDENT);
-        user.setProvider(AuthProvider.GOOGLE);
-        user.setIsActive(true);
-
+        when(userRepository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
+        when(passwordEncoder.matches(request.getPassword(), student.getPassword())).thenReturn(true);
+        when(tokenService.generateAccessToken(student)).thenReturn("access");
+        when(tokenService.generateRefreshToken(student)).thenReturn("refresh");
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.get(key)).thenReturn(String.valueOf(userId));
-        when(redisTemplate.delete(key)).thenReturn(true);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(tokenService.generateAccessToken(user)).thenReturn("mock-access-token");
-        when(tokenService.generateRefreshToken(user)).thenReturn("mock-refresh-token");
 
-        OAuth2ExchangeRequest request = OAuth2ExchangeRequest.builder().code(code).build();
+        AuthResponse response = authService.login(request);
+
+        assertThat(response.getOnboardingCompleted()).isTrue();
+        assertThat(response.getRole()).isEqualTo("STUDENT");
+    }
+
+    @Test
+    void localStaffLoginDoesNotExposeOnboardingState() {
+        User teacher = student(AuthProvider.LOCAL);
+        teacher.setRole(Role.TEACHER);
+        LoginRequest request = new LoginRequest();
+        request.setEmail(teacher.getEmail());
+        request.setPassword("Password1!");
+
+        when(userRepository.findByEmail(teacher.getEmail())).thenReturn(Optional.of(teacher));
+        when(passwordEncoder.matches(request.getPassword(), teacher.getPassword())).thenReturn(true);
+        when(tokenService.generateAccessToken(teacher)).thenReturn("access");
+        when(tokenService.generateRefreshToken(teacher)).thenReturn("refresh");
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+
+        AuthResponse response = authService.login(request);
+
+        assertThat(response.getOnboardingCompleted()).isNull();
+    }
+
+    @Test
+    void exchangeOAuth2CodeIssuesTokensForActiveStudent() {
+        User student = student(AuthProvider.GOOGLE);
+        OAuth2ExchangeRequest request = OAuth2ExchangeRequest.builder().code("one-time-code").build();
+
+        when(exchangeCodeService.consume("one-time-code")).thenReturn(student.getId());
+        when(userRepository.findById(student.getId())).thenReturn(Optional.of(student));
+        when(tokenService.generateAccessToken(student)).thenReturn("access");
+        when(tokenService.generateRefreshToken(student)).thenReturn("refresh");
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+
         AuthResponse response = authService.exchangeOAuth2Code(request);
 
-        assertThat(response).isNotNull();
-        assertThat(response.getAccessToken()).isEqualTo("mock-access-token");
-        assertThat(response.getRefreshToken()).isEqualTo("mock-refresh-token");
-        assertThat(response.getEmail()).isEqualTo("google.user@example.com");
-        assertThat(response.getUserId()).isEqualTo(userId);
-        assertThat(response.getRole()).isEqualTo("STUDENT");
-        assertThat(response.getProvider()).isEqualTo("GOOGLE");
-
-        verify(redisTemplate).delete(key);
-        verify(valueOperations).set(eq("refresh_token:mock-refresh-token"), eq(user.getEmail()), any(Duration.class));
+        assertThat(response.getAccessToken()).isEqualTo("access");
+        assertThat(response.getOnboardingCompleted()).isFalse();
+        verify(valueOperations).set(
+                eq("refresh_token:refresh"),
+                eq(student.getEmail()),
+                any(Duration.class));
     }
 
     @Test
-    @DisplayName("Exchange OAuth2 code không tồn tại hoặc đã hết hạn -> ném INVALID_OAUTH2_CODE")
-    void exchangeOAuth2Code_codeNotFoundOrExpired() {
-        String code = "expired-code";
-        String key = "oauth2_code:" + code;
+    void exchangeOAuth2CodeRejectsStaffEvenIfAValidCodeExists() {
+        User teacher = student(AuthProvider.LOCAL);
+        teacher.setRole(Role.TEACHER);
+        OAuth2ExchangeRequest request = OAuth2ExchangeRequest.builder().code("staff-code").build();
 
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.get(key)).thenReturn(null);
-
-        OAuth2ExchangeRequest request = OAuth2ExchangeRequest.builder().code(code).build();
+        when(exchangeCodeService.consume("staff-code")).thenReturn(teacher.getId());
+        when(userRepository.findById(teacher.getId())).thenReturn(Optional.of(teacher));
 
         assertThatThrownBy(() -> authService.exchangeOAuth2Code(request))
                 .isInstanceOf(AppException.class)
-                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.INVALID_OAUTH2_CODE));
-
-        verify(redisTemplate, never()).delete(anyString());
-        verify(userRepository, never()).findById(any());
-    }
-
-    @Test
-    @DisplayName("Exchange OAuth2 code bị tranh chấp đồng thời -> ném INVALID_OAUTH2_CODE")
-    void exchangeOAuth2Code_concurrentReplay_fails() {
-        String code = "concurrent-code";
-        String key = "oauth2_code:" + code;
-
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.get(key)).thenReturn("10");
-        when(redisTemplate.delete(key)).thenReturn(false);
-
-        OAuth2ExchangeRequest request = OAuth2ExchangeRequest.builder().code(code).build();
-
-        assertThatThrownBy(() -> authService.exchangeOAuth2Code(request))
-                .isInstanceOf(AppException.class)
-                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.INVALID_OAUTH2_CODE));
-
-        verify(userRepository, never()).findById(any());
-    }
-
-    @Test
-    @DisplayName("Exchange OAuth2 code với user bị khóa -> ném ACCOUNT_LOCKED")
-    void exchangeOAuth2Code_userLocked() {
-        String code = "valid-code-locked-user";
-        String key = "oauth2_code:" + code;
-        Long userId = 10L;
-
-        User user = new User();
-        user.setId(userId);
-        user.setEmail("locked@example.com");
-        user.setIsActive(false);
-
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.get(key)).thenReturn(String.valueOf(userId));
-        when(redisTemplate.delete(key)).thenReturn(true);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-
-        OAuth2ExchangeRequest request = OAuth2ExchangeRequest.builder().code(code).build();
-
-        assertThatThrownBy(() -> authService.exchangeOAuth2Code(request))
-                .isInstanceOf(AppException.class)
-                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.ACCOUNT_LOCKED));
+                .satisfies(error -> assertThat(((AppException) error).getErrorCode())
+                        .isEqualTo(ErrorCode.ACCESS_DENIED));
 
         verify(tokenService, never()).generateAccessToken(any());
+    }
+
+    @Test
+    void exchangeOAuth2CodeRejectsLockedStudent() {
+        User student = student(AuthProvider.GOOGLE);
+        student.setIsActive(false);
+        OAuth2ExchangeRequest request = OAuth2ExchangeRequest.builder().code("locked-code").build();
+
+        when(exchangeCodeService.consume("locked-code")).thenReturn(student.getId());
+        when(userRepository.findById(student.getId())).thenReturn(Optional.of(student));
+
+        assertThatThrownBy(() -> authService.exchangeOAuth2Code(request))
+                .isInstanceOf(AppException.class)
+                .satisfies(error -> assertThat(((AppException) error).getErrorCode())
+                        .isEqualTo(ErrorCode.ACCOUNT_LOCKED));
+    }
+
+    private User student(AuthProvider provider) {
+        return User.builder()
+                .id(10L)
+                .email("student@example.com")
+                .password("encoded")
+                .fullName("Student")
+                .role(Role.STUDENT)
+                .provider(provider)
+                .isActive(true)
+                .onboardingCompleted(false)
+                .build();
     }
 }
