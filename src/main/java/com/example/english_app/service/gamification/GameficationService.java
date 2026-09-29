@@ -2,7 +2,6 @@ package com.example.english_app.service.gamification;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.time.temporal.ChronoUnit;
@@ -19,6 +18,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.example.english_app.config.AppTimeZone;
 import com.example.english_app.dto.request.MinigameSubmitRequest;
 import com.example.english_app.dto.request.ReviewSubmitRequest;
 import com.example.english_app.dto.response.DailyMissionResponse;
@@ -240,7 +240,7 @@ public class GameficationService {
 
     public DueReviewPageResponse getDueReviews(int page, int size, Short topicId, CefrLevel cefrLevel) {
         User user = getCurrentUser();
-        LocalDateTime now = utcNow();
+        LocalDateTime now = now();
         Pageable pageable = PageRequest.of(page, size);
 
         long dueCount = studentVocabularyProgressRepository
@@ -286,7 +286,7 @@ public class GameficationService {
 
     public VocabularySummaryResponse getVocabularySummary() {
         User user = getCurrentUser();
-        LocalDateTime now = utcNow();
+        LocalDateTime now = now();
         Long studentId = user.getId();
 
         // Đếm theo status trong 1 query
@@ -325,7 +325,7 @@ public class GameficationService {
     public PageResponse<StudentVocabularyProgressResponse> getVocabularyProgresses(
             LearningStatus status, boolean dueOnly, Pageable pageable) {
         User user = getCurrentUser();
-        LocalDateTime now = utcNow();
+        LocalDateTime now = now();
 
         Page<StudentVocabularyProgress> page = studentVocabularyProgressRepository
                 .findByStudentIdWithFilters(user.getId(), status, dueOnly, now, pageable);
@@ -445,7 +445,7 @@ public class GameficationService {
         // 1. Lấy danh sách ÔN TẬP
         Pageable reviewPage = PageRequest.of(0, reviewWordsLimit);
         List<Vocabulary> reviewVocabs = studentVocabularyProgressRepository
-               .findVocabulariesToReview(studentId, utcNow(), reviewPage).getContent();
+               .findVocabulariesToReview(studentId, now(), reviewPage).getContent();
 
         // 2. Tính toán Tuần học hiện tại để tìm TỪ MỚI
         List<Course> activeCourses = courseStudentRepository.findActiveCoursesByStudentId(studentId);
@@ -457,7 +457,7 @@ public class GameficationService {
 
             for (Course c : activeCourses) {
                 if (c.getStartDate() != null) {
-                    long daysBetween = ChronoUnit.DAYS.between(c.getStartDate(), LocalDate.now());
+                    long daysBetween = ChronoUnit.DAYS.between(c.getStartDate(), LocalDate.now(AppTimeZone.ZONE));
                     short weekNum = (short) ((Math.max(0, daysBetween) / 7) + 1);
                     courseIds.add(c.getId());
                     weekNumbers.add(weekNum);
@@ -482,8 +482,9 @@ public class GameficationService {
     // Private helpers
     // ═══════════════════════════════════════════════════════════════════════
 
-    private LocalDateTime utcNow() {
-        return LocalDateTime.now(ZoneOffset.UTC);
+    /** SRS times (nextReviewAt, lastPracticedAt) use the business zone, like streaks and daily goals. */
+    private LocalDateTime now() {
+        return LocalDateTime.now(AppTimeZone.ZONE);
     }
 
     private User getCurrentUser() {
@@ -509,7 +510,7 @@ public class GameficationService {
 
     /** Cập nhật streak và longestStreak (bug fix: setLongestStreak thay vì setCurrentStreak) */
     private void updateStreakLogic(StudentStat stat) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(AppTimeZone.ZONE);
         LocalDate lastDate = stat.getLastActivityDate();
 
         if (lastDate == null) {
@@ -545,7 +546,7 @@ public class GameficationService {
                 progress.setStatus(LearningStatus.REVIEWING);
             }
         }
-        progress.setLastPracticedAt(utcNow());
+        progress.setLastPracticedAt(now());
 
         // SM-2 với quality map đơn giản (mini-game chỉ có đúng/sai)
         applySmTwoAlgorithm(progress, isCorrect ? ReviewRating.GOOD : ReviewRating.AGAIN);
@@ -587,8 +588,8 @@ public class GameficationService {
         progress.setEasinessFactor(ef);
         progress.setRepetitions(rep);
         progress.setIntervalDays(interval);
-        progress.setNextReviewAt(utcNow().plusDays(interval));
-        progress.setLastPracticedAt(utcNow());
+        progress.setNextReviewAt(now().plusDays(interval));
+        progress.setLastPracticedAt(now());
 
         // Cập nhật status theo kết quả review
         if (quality == 0) {
@@ -655,7 +656,7 @@ public class GameficationService {
                             .userId(userId)
                             .operationType(operationType)
                             .requestHash(requestHash)
-                            .createdAt(utcNow())
+                            .createdAt(now())
                             .build());
             key.setRequestHash(requestHash);
             key.setResultJson(resultJson);
