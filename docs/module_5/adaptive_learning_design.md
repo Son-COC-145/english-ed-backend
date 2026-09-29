@@ -46,7 +46,7 @@
 ### 2.1 Roadmap hiện nay
 
 - Sinh ở `RoadmapGenerationService.assembleMilestones`, lưu JSON vào `student_onboarding.roadmap_json` tại `RoadmapJobService.markReady`, kèm `roadmap_generation_version`.
-- Mỗi tuần là một chủ đề (tối đa 5 tuần). Module: `VOCABULARY` (từ của chủ đề), `SPEAKING` (khi học viên chọn "Giao tiếp"), `IPA_PRONUNCIATION` (tuần 1, 44 âm).
+- Mỗi tuần là một chủ đề (tối đa 5 tuần). Module: `VOCABULARY` (từ của chủ đề), `SPEAKING` (khi học viên chọn "Giao tiếp"), `IPA_PRONUNCIATION` (tuần 1, cả 44 âm — sẽ chia nhỏ, mục 2.6).
 - `OnboardingLifecycleService.getRoadmapProgress` đang gán cứng `currentWeek = 1`, `completedModules = 0`.
 
 ### 2.2 Thay đổi trong JSON roadmap
@@ -55,7 +55,7 @@ Thêm vào `RoadmapModule` (chỉ thêm trường, JSON cũ vẫn đọc đượ
 
 | Trường | Giá trị |
 |---|---|
-| `moduleKey` | `VOCABULARY:{topicId}` · `SPEAKING:{topicId}` · `IPA_PRONUNCIATION` |
+| `moduleKey` | `VOCABULARY:{topicId}` · `SPEAKING:{topicId}` · `IPA:{nhóm âm}` (ví dụ `IPA:IPA_VOWELS_BASIC`, mục 2.6) |
 | `contentItemIds` | Snapshot nội dung lúc sinh: `vocabularyId` của chủ đề · `scenarioId` đúng chủ đề và CEFR · `phonemeId` của module |
 | `contentVersion` | SHA-256 rút gọn của `contentItemIds` đã sắp xếp |
 
@@ -83,7 +83,7 @@ Thêm vào `RoadmapModule` (chỉ thêm trường, JSON cũ vẫn đọc đượ
 |---|---|---|
 | `VOCABULARY` | Có dòng `student_vocabulary_progress` với `last_practiced_at` khác null | Đếm `vocabulary_id ∈ contentItemIds` |
 | `SPEAKING` | Có `speaking_sessions` trạng thái `COMPLETED` | Đếm `scenario_id ∈ contentItemIds` (distinct) |
-| `IPA_PRONUNCIATION` | Có `pronunciation_practice_logs` của từ ví dụ thuộc âm | Đếm distinct `phoneme_id ∈ contentItemIds` qua `ipa_example_words` |
+| `IPA_PRONUNCIATION` (mỗi nhóm âm) | Có `pronunciation_practice_logs` của từ ví dụ thuộc âm | Đếm distinct `phoneme_id ∈ contentItemIds` qua `ipa_example_words` |
 
 - `progressPercent = done_count × 100 / total_count`; `status = COMPLETED` khi `done_count = total_count`, `IN_PROGRESS` khi `0 < done_count`, còn lại `NOT_STARTED`.
 - "Đã làm" chỉ tăng, nên `COMPLETED` không quay lại.
@@ -96,6 +96,22 @@ Thêm vào `RoadmapModule` (chỉ thêm trường, JSON cũ vẫn đọc đượ
 - Sự kiện `ROADMAP_GENERATED` → tạo dòng cho **mọi** module của phiên bản mới và đếm ngay (học viên đã học trước đó vẫn được tính vì đếm từ bảng nguồn).
 - Khi một module chuyển sang `COMPLETED`: ghi sự kiện dẫn xuất `ROADMAP_MODULE_COMPLETED`; nếu cả tuần xong: `ROADMAP_WEEK_COMPLETED`; nếu cả roadmap xong: `ROADMAP_COMPLETED`.
 - Roadmap chưa có trường mới (sinh trước khi triển khai): khi đọc, service sinh `moduleKey`/`contentItemIds` từ nội dung hiện tại và ghi lại vào JSON một lần.
+
+### 2.6 Chia nhỏ module phát âm
+
+Module phát âm không còn là một module 44 âm mà chia theo cột `ipa_phonemes.phoneme_type` có sẵn:
+
+| Nhóm (`moduleKey` = `IPA:{nhóm}`) | Âm | Số âm (dữ liệu hiện tại) |
+|---|---|---|
+| `IPA_VOWELS_BASIC` | `VOWEL_MONO` | ≈12 |
+| `IPA_DIPHTHONGS` | `VOWEL_DIPH` | ≈8 |
+| `IPA_CONSONANTS_1` | Nửa đầu `CONSONANT` theo `id` | ≈12 |
+| `IPA_CONSONANTS_2` | Nửa sau `CONSONANT` theo `id`, cộng `SPECIAL` (nếu có) | ≈12 |
+
+- Danh sách âm của mỗi nhóm được chụp vào `contentItemIds` lúc sinh roadmap như mọi module khác.
+- Điều kiện đưa module phát âm vào roadmap giữ như hiện nay (CEFR A1/A2, hoặc học viên chọn tập trung `PRONUNCIATION`/`SPEAKING`, hoặc mục tiêu `COMMUNICATION`).
+- Mỗi tuần 1 nhóm, theo thứ tự trên, bắt đầu từ tuần 1; roadmap ít hơn 4 tuần thì các nhóm còn lại dồn vào tuần cuối.
+- Nhóm có hơn `adaptive.roadmap.ipa-max-per-module` (12) âm thì chia tiếp theo `id` để mỗi module tối đa 12 âm.
 
 ---
 
@@ -195,7 +211,7 @@ Thêm vào `RoadmapModule` (chỉ thêm trường, JSON cũ vẫn đọc đượ
 
 - `learner_profile.cefr_level` = CEFR tổng của placement.
 - Với Vocabulary, Pronunciation, Grammar, Reading, Listening: nếu kỹ năng chưa có kết quả luyện (`source = PLACEMENT` hoặc chưa có dòng) → `mastery = recent_score = điểm placement`, `confidence = 0.3`, `source = PLACEMENT`. Kỹ năng đã có kết quả luyện (`PRACTICE`) chỉ đổi CEFR, không ghi đè mastery.
-- Speaking: `mastery = null` đến phiên nói đầu tiên (câu hỏi O3).
+- Speaking: `mastery = null` đến phiên nói đầu tiên (câu hỏi O3 trong Phạm vi).
 
 ### 4.3 Quy đổi điểm quan sát (observation) và độ tin cậy
 
@@ -222,7 +238,7 @@ overall      = Σ(mastery × confidence) / Σ(confidence)   trên các kỹ năn
 ```
 
 - Sau khi áp dụng: `source = PRACTICE`, `last_practiced_at = occurred_at`; `learner_profile.profile_version += 1`, `total_activities += 1`.
-- Không giảm điểm theo thời gian (đã chốt).
+- Không giảm điểm theo thời gian (đã chốt): mastery, recent_score và trend **chỉ thay đổi khi có sự kiện học mới**; không có job nào tự giảm điểm.
 - Grammar/Reading/Listening không có sự kiện luyện nên giữ `source = PLACEMENT`.
 
 ---
@@ -245,8 +261,8 @@ overall      = Σ(mastery × confidence) / Σ(confidence)   trên các kỹ năn
 | Từ đến hạn ôn | Có từ `next_review_at ≤ now` | `VOCABULARY_REVIEW` · `{mode: DUE}` | `SRS_DUE` `{dueCount}` | `min(due, 20) × 10 s` |
 | Module roadmap tiếp theo | Module gợi ý của tuần hiện tại chưa xong | `ROADMAP_MODULE` · `{roadmapVersion, moduleKey}` | `ROADMAP_NEXT` `{week}` | Từ vựng 5 · Nói 8 · Phát âm 5 |
 | Âm yếu | Âm đã luyện, điểm TB < 60 (tối đa 3 âm yếu nhất) | `PRONUNCIATION` · `{phonemeId}` | `WEAK_PHONEME` `{phonemeId, avgScore}` | 3 |
-| Kỹ năng nói yếu | Speaking có mastery < 60, hoặc học viên chọn mục tiêu "Giao tiếp" | `SPEAKING` · `{scenarioId}` (kịch bản thuộc chủ đề tuần hiện tại, đúng CEFR, lâu chưa làm nhất) | `WEAK_SKILL` / `GOAL_FOCUS` `{skill}` | 8 |
-| Bài tập sắp hết hạn | Bài chưa nộp, hạn trong 3 ngày | `ASSIGNMENT` · `{courseId, assignmentId}` | `ASSIGNMENT_DUE` `{daysRemaining}` | Từ vựng 5 · Phát âm 3 · Nói 8 |
+| Kỹ năng nói yếu | Speaking có mastery < 60, hoặc `focusSkills` chứa `SPEAKING`, hoặc `learningGoal = COMMUNICATION` | `SPEAKING` · `{scenarioId}` (kịch bản thuộc chủ đề tuần hiện tại, đúng CEFR, lâu chưa làm nhất) | `WEAK_SKILL` / `GOAL_FOCUS` `{skill}` | 8 |
+| Bài tập | Bài chưa nộp: đã quá hạn (P0), hạn < 24 giờ (P1), hoặc hạn trong 3 ngày (xếp theo điểm) | `ASSIGNMENT` · `{courseId, assignmentId}` | `ASSIGNMENT_OVERDUE` `{daysOverdue}` / `ASSIGNMENT_DUE` `{hoursRemaining}` | Từ vựng 5 · Phát âm 3 · Nói 8 |
 | Từ mới theo lịch lớp | Chủ đề tuần hiện tại của lớp (logic Daily Mission) còn từ chưa học | `VOCABULARY_TOPIC` · `{topicId}` | `CLASS_SYLLABUS` `{courseId}` | 5 |
 
 Không có nguồn cho Grammar/Reading/Listening (chưa có bài luyện).
@@ -263,17 +279,17 @@ w1..w5 mặc định = 0.35, 0.25, 0.20, 0.10, 0.10
 | `dueUrgency` | SRS: `min(1, due / 20)`; bài tập: `1 − hoursLeft / 72`; khác: 0 |
 | `weakness` | `1 − mastery / 100` của kỹ năng (mastery null → 0.5); âm yếu: `1 − avgScore / 100` |
 | `roadmap` | 1 nếu thuộc tuần roadmap hiện tại, 0 nếu không |
-| `goal` | 1 nếu kỹ năng nằm trong `focusSkills` của goal survey (quy đổi chữ → kỹ năng bằng bảng cố định) |
+| `goal` | 1 nếu kỹ năng nằm trong `focusSkills` của goal survey (mã cố định, mục 6.5) |
 | `freshness` | `min(1, giờ kể từ lần làm gần nhất cùng đối tượng / 48)`; chưa từng làm → 1 |
 
 ### 6.3 Lọc, đa dạng hoá, ghép theo ngân sách
 
 1. **Lọc cứng:** bỏ ứng viên không có nội dung; bỏ module roadmap đã `COMPLETED`; bỏ bài tập đã nộp; bỏ đối tượng đã làm trong 2 giờ gần nhất (trừ `SRS_DUE`).
-2. **Ưu tiên bắt buộc:** bài tập hạn < 24 giờ luôn đứng đầu (câu hỏi O6).
-3. **Đa dạng:** mỗi `type` tối đa 1 mục (riêng `PRONUNCIATION` tối đa 2); mỗi kỹ năng tối đa 2 mục; nếu có thể thì kế hoạch có ít nhất 2 kỹ năng khác nhau.
-4. **Ngân sách:** duyệt theo điểm giảm dần, thêm mục nếu tổng phút ≤ `budgetMinutes`; luôn có ít nhất 1 mục nếu có ứng viên.
+2. **Ưu tiên cứng cho bài tập:** **P0** bài tập quá hạn chưa nộp, rồi **P1** bài tập hạn < 24 giờ (trong mỗi mức, hạn sớm hơn đứng trước). Hai mức này luôn được đưa vào kế hoạch, kể cả khi làm vượt `budgetMinutes`. Bài tập hạn xa hơn đi qua chấm điểm như mọi ứng viên khác.
+3. **Đa dạng:** mỗi `type` tối đa 1 mục (riêng `PRONUNCIATION` và `ASSIGNMENT` tối đa 2); mỗi kỹ năng tối đa 2 mục; nếu có thể thì kế hoạch có ít nhất 2 kỹ năng khác nhau.
+4. **Ngân sách:** sau các mục P0/P1, duyệt ứng viên theo điểm giảm dần và chỉ thêm mục nếu tổng phút vẫn ≤ `budgetMinutes`. Kết quả: `estimatedMinutes ≤ budgetMinutes`, chỉ vượt khi có bài tập P0/P1. Không có mục nào vừa ngân sách thì trả danh sách rỗng.
 5. **Giữ streak:** nếu hôm nay chưa học và `current_streak ≥ 3`, mục ít phút nhất được đổi `reasonCode` thành `KEEP_STREAK` `{streak}`.
-6. `budgetMinutes` mặc định = `dailyStudyMinutes` của goal survey, không có thì 15 (câu hỏi O5); giới hạn 5–120.
+6. `budgetMinutes` mặc định = `dailyStudyMinutes` của goal survey, không có thì 15 (câu hỏi O4 trong Phạm vi); giới hạn 5–120.
 
 `recommendationId` = hash(`ngày`, `type`, `target`) — ổn định trong ngày, dùng cho phân tích sau này.
 
@@ -282,6 +298,22 @@ w1..w5 mặc định = 0.35, 0.25, 0.20, 0.10, 0.10
 - Khoá Redis `adaptive:plan:{studentId}:{profileVersion}:{yyyyMMdd}:{budget}`, TTL = min(30 phút, đến hết ngày).
 - Mọi consumer đã cập nhật dữ liệu của học viên đều tăng `profile_version` → kế hoạch cũ tự hết hiệu lực. TTL 30 phút xử lý thay đổi không qua sự kiện (giáo viên giao bài mới).
 - Redis lỗi → tính trực tiếp, không chặn API.
+
+### 6.5 Goal survey có cấu trúc
+
+`GoalSurveyRequest` đổi từ chữ tự do sang mã cố định (vẫn lưu trong `student_onboarding.goal_survey_json`):
+
+| Trường | Kiểu | Giá trị |
+|---|---|---|
+| `learningGoal` | enum `LearningGoal`, bắt buộc | `COMMUNICATION` / `WORK` / `TRAVEL` / `EXAM` / `GENERAL` |
+| `otherGoalText` | string ≤ 200, tuỳ chọn | Mô tả thêm khi học viên chọn "Khác" (không dùng để tính toán) |
+| `focusSkills` | list enum `LearnerSkill`, 1–3 phần tử | `VOCABULARY` / `SPEAKING` / `PRONUNCIATION` / `READING` / `LISTENING` / `GRAMMAR` |
+| `dailyStudyMinutes` | int 5–120, tuỳ chọn | Ngân sách mặc định của Today Plan |
+| `preferredEnvironment`, `previousExperience` | giữ như hiện tại | |
+
+- Validation bằng Bean Validation; giá trị ngoài danh sách → `400`.
+- `GoalSurveyParser` và `RoadmapGenerationService` đọc mã thay vì so chuỗi tiếng Việt ("Giao tiếp" → `SPEAKING` / `COMMUNICATION`, "Phát âm" → `PRONUNCIATION`).
+- Goal survey đã lưu dạng cũ (chỉ có ở môi trường dev/test): parser đọc được cả hai dạng, dạng cũ quy đổi bằng bảng chuỗi → mã trong một chỗ duy nhất và được bỏ khi app cũ ngừng hỗ trợ (câu hỏi O6 trong Phạm vi).
 
 ---
 
@@ -308,7 +340,7 @@ w1..w5 mặc định = 0.35, 0.25, 0.20, 0.10, 0.10
 | `ACTIVITY_COUNT` | 10 / 50 / 100 | `total_activities` đạt mốc |
 
 - Consumer Milestones chạy sau LearnerModel trong cùng transaction nên đọc được giá trị mới.
-- Mốc thuộc danh sách thông báo (câu hỏi O8) → `NotificationOutboxService.enqueue` (loại `SYSTEM`), khoá `milestone:{studentId}:{type}:{key}`.
+- Mốc thuộc danh sách thông báo (câu hỏi O5 trong Phạm vi) → `NotificationOutboxService.enqueue` (loại `SYSTEM`), khoá `milestone:{studentId}:{type}:{key}`.
 - "Mốc tiếp theo" cho Progress Summary: mốc chưa đạt gần nhất (theo tỉ lệ `current / target` lớn nhất).
 
 ---
@@ -323,6 +355,7 @@ Tất cả: `@PreAuthorize("hasRole('STUDENT')")`, học viên lấy từ token,
 {
   "generatedAt": "2026-09-29T08:00:00",
   "profileVersion": 17,
+  "rulesVersion": "2026-09-29.1",
   "budgetMinutes": 20,
   "estimatedMinutes": 18,
   "activities": [
@@ -333,7 +366,8 @@ Tất cả: `@PreAuthorize("hasRole('STUDENT')")`, học viên lấy từ token,
       "estimatedMinutes": 5,
       "target": { "courseId": 8, "assignmentId": 21 },
       "reasonCode": "ASSIGNMENT_DUE",
-      "reasonParams": { "daysRemaining": 1 }
+      "reasonParams": { "hoursRemaining": 20 },
+      "priority": "P1"
     },
     {
       "recommendationId": "9b77e0",
@@ -349,7 +383,9 @@ Tất cả: `@PreAuthorize("hasRole('STUDENT')")`, học viên lấy từ token,
 ```
 
 - `type` và cấu trúc `target` theo bảng 6.1; `title` chỉ có khi hoạt động có tên nội dung thật (bài tập, chủ đề, kịch bản).
-- `reasonCode`: `SRS_DUE`, `ROADMAP_NEXT`, `WEAK_PHONEME`, `WEAK_SKILL`, `GOAL_FOCUS`, `ASSIGNMENT_DUE`, `CLASS_SYLLABUS`, `KEEP_STREAK`. Mobile tự dịch; có thể thêm `reason` (tiếng Việt) làm fallback.
+- `reasonCode`: `SRS_DUE`, `ROADMAP_NEXT`, `WEAK_PHONEME`, `WEAK_SKILL`, `GOAL_FOCUS`, `ASSIGNMENT_OVERDUE`, `ASSIGNMENT_DUE`, `CLASS_SYLLABUS`, `KEEP_STREAK`.
+- `priority`: `P0` / `P1` cho bài tập quá hạn / hạn < 24 giờ, `null` với mục xếp theo điểm. `estimatedMinutes` tổng chỉ vượt `budgetMinutes` khi có mục P0/P1.
+- `rulesVersion`: phiên bản bộ trọng số và luật đề xuất đang dùng (mục 9), để debug và so sánh khi đổi trọng số. Mobile tự dịch; có thể thêm `reason` (tiếng Việt) làm fallback.
 
 ### 8.2 `GET /api/v1/learner/profile` (MVP)
 
@@ -422,15 +458,25 @@ adaptive:
       VOCAB_REVIEWED: 0.3
       PRONUNCIATION_PRACTICED: 0.6
       SPEAKING_SESSION_EVALUATED: 1.0
+  roadmap:
+    ipa-max-per-module: 12
   recommendation:
+    rules-version: "2026-09-29.1"      # tăng mỗi khi đổi trọng số / luật
     default-budget-minutes: 15
-    weights: { due-urgency: 0.35, weakness: 0.25, roadmap: 0.20, goal: 0.10, freshness: 0.10 }
+    weights:                           # giá trị do Product/Learning owner quyết định
+      due-urgency: 0.35
+      weakness: 0.25
+      roadmap: 0.20
+      goal: 0.10
+      freshness: 0.10
     weak-phoneme-threshold: 60
     assignment-horizon-days: 3
     cache-ttl: 30m
 ```
 
 ---
+
+**Quản lý trọng số:** Backend chịu trách nhiệm cơ chế (đọc config, validate tổng trọng số = 1, log `rules-version` khi khởi động); Product/Learning owner quyết định giá trị. Mọi trọng số chỉ nằm trong khối `adaptive.recommendation.weights`, `RecommendationScorer` là nơi duy nhất đọc chúng. Đổi giá trị = sửa config + tăng `rules-version`, không sửa code.
 
 ## 10. Theo dõi và lỗi
 

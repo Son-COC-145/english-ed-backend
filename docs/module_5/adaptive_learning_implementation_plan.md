@@ -7,26 +7,27 @@
 
 | Giai đoạn | Bước | Kết quả | Ước lượng |
 |---|---|---|---|
-| **MVP** | 1. Tiến độ roadmap | Roadmap có mã module, snapshot nội dung, tiến độ thật | 3 ngày |
+| **MVP** | 1. Tiến độ roadmap | Roadmap có mã module, snapshot nội dung, module phát âm chia nhỏ, tiến độ thật | 3,5 ngày |
 | | 2. Hạ tầng sự kiện học tập | Bảng `learning_events`, publisher, worker | 3 ngày |
 | | 3. Hook các module | 7 điểm phát sự kiện | 2 ngày |
 | | 4. Consumer: roadmap, năng lực, thời gian học | Dữ liệu tổng hợp cập nhật theo sự kiện | 3 ngày |
 | | 5. Recommendation + Today Plan API | `GET /recommendations/today` | 4 ngày |
+| | 5a. Goal survey có cấu trúc | API goal survey nhận mã cố định; roadmap và đề xuất đọc mã | 1,5 ngày |
 | | 6. Learner Profile API + API roadmap | `GET /learner/profile`, roadmap trả số thật | 1 ngày |
 | | 7. Kiểm thử tích hợp, demo MVP | Chạy đủ kịch bản demo (Phạm vi mục 8) | 2 ngày |
 | **Sau MVP** | 8. Snapshot theo ngày + Progress API | Summary, History | 2 ngày |
 | | 9. Mốc + thông báo | Milestones API, thông báo đẩy | 2 ngày |
 | | 10. Reading & Listening | Engine bài đọc/nghe, nội dung AI có duyệt | tách kế hoạch riêng |
 
-**MVP ≈ 18 ngày công.** Sau MVP (bước 8–9) ≈ 4 ngày công.
+**MVP ≈ 20 ngày công.** Sau MVP (bước 8–9) ≈ 4 ngày công.
 
 ```text
-Bước 1 ─┐
-        ├─► Bước 3 ─► Bước 4 ─► Bước 5 ─► Bước 6 ─► Bước 7
-Bước 2 ─┘                                   └─► Bước 8 ─► Bước 9
+Bước 5a ─┐
+Bước 1 ──┼─► Bước 3 ─► Bước 4 ─► Bước 5 ─► Bước 6 ─► Bước 7
+Bước 2 ──┘                                   └─► Bước 8 ─► Bước 9
 ```
 
-Bước 1 và 2 độc lập, làm song song được nếu có 2 người.
+Bước 1, 2 và 5a độc lập, làm song song được. Nên làm **5a sớm** vì Mobile cần đổi màn hình khảo sát.
 
 **Trước khi bắt đầu:** nhóm xem lại các câu hỏi mở (Phạm vi mục 6). Câu nào chưa chốt thì dùng đề xuất mặc định trong bảng đó, không chặn tiến độ.
 
@@ -41,13 +42,14 @@ Bước 1 và 2 độc lập, làm song song được nếu có 2 người.
 **Việc cần làm**
 1. Migration `V58__roadmap_module_progress.sql`: bảng `roadmap_module_progress` (Thiết kế 2.3).
 2. `RoadmapModule`: thêm `moduleKey`, `contentItemIds`, `contentVersion`.
-3. `RoadmapGenerationService.assembleMilestones`: điền 3 trường trên khi sinh (từ vựng: id từ của chủ đề; nói: id kịch bản đúng chủ đề + CEFR; phát âm: id các âm).
+3. `RoadmapGenerationService.assembleMilestones`: điền 3 trường trên khi sinh (từ vựng: id từ của chủ đề; nói: id kịch bản đúng chủ đề + CEFR).
+   Chia module phát âm theo `phoneme_type` thành `IPA_VOWELS_BASIC`, `IPA_DIPHTHONGS`, `IPA_CONSONANTS_1`, `IPA_CONSONANTS_2` (tối đa 12 âm/module), mỗi tuần 1 nhóm (Thiết kế 2.6).
 4. `RoadmapContentResolver`: roadmap cũ chưa có trường mới → sinh từ nội dung hiện tại, ghi lại JSON một lần.
 5. `RoadmapProgressService`: đếm "đã làm" theo 3 loại (Thiết kế 2.4), upsert tiến độ, tính tuần hiện tại / module gợi ý. Chưa có sự kiện thì cho phép gọi trực tiếp `recalculateAll(studentId)`.
 6. `OnboardingLifecycleService.getRoadmapProgress` và API `GET /onboarding/roadmap`: trả số thật và các trường mới.
 
 **Kiểm tra**
-- Unit test: đếm đúng từng loại; `total_count = 0` coi là xong; tuần hiện tại / module gợi ý; roadmap cũ không có trường mới vẫn đọc được.
+- Unit test: đếm đúng từng loại; `total_count = 0` coi là xong; tuần hiện tại / module gợi ý; roadmap cũ không có trường mới vẫn đọc được; chia nhóm âm đúng, không module nào quá 12 âm, roadmap < 4 tuần dồn nhóm còn lại vào tuần cuối.
 - Thủ công: học vài từ của chủ đề tuần 1 → gọi `recalculateAll` → API tiến độ thay đổi đúng.
 
 ### Bước 2 – Hạ tầng sự kiện học tập (Thiết kế mục 3)
@@ -100,16 +102,25 @@ Bước 1 và 2 độc lập, làm song song được nếu có 2 người.
 
 **Việc cần làm**
 1. Interface `CandidateSource` + 6 nguồn: `SrsDueSource`, `RoadmapNextSource`, `WeakPhonemeSource`, `SpeakingSource`, `AssignmentDueSource`, `ClassSyllabusSource` (tách logic từ `getDailyMission`).
-2. `FocusSkillMapper`: bảng quy đổi `focusSkills` (chữ) → kỹ năng.
+2. Nguồn `goal` đọc `focusSkills` / `learningGoal` dạng mã từ bước 5a.
 3. `RecommendationScorer`: 5 thành phần điểm, trọng số từ config.
-4. `TodayPlanService`: lọc cứng → ưu tiên bài tập < 24 giờ → đa dạng → ghép ngân sách → `KEEP_STREAK` → `recommendationId`.
+4. `TodayPlanService`: lọc cứng → bài tập P0 (quá hạn) / P1 (< 24 giờ) → đa dạng → ghép ngân sách (tổng ≤ `budgetMinutes`, chỉ P0/P1 được vượt) → `KEEP_STREAK` → `recommendationId`, `rulesVersion`.
 5. Cache Redis theo `profileVersion` (Thiết kế 6.4); Redis lỗi thì tính trực tiếp.
 6. `RecommendationController`: `GET /api/v1/recommendations/today`.
 7. `GET /gamification/daily-mission`: đánh dấu deprecated, trả phần từ vựng lấy từ Today Plan.
 
 **Kiểm tra**
-- Unit test mỗi nguồn (có / không có ứng viên); scorer; lọc cứng; đa dạng; ngân sách (luôn ≥ 1 mục, không vượt ngân sách); bài tập < 24 giờ đứng đầu; `KEEP_STREAK`.
+- Unit test mỗi nguồn (có / không có ứng viên); scorer; lọc cứng; đa dạng; ngân sách (`estimatedMinutes ≤ budgetMinutes` khi không có P0/P1; có P0/P1 thì các mục đó luôn có mặt); P0 đứng trước P1; `KEEP_STREAK`; tổng trọng số khác 1 → báo lỗi khi khởi động.
 - Hợp đồng JSON đúng Thiết kế 8.1.
+
+### Bước 5a – Goal survey có cấu trúc (Thiết kế 6.5)
+
+1. Enum `LearningGoal`, `LearnerSkill`; đổi `GoalSurveyRequest` (`learningGoal`, `otherGoalText`, `focusSkills`, `dailyStudyMinutes`) + Bean Validation.
+2. `GoalSurveyParser`: đọc dạng mới; dạng cũ quy đổi chuỗi → mã ở một chỗ duy nhất.
+3. `RoadmapGenerationService`: dùng mã thay cho so chuỗi "Giao tiếp" / "Phát âm".
+4. Cập nhật Swagger; gửi Mobile hợp đồng mới của API goal survey.
+
+**Kiểm tra:** unit test validation (giá trị ngoài danh sách → 400, 1–3 kỹ năng); parser đọc được cả dạng cũ và mới; roadmap sinh module Speaking/phát âm đúng theo mã.
 
 ### Bước 6 – Learner Profile API + roadmap API
 
@@ -146,7 +157,8 @@ Bước 1 và 2 độc lập, làm song song được nếu có 2 người.
 | PR2 | Bước 2 (hạ tầng sự kiện, chưa có consumer thật) | – |
 | PR3 | Bước 3 + `RoadmapProgressConsumer` | PR1, PR2 |
 | PR4 | Learner Model + Study Time + Plan cache consumer | PR3 |
-| PR5 | Recommendation + Today Plan API | PR4 |
+| PR5a | Goal survey có cấu trúc | – |
+| PR5 | Recommendation + Today Plan API | PR4, PR5a |
 | PR6 | Learner Profile API, Swagger, Daily Mission deprecated | PR5 |
 | PR7 | Snapshot + Progress API | PR6 |
 | PR8 | Milestones | PR7 |
@@ -160,11 +172,11 @@ Mỗi PR: có test, chạy `mvn test` xanh, cập nhật tài liệu Thiết k�
 | Rủi ro | Ảnh hưởng | Cách xử lý |
 |---|---|---|
 | Method hook không nằm trong transaction | Sự kiện mất hoặc ghi khi nghiệp vụ đã rollback | Publisher dùng propagation `MANDATORY` → lỗi ngay khi test nếu thiếu transaction |
-| Module phát âm tuần 1 có 44 âm, "làm hết" quá nặng | Học viên kẹt ở tuần 1 | Theo dõi khi demo; nếu cần, rút danh sách âm lúc sinh roadmap (câu hỏi O7) — không đổi quy tắc |
-| Hệ số EMA / trọng số đề xuất chưa hợp lý | Đề xuất không sát nhu cầu | Mọi hệ số nằm trong config; chỉnh sau khi có dữ liệu thật (câu hỏi O11) |
+| Nhóm âm vẫn nặng với một số học viên | Tiến độ tuần chậm | Đã chia tối đa 12 âm/module; có thể giảm `ipa-max-per-module` trong config |
+| Hệ số EMA / trọng số đề xuất chưa hợp lý | Đề xuất không sát nhu cầu | Mọi hệ số nằm trong config; Product/Learning owner chỉnh trọng số, tăng `rules-version` (câu hỏi O8) |
 | Worker chậm khi nhiều sự kiện | Today Plan trễ vài giây | API không chờ worker; theo dõi độ trễ trên Actuator; tăng `batch-size` |
 | Roadmap cũ không có snapshot nội dung | Tiến độ tính theo nội dung hiện tại | `RoadmapContentResolver` ghi snapshot một lần khi đọc; chấp nhận vì chưa có dữ liệu production |
-| App mobile cũ vẫn gọi Daily Mission | Hai nguồn gợi ý | Daily Mission trả dữ liệu lấy từ Today Plan cho đến khi bỏ (câu hỏi O9) |
+| App mobile cũ vẫn gọi Daily Mission / gửi goal survey dạng cũ | Hai nguồn gợi ý; dữ liệu survey không đúng mã | Daily Mission trả dữ liệu lấy từ Today Plan; parser đọc được dạng cũ cho đến khi bỏ (câu hỏi O6) |
 
 ---
 
@@ -176,7 +188,8 @@ Mỗi PR: có test, chạy `mvn test` xanh, cập nhật tài liệu Thiết k�
 - [ ] Tiến độ roadmap đúng; làm lại placement có roadmap mới và tiến độ mới.
 - [ ] Năng lực Vocabulary / Pronunciation / Speaking đổi sau hoạt động tương ứng.
 - [ ] Thời gian học hôm nay đúng giờ Việt Nam, tách đo thật / ước tính.
-- [ ] Today Plan đúng ngân sách, có `reasonCode`, thay đổi sau khi học.
+- [ ] Today Plan có `estimatedMinutes ≤ budgetMinutes` (chỉ vượt khi có bài tập P0/P1), P0 trước P1, có `reasonCode`, `rulesVersion`, thay đổi sau khi học.
+- [ ] Goal survey nhận mã cố định; roadmap sinh module phát âm chia nhỏ (≤ 12 âm/module).
 - [ ] Learner Profile đúng mẫu.
 - [ ] `mvn test` xanh; test tích hợp Postgres chạy được khi bật biến môi trường.
 - [ ] Swagger và tài liệu Thiết kế khớp với code.
