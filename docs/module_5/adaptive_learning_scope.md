@@ -1,7 +1,7 @@
 # Module 5 – Adaptive Learning & Progress Intelligence
 
-> Người tạo: Nguyễn Đức Mạnh · Ngày tạo: 29/09/2026 · Trạng thái: Bản nháp, chờ nhóm chốt
-> Nhánh tham chiếu: `manh-dev` · Migration mới nhất: `V56`
+> Người tạo: Nguyễn Đức Mạnh · Được tạo bởi: Claude Opus 5.5 (AI) · Ngày tạo: 29/09/2026 · Cập nhật: 29/09/2026
+> Trạng thái: Bản nháp, chờ nhóm chốt · Nhánh tham chiếu: `main` · Migration mới nhất: `V57`
 
 **Mục tiêu:** Backend biết học viên đang ở trình độ nào, tiến bộ ra sao và nên học gì tiếp theo, rồi trả kết quả đã tính sẵn cho Mobile. Các module hiện có vẫn là nguồn dữ liệu gốc. Module 5 chỉ tổng hợp dữ liệu từ các module đó.
 
@@ -31,11 +31,9 @@
    → Chưa biết học viên đang ở tuần/module nào.
 3. **Chưa ghi thời gian học.** Cột tổng số phút học có nhưng không được ghi. Luyện phát âm và ôn từ không lưu thời lượng.
    → Chưa trả lời được "hôm nay học bao lâu".
-4. **Streak chưa đúng với mọi hoạt động.** Chỉ mini-game và ôn từ tính streak. Luyện phát âm và Speaking chỉ cộng XP. Mục tiêu XP hằng ngày không được cập nhật.
-   → Người chỉ luyện nói vẫn bị mất streak.
-5. ~~**Chưa thống nhất "hôm nay".**~~ **Đã sửa (29/09/2026):** toàn bộ backend dùng giờ Việt Nam (`Asia/Ho_Chi_Minh`, `config/AppTimeZone`). Lịch ôn từ trước đây tính theo giờ UTC nay đổi sang giờ HCM; migration `V57` chuyển dữ liệu lịch ôn cũ sang giờ HCM.
-6. ~~**Sự kiện học tập chưa an toàn.**~~ **Đã sửa (29/09/2026):** listener sự kiện phát âm chỉ chạy sau khi log luyện phát âm đã lưu thành công (`@TransactionalEventListener(AFTER_COMMIT)`); lưu thất bại thì không cộng XP.
-7. **Có hai "kế hoạch hôm nay".** Daily Mission đã gợi ý từ vựng. Nếu thêm Today Plan mà không gộp, app sẽ có hai danh sách mâu thuẫn nhau.
+4. **Streak chưa tính cho luyện phát âm.** Mini-game, ôn từ và Speaking đã tính streak. Luyện phát âm chỉ cộng XP; mục tiêu XP hằng ngày chưa được cập nhật.
+   → Người chỉ luyện phát âm vẫn bị mất streak, mục tiêu ngày luôn hiện chưa đạt.
+5. **Có hai "kế hoạch hôm nay".** Daily Mission đã gợi ý từ vựng. Nếu thêm Today Plan mà không gộp, app sẽ có hai danh sách mâu thuẫn nhau.
 
 ---
 
@@ -72,8 +70,7 @@
 
 | Giai đoạn | Nội dung | Công nghệ |
 |---|---|---|
-| **0. Chuẩn bị** | ~~Thống nhất múi giờ~~ (đã xong); một chỗ ghi "đã học hôm nay" (streak, số phút, mục tiêu ngày) cho mọi hoạt động; theo dõi tiến độ roadmap; ~~sửa sự kiện phát âm cho chạy sau khi lưu xong~~ (đã xong) | Bảng tiến độ roadmap (Flyway) |
-| **1. Lõi (MVP)** | Ghi sự kiện học tập, không xử lý trùng; hồ sơ năng lực cho Vocabulary, Pronunciation, Speaking; Today Plan có lý do đề xuất; API hồ sơ + Today Plan | Bảng hàng đợi sự kiện trong DB (giống `notification_outbox`) + job nền; tính điểm bằng trung bình trượt (EMA); đề xuất theo quy tắc có trọng số, **không dùng AI**; cache Redis |
+| **1. Lõi (MVP)** | Bổ sung trước: tiến độ roadmap, ghi thời gian học, streak cho luyện phát âm (mục 2.2–2.4). Sau đó: ghi sự kiện học tập, không xử lý trùng; hồ sơ năng lực cho Vocabulary, Pronunciation, Speaking; Today Plan có lý do đề xuất; API hồ sơ + Today Plan | Bảng tiến độ roadmap (Flyway); bảng hàng đợi sự kiện trong DB (giống `notification_outbox`) + job nền; tính điểm bằng trung bình trượt (EMA); đề xuất theo quy tắc có trọng số, **không dùng AI**; cache Redis |
 | **2. Tiến bộ & mốc** | Ảnh chụp tiến độ theo ngày, biểu đồ, mốc đạt được, thông báo khi đạt mốc | Bảng snapshot theo ngày; job cuối ngày; thông báo qua `NotificationOutboxService` có sẵn; theo dõi qua Actuator |
 | **3. Reading & Listening** | Bài đọc/nghe theo chủ đề và CEFR, chấm tự động (trắc nghiệm, chép chính tả), bấm từ để thêm vào ôn tập | Spring AI sinh bài, **qua duyệt trước khi xuất bản**; Azure TTS tạo audio; Azure Blob lưu file |
 
