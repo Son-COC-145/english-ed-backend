@@ -82,7 +82,7 @@ Backend biết **học viên đang ở đâu, tiến bộ thế nào và nên h�
 2. CEFR lấy từ placement gần nhất, **không** tự đổi theo điểm năng lực.
 3. Module roadmap **làm hết mới hoàn thành**, không có ngưỡng điểm.
 4. Tiến độ roadmap gắn với từng phiên bản roadmap; roadmap sinh lại thì tính lại, không tự kế thừa.
-5. Sự kiện học tập xử lý theo kiểu hàng đợi trong DB, giống đồng bộ `sync_knowledge_base` của DigiWorld.
+5. Sự kiện học tập xử lý theo kiểu hàng đợi trong DB.
 6. Thời gian học lưu tách đo thật / ước tính.
 7. Kỹ năng lâu không luyện **không** tự giảm điểm; điểm chỉ thay đổi khi có kết quả học mới.
 8. Today Plan thay Daily Mission (Daily Mission giữ tạm cho app bản cũ).
