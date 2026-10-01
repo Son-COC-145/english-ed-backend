@@ -1,5 +1,6 @@
 package com.example.english_app;
 
+import com.example.english_app.config.AppTimeZone;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cache.annotation.EnableCaching;
@@ -15,6 +16,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 public class DemoApplication {
 
 	public static void main(String[] args) {
+		AppTimeZone.applyAsJvmDefault();
 		SpringApplication.run(DemoApplication.class, args);
 	}
 

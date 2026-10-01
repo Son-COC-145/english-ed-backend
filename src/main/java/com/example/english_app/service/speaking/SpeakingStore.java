@@ -1,5 +1,7 @@
 package com.example.english_app.service.speaking;
 
+import java.time.LocalDate;
+import com.example.english_app.config.AppTimeZone;
 import com.example.english_app.entity.enums.SpeakerRole;
 import com.example.english_app.entity.speaking.SpeakingScenario;
 import com.example.english_app.entity.speaking.SpeakingSession;
@@ -409,6 +411,8 @@ public class SpeakingStore {
         short xp = (short) (20 + Math.max(0, 10 - s.getHintUsedCount() * 2));
         if (rewards.insertOnce(s.getId(), s.getStudent().getId(), xp) > 0) {
             rewards.incrementXp(s.getStudent().getId(), xp);
+            // A completed speaking session is a learning day, like mini-games and vocabulary reviews.
+            rewards.recordActivityDay(s.getStudent().getId(), LocalDate.now(AppTimeZone.ZONE));
         }
 
         s.setXpEarned(xp);

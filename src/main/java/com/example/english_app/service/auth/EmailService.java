@@ -20,6 +20,9 @@ public class EmailService {
     @Value("${app.frontend-url}")
     private String frontendUrl;
 
+    @Value("${app.public-base-url}")
+    private String publicBaseUrl;
+
     // Gửi email reset password
     @Async
     public void sendResetPasswordEmail(String email,
@@ -56,6 +59,28 @@ public class EmailService {
             log.info("Welcome email sent successfully to {}", email);
         } catch (Exception e) {
             log.error("Failed to send welcome email to {}", email, e);
+        }
+    }
+
+    @Async
+    public void sendAccountDeletionVerificationEmail(String email, String token) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(fromEmail);
+            message.setTo(email);
+            message.setSubject("Xác nhận yêu cầu xóa tài khoản English App");
+            message.setText(
+                    "Chúng tôi nhận được yêu cầu xóa tài khoản English App của bạn.\n\n"
+                            + "Xác nhận tại:\n"
+                            // Keep the one-time token in the URL fragment so it is not sent in
+                            // HTTP access logs or Referer headers when the page is loaded.
+                            + publicBaseUrl + "/legal/account-deletion-confirm.html#token=" + token
+                            + "\n\nLiên kết có hiệu lực trong 30 phút. "
+                            + "Nếu bạn không gửi yêu cầu này, hãy bỏ qua email.");
+            mailSender.send(message);
+            log.info("Account-deletion verification email sent");
+        } catch (Exception exception) {
+            log.error("Failed to send account-deletion verification email", exception);
         }
     }
 }

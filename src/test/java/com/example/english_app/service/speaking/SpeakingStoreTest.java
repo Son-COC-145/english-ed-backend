@@ -115,6 +115,17 @@ class SpeakingStoreTest {
         assertThat(session.getTaskCompletionScore()).isEqualTo((short) 100);
         assertThat(session.getXpEarned()).isEqualTo((short) 30);
         verify(rewards, never()).incrementXp(anyLong(), anyShort());
+        verify(rewards, never()).recordActivityDay(anyLong(), any());
         verify(jobs).complete(11L);
+    }
+
+    @Test void completingReportCountsTheDayForTheStreak() {
+        var job = new SpeakingStore.Job(11L, 1L, null, "SESSION_EVALUATION", 1, "lease-token");
+        session.setStatus("EVALUATING");
+        when(jobs.findCurrentForUpdate(11L, "lease-token")).thenReturn(Optional.of(11L));
+        when(rewards.insertOnce(1L, 7L, (short) 30)).thenReturn(1);
+        store.reportDone(job, new ObjectMapper().createObjectNode().put("task_completion_score", 80), null, null);
+        verify(rewards).incrementXp(7L, (short) 30);
+        verify(rewards).recordActivityDay(7L, java.time.LocalDate.now(com.example.english_app.config.AppTimeZone.ZONE));
     }
 }

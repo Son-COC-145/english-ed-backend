@@ -64,7 +64,7 @@ public class StudentGamificationController {
 
     @Operation(
         summary = "Lấy danh sách từ đến hạn ôn tập theo SRS",
-        description = "Backend tính toán queue dựa trên nextReviewAt theo thời gian server (UTC). " +
+        description = "Backend tính toán queue dựa trên nextReviewAt theo giờ Việt Nam (Asia/Ho_Chi_Minh). " +
                       "Mobile không tự suy luận 'đến hạn'. " +
                       "Nếu không có từ nào đến hạn, trả danh sách rỗng và dueCount = 0."
     )
