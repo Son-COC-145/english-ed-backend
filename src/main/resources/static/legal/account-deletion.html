@@ -16,18 +16,43 @@
         <a href="/legal/support.html">Hỗ trợ</a>
     </nav>
     <h1>Yêu cầu xóa tài khoản English App</h1>
-    <p>Bạn có thể xóa trong ứng dụng tại <strong>Cài đặt → Tài khoản → Xóa tài khoản</strong>, hoặc gửi yêu cầu bên dưới nếu không còn truy cập ứng dụng.</p>
+    <p>Bạn có thể yêu cầu xóa trong ứng dụng tại <strong>Cài đặt → Tài khoản → Xóa tài khoản</strong>. Nếu không còn truy cập ứng dụng, biểu mẫu công khai bên dưới cho phép bạn hoàn tất yêu cầu mà không cần cài đặt hoặc đăng nhập lại.</p>
     <div class="notice">
-        Sau khi bạn xác nhận qua email, tài khoản sẽ bị khóa và quá trình xóa bắt đầu. Dữ liệu cá nhân và học tập sẽ được xóa hoặc ẩn danh hóa. Bản ghi giao dịch tối thiểu có thể được giữ khi cần đáp ứng nghĩa vụ pháp lý.
+        Sau khi bạn xác nhận qua email, tài khoản sẽ bị khóa ngay và không thể tiếp tục đăng nhập. Quá trình xóa là không thể hoàn tác. Hãy sao lưu thông tin cần thiết trước khi xác nhận.
     </div>
+
+    <h2>Quy trình xử lý</h2>
+    <ol>
+        <li>Nhập email gắn với tài khoản học viên English App.</li>
+        <li>Mở liên kết xác minh được gửi tới email đó. Liên kết có hiệu lực trong 30 phút và chỉ sử dụng được một lần.</li>
+        <li>Xác nhận xóa. Tài khoản bị khóa ngay và hệ thống bắt đầu xử lý dữ liệu tự động.</li>
+    </ol>
+
+    <h2>Dữ liệu sẽ bị xóa hoặc ẩn danh hóa</h2>
+    <ul>
+        <li>Email, họ tên, số điện thoại, ảnh đại diện, thông tin nhà cung cấp đăng nhập và thông tin hồ sơ khác.</li>
+        <li>Mục tiêu onboarding, kết quả placement test, trình độ CEFR và lộ trình học.</li>
+        <li>Tiến độ từ vựng, điểm XP, mục tiêu hằng ngày, bookmark, minigame và lịch sử luyện phát âm.</li>
+        <li>Phiên speaking, transcript, đánh giá, bài nộp, dữ liệu tham gia lớp và media thuộc tài khoản.</li>
+        <li>Thông báo, device token và dữ liệu điều phối tạm thời gắn với tài khoản.</li>
+    </ul>
+
+    <h2>Dữ liệu có thể được giữ lại</h2>
+    <p>English App có thể giữ bản ghi thanh toán tối thiểu gồm mã giao dịch, gói dịch vụ, số tiền, trạng thái và thời điểm giao dịch để đáp ứng nghĩa vụ kế toán, giải quyết tranh chấp, phòng chống gian lận hoặc tuân thủ pháp luật. Tài khoản trong cơ sở dữ liệu được chuyển thành bản ghi kỹ thuật đã ẩn danh để duy trì tính toàn vẹn của các bản ghi này; dữ liệu được giữ lại không tiếp tục được dùng để cá nhân hóa việc học.</p>
+    <p>Việc xóa tài khoản sẽ hủy quyền sử dụng gói đang hoạt động nhưng không tự động tạo yêu cầu hoàn tiền. Nếu đang có giao dịch cần hỗ trợ hoặc tranh chấp, hãy liên hệ trước khi xác nhận xóa.</p>
 
     <h2>Gửi liên kết xác minh</h2>
     <form id="deletion-form">
         <label for="email">Email của tài khoản</label>
-        <input id="email" name="email" type="email" autocomplete="email" required maxlength="255">
+        <input id="email" name="email" type="email" autocomplete="email" required maxlength="255" aria-describedby="email-help">
+        <p id="email-help" class="muted">Vì lý do bảo mật, hệ thống luôn trả cùng một thông báo dù email có tồn tại hay không.</p>
         <button type="submit">Gửi yêu cầu xác minh</button>
     </form>
     <p id="result" role="status" aria-live="polite"></p>
+
+    <h2>Hỗ trợ</h2>
+    <p>Quy trình tự phục vụ này chỉ áp dụng cho tài khoản học viên. Tài khoản giáo viên hoặc quản trị viên do đơn vị quản lý cấp cần liên hệ quản trị viên. Với câu hỏi về dữ liệu, thanh toán hoặc yêu cầu xóa, liên hệ <a href="mailto:phanthanhsonu@gmail.com">phanthanhsonu@gmail.com</a>.</p>
+    <p>Xem thêm <a href="/legal/privacy-policy.html">Chính sách quyền riêng tư</a> để biết cách English App xử lý và lưu giữ dữ liệu.</p>
 </main>
 <script>
 const form = document.getElementById('deletion-form');

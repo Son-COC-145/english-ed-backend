@@ -10,10 +10,13 @@
 <body>
 <main>
     <h1>Xác nhận xóa tài khoản</h1>
-    <p>Hành động này sẽ khóa tài khoản và bắt đầu xóa dữ liệu cá nhân, dữ liệu học tập của bạn.</p>
+    <div class="notice">
+        <strong>Đây là hành động không thể hoàn tác.</strong> Sau khi xác nhận, tài khoản sẽ bị khóa ngay và hệ thống bắt đầu xóa hoặc ẩn danh hóa thông tin hồ sơ, dữ liệu học tập, lịch sử luyện tập, audio, transcript và device token của bạn.
+    </div>
+    <p>Một số bản ghi thanh toán tối thiểu có thể được giữ để đáp ứng nghĩa vụ kế toán, giải quyết tranh chấp, phòng chống gian lận hoặc tuân thủ pháp luật. Việc xóa tài khoản không tự động tạo yêu cầu hoàn tiền.</p>
     <button id="confirm" type="button">Xác nhận xóa tài khoản</button>
     <p id="result" role="status" aria-live="polite"></p>
-    <p><a href="/legal/privacy-policy.html">Xem chính sách quyền riêng tư</a></p>
+    <p><a href="/legal/account-deletion.html">Xem đầy đủ quy trình xóa tài khoản</a> · <a href="/legal/privacy-policy.html">Chính sách quyền riêng tư</a></p>
 </main>
 <script>
 const button = document.getElementById('confirm');
@@ -36,7 +39,7 @@ button.addEventListener('click', async () => {
         });
         if (!response.ok) throw new Error('confirmation_failed');
         result.className = 'success';
-        result.textContent = 'Yêu cầu đã được xác nhận. Tài khoản của bạn đã bị khóa và dữ liệu sẽ được xử lý.';
+        result.textContent = 'Yêu cầu đã được xác nhận. Tài khoản đã bị khóa và quá trình xóa hoặc ẩn danh hóa dữ liệu đã bắt đầu.';
         history.replaceState({}, document.title, window.location.pathname);
     } catch (_) {
         result.className = 'error';

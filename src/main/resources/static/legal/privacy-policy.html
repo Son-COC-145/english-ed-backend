@@ -16,31 +16,58 @@
         <a href="/legal/support.html">Hỗ trợ</a>
     </nav>
     <h1>Chính sách quyền riêng tư</h1>
-    <p class="muted">English App · Cập nhật lần cuối: 30/09/2026</p>
+    <p class="muted">English App · Cập nhật lần cuối: 01/10/2026</p>
 
-    <p>Chính sách này giải thích cách English App thu thập, sử dụng, chia sẻ và bảo vệ dữ liệu khi bạn sử dụng ứng dụng học tiếng Anh.</p>
+    <p>Chính sách này giải thích cách English App thu thập, sử dụng, chia sẻ, lưu giữ và bảo vệ dữ liệu khi bạn sử dụng ứng dụng học tiếng Anh. Đơn vị vận hành và chịu trách nhiệm về dữ liệu của ứng dụng là đội ngũ phát triển English App.</p>
 
     <h2>Dữ liệu chúng tôi xử lý</h2>
     <ul>
         <li>Thông tin tài khoản như email, họ tên, ảnh đại diện, số điện thoại nếu bạn cung cấp và phương thức đăng nhập.</li>
         <li>Dữ liệu học tập như mục tiêu, kết quả placement test, trình độ CEFR, tiến độ, điểm số, bài nộp và lịch sử luyện tập.</li>
-        <li>Bản ghi âm, transcript và điểm đánh giá khi bạn chủ động sử dụng tính năng phát âm hoặc speaking. Dữ liệu âm thanh được giới hạn theo nhu cầu xử lý của từng tính năng.</li>
-        <li>FCM device token, thông tin nền tảng thiết bị và log kỹ thuật cần thiết để gửi thông báo, bảo mật và xử lý lỗi.</li>
-        <li>Thông tin gói dịch vụ và mã giao dịch. English App không trực tiếp lưu số thẻ thanh toán của bạn.</li>
+        <li>Bản ghi âm, transcript và điểm đánh giá khi bạn chủ động sử dụng tính năng phát âm hoặc speaking.</li>
+        <li>FCM device token, thông tin nền tảng thiết bị, địa chỉ IP và log kỹ thuật cần thiết để gửi thông báo, bảo mật, chống lạm dụng và xử lý lỗi.</li>
+        <li>Thông tin gói dịch vụ, mã giao dịch, số tiền, trạng thái và thời điểm thanh toán. English App không trực tiếp lưu số thẻ hoặc thông tin đăng nhập ngân hàng của bạn.</li>
     </ul>
+
+    <h2>Cách xử lý dữ liệu âm thanh</h2>
+    <p>Audio của phần pronunciation trong placement test được gửi trực tiếp để chấm điểm đồng bộ và không được English App lưu lại; hệ thống chỉ lưu điểm số cùng metadata cần thiết của lần làm bài. Với các tính năng speaking, luyện phát âm hoặc nhận xét bằng giọng nói khác, audio và transcript có thể được lưu để cung cấp lịch sử luyện tập, phản hồi và chức năng lớp học. Những dữ liệu này thuộc phạm vi xử lý khi người dùng yêu cầu xóa tài khoản.</p>
 
     <h2>Mục đích sử dụng</h2>
     <p>Chúng tôi xử lý dữ liệu để cung cấp tài khoản, đánh giá năng lực, cá nhân hóa lộ trình, vận hành lớp học, gửi thông báo, xử lý thanh toán, phòng chống gian lận và cải thiện độ ổn định của dịch vụ.</p>
 
-    <h2>Nhà cung cấp dịch vụ</h2>
-    <p>Tùy tính năng được sử dụng, dữ liệu cần thiết có thể được xử lý bởi các nhà cung cấp hạ tầng và dịch vụ như Microsoft Azure, Supabase, Google/Firebase, Google Gemini, Cloudinary, VNPay và nhà cung cấp email. Chúng tôi chỉ chia sẻ dữ liệu cần thiết để cung cấp chức năng tương ứng.</p>
+    <h2>Nhà cung cấp dịch vụ và dữ liệu được chia sẻ</h2>
+    <p>English App không bán dữ liệu cá nhân. Tùy tính năng bạn sử dụng, một lượng dữ liệu cần thiết có thể được xử lý bởi các nhà cung cấp sau:</p>
+    <table>
+        <thead>
+        <tr><th>Nhà cung cấp</th><th>Mục đích và dữ liệu liên quan</th></tr>
+        </thead>
+        <tbody>
+        <tr><td>Microsoft Azure</td><td>Vận hành backend, lưu media, chấm phát âm và tổng hợp giọng nói; có thể xử lý audio, reference text và telemetry kỹ thuật.</td></tr>
+        <tr><td>Supabase/PostgreSQL</td><td>Lưu dữ liệu tài khoản, học tập, lớp học và trạng thái giao dịch của ứng dụng.</td></tr>
+        <tr><td>Google OAuth</td><td>Xác thực đăng nhập và cung cấp thông tin hồ sơ cơ bản như email, họ tên, ảnh đại diện khi bạn chọn đăng nhập bằng Google.</td></tr>
+        <tr><td>Google Firebase</td><td>Xử lý device token và dữ liệu kỹ thuật cần thiết để gửi push notification.</td></tr>
+        <tr><td>Google Gemini</td><td>Xử lý transcript, nội dung trao đổi và ngữ cảnh cần thiết để tạo phản hồi speaking, đánh giá hội thoại hoặc hỗ trợ tạo nội dung học tập.</td></tr>
+        <tr><td>ElevenLabs</td><td>Xử lý nội dung văn bản cần chuyển thành giọng nói; không cần nhận mật khẩu của người dùng.</td></tr>
+        <tr><td>Cloudinary</td><td>Lưu trữ và phân phối ảnh, audio hoặc media do người dùng và giáo viên tải lên.</td></tr>
+        <tr><td>VNPay</td><td>Xử lý mã giao dịch, số tiền, trạng thái thanh toán và thông tin kỹ thuật cần thiết cho giao dịch.</td></tr>
+        <tr><td>Nhà cung cấp email</td><td>Xử lý địa chỉ email và nội dung thư để gửi xác minh, đặt lại mật khẩu hoặc thông báo liên quan đến tài khoản.</td></tr>
+        <tr><td>Azure Application Insights</td><td>Xử lý log lỗi, hiệu năng và telemetry kỹ thuật để giám sát độ ổn định và bảo mật hệ thống.</td></tr>
+        </tbody>
+    </table>
+
+    <h2>Bảo mật dữ liệu</h2>
+    <p>English App áp dụng các biện pháp kỹ thuật và tổ chức hợp lý, gồm truyền dữ liệu qua HTTPS/TLS, băm mật khẩu, phân quyền truy cập theo vai trò, quản lý secret tách khỏi mã nguồn, giới hạn quyền truy cập vận hành và giám sát lỗi hoặc hành vi bất thường. Không có phương thức truyền hoặc lưu trữ nào an toàn tuyệt đối, nhưng chúng tôi thường xuyên rà soát các biện pháp nhằm giảm rủi ro truy cập, thay đổi hoặc tiết lộ trái phép.</p>
 
     <h2>Lưu giữ và xóa dữ liệu</h2>
-    <p>Dữ liệu được giữ trong thời gian cần thiết để cung cấp dịch vụ và đáp ứng nghĩa vụ bảo mật, kế toán hoặc pháp lý. Khi yêu cầu xóa tài khoản được xác nhận, quyền truy cập bị khóa ngay; dữ liệu học tập và dữ liệu cá nhân được xóa hoặc ẩn danh hóa. Một số bản ghi giao dịch tối thiểu có thể được giữ khi pháp luật yêu cầu.</p>
+    <p>Dữ liệu tài khoản và học tập được giữ trong thời gian tài khoản còn hoạt động hoặc trong thời gian cần thiết để cung cấp chức năng mà bạn yêu cầu. Token xác minh và dữ liệu điều phối tạm thời chỉ được giữ trong thời hạn kỹ thuật cần thiết. Log vận hành được giữ có giới hạn để bảo mật, điều tra lỗi và chống lạm dụng.</p>
+    <p>Khi yêu cầu xóa tài khoản được xác nhận, quyền truy cập bị khóa ngay; thông tin hồ sơ, dữ liệu onboarding, placement test, tiến độ, điểm số, bài nộp, lịch sử luyện tập, audio, transcript và device token thuộc tài khoản sẽ được xóa hoặc ẩn danh hóa. Một số bản ghi thanh toán tối thiểu như mã giao dịch, số tiền, trạng thái và thời điểm giao dịch có thể được giữ trong thời gian cần thiết để thực hiện nghĩa vụ kế toán, giải quyết tranh chấp, phòng chống gian lận hoặc tuân thủ pháp luật; dữ liệu này không tiếp tục được dùng để cá nhân hóa việc học.</p>
     <p><a href="/legal/account-deletion.html">Gửi yêu cầu xóa tài khoản</a>.</p>
 
     <h2>Quyền và liên hệ</h2>
-    <p>Bạn có thể yêu cầu truy cập, chỉnh sửa hoặc xóa dữ liệu của mình. Thông tin liên hệ hiện hành được công bố tại <a href="/legal/support.html">trang hỗ trợ</a>.</p>
+    <p>Bạn có thể yêu cầu truy cập, chỉnh sửa hoặc xóa dữ liệu của mình. Để gửi câu hỏi về quyền riêng tư hoặc yêu cầu hỗ trợ, liên hệ <a href="mailto:phanthanhsonu@gmail.com">phanthanhsonu@gmail.com</a> hoặc truy cập <a href="/legal/support.html">trang hỗ trợ</a>.</p>
+
+    <h2>Thay đổi chính sách</h2>
+    <p>Chúng tôi có thể cập nhật chính sách này khi chức năng hoặc cách xử lý dữ liệu thay đổi. Phiên bản mới sẽ được công bố tại URL này cùng ngày cập nhật gần nhất.</p>
 </main>
 </body>
 </html>
