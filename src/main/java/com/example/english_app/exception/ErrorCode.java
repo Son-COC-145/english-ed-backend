@@ -21,6 +21,8 @@ public enum ErrorCode {
     EMAIL_ALREADY_EXISTS(2002, "Email đã được sử dụng", HttpStatus.BAD_REQUEST),
     PHONE_ALREADY_EXISTS(2003, "Số điện thoại đã được sử dụng", HttpStatus.BAD_REQUEST),
 
+    INVALID_ACCOUNT_DELETION_TOKEN(2004, "Liên kết xác minh xóa tài khoản không hợp lệ hoặc đã hết hạn", HttpStatus.BAD_REQUEST),
+
     // Google OAuth
     GOOGLE_LOGIN_RESTRICTED(3001, "Tài khoản này chỉ được đăng nhập bằng Google", HttpStatus.BAD_REQUEST),
     GOOGLE_PASSWORD_RESET_NOT_ALLOWED(3002, "Tài khoản Google không thể đặt lại mật khẩu", HttpStatus.BAD_REQUEST),

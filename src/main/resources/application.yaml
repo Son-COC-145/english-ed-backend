@@ -97,6 +97,13 @@ onboarding:
     poll-ms: ${ONBOARDING_ROADMAP_POLL_MS:1800000}
     max-jobs-per-poll: ${ONBOARDING_ROADMAP_MAX_JOBS_PER_POLL:10}
 
+account:
+  deletion:
+    # Access is disabled immediately. The durable purge starts after this grace period.
+    grace-period-hours: ${ACCOUNT_DELETION_GRACE_PERIOD_HOURS:0}
+    poll-ms: ${ACCOUNT_DELETION_POLL_MS:5000}
+    max-jobs-per-poll: ${ACCOUNT_DELETION_MAX_JOBS_PER_POLL:10}
+
 management:
   endpoints:
     web:
@@ -112,6 +119,8 @@ vnpay:
 
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:3000}
+  public-base-url: ${APP_PUBLIC_BASE_URL:http://localhost:8080}
+  support-email: ${APP_SUPPORT_EMAIL:}
   cors:
     # Danh sách origin được phép gọi API. Thêm domain production vào đây.
     # VD: https://yourdomain.com,http://localhost:3000

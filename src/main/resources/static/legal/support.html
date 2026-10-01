@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="no-referrer">
+    <title>Hỗ trợ | English App</title>
+    <link rel="stylesheet" href="/legal/legal.css">
+</head>
+<body>
+<main>
+    <nav>
+        <a href="/legal/privacy-policy.html">Quyền riêng tư</a>
+        <a href="/legal/terms-of-service.html">Điều khoản</a>
+        <a href="/legal/account-deletion.html">Xóa tài khoản</a>
+        <a href="/legal/support.html">Hỗ trợ</a>
+    </nav>
+    <h1>Hỗ trợ English App</h1>
+    <p>Để được hỗ trợ về tài khoản, quyền riêng tư hoặc thanh toán, vui lòng liên hệ:</p>
+    <p id="support-contact" class="muted">Đang tải thông tin liên hệ…</p>
+</main>
+<script>
+fetch('/api/v1/public/app-info')
+    .then((response) => response.ok ? response.json() : Promise.reject())
+    .then((payload) => {
+        const email = payload?.data?.supportEmail;
+        const container = document.getElementById('support-contact');
+        if (!email) {
+            container.textContent = 'Thông tin hỗ trợ đang được cập nhật. Bạn có thể dùng kênh hỗ trợ trong ứng dụng.';
+            return;
+        }
+        const link = document.createElement('a');
+        link.href = `mailto:${email}`;
+        link.textContent = email;
+        container.replaceChildren(link);
+    })
+    .catch(() => {
+        document.getElementById('support-contact').textContent = 'Không thể tải thông tin liên hệ lúc này.';
+    });
+</script>
+</body>
+</html>
