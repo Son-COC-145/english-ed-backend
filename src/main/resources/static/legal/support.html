@@ -16,27 +16,16 @@
         <a href="/legal/support.html">Hỗ trợ</a>
     </nav>
     <h1>Hỗ trợ English App</h1>
-    <p>Để được hỗ trợ về tài khoản, quyền riêng tư hoặc thanh toán, vui lòng liên hệ:</p>
-    <p id="support-contact" class="muted">Đang tải thông tin liên hệ…</p>
+    <p>Để được hỗ trợ về tài khoản, quyền riêng tư, xóa dữ liệu hoặc thanh toán, vui lòng liên hệ:</p>
+    <p><a href="mailto:phanthanhsonu@gmail.com">phanthanhsonu@gmail.com</a></p>
+    <p class="muted">Khi liên hệ, hãy mô tả vấn đề và email gắn với tài khoản. Không gửi mật khẩu, mã OTP, access token, refresh token hoặc thông tin thẻ/ngân hàng qua email.</p>
+
+    <h2>Tự phục vụ</h2>
+    <ul>
+        <li><a href="/legal/account-deletion.html">Yêu cầu xóa tài khoản và dữ liệu</a></li>
+        <li><a href="/legal/privacy-policy.html">Xem Chính sách quyền riêng tư</a></li>
+        <li><a href="/legal/terms-of-service.html">Xem Điều khoản sử dụng</a></li>
+    </ul>
 </main>
-<script>
-fetch('/api/v1/public/app-info')
-    .then((response) => response.ok ? response.json() : Promise.reject())
-    .then((payload) => {
-        const email = payload?.data?.supportEmail;
-        const container = document.getElementById('support-contact');
-        if (!email) {
-            container.textContent = 'Thông tin hỗ trợ đang được cập nhật. Bạn có thể dùng kênh hỗ trợ trong ứng dụng.';
-            return;
-        }
-        const link = document.createElement('a');
-        link.href = `mailto:${email}`;
-        link.textContent = email;
-        container.replaceChildren(link);
-    })
-    .catch(() => {
-        document.getElementById('support-contact').textContent = 'Không thể tải thông tin liên hệ lúc này.';
-    });
-</script>
 </body>
 </html>
