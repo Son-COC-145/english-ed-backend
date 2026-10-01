@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="no-referrer">
+    <title>Xác nhận xóa tài khoản | English App</title>
+    <link rel="stylesheet" href="/legal/legal.css">
+</head>
+<body>
+<main>
+    <h1>Xác nhận xóa tài khoản</h1>
+    <p>Hành động này sẽ khóa tài khoản và bắt đầu xóa dữ liệu cá nhân, dữ liệu học tập của bạn.</p>
+    <button id="confirm" type="button">Xác nhận xóa tài khoản</button>
+    <p id="result" role="status" aria-live="polite"></p>
+    <p><a href="/legal/privacy-policy.html">Xem chính sách quyền riêng tư</a></p>
+</main>
+<script>
+const button = document.getElementById('confirm');
+const result = document.getElementById('result');
+const token = new URLSearchParams(window.location.hash.substring(1)).get('token');
+if (!token) {
+    button.disabled = true;
+    result.className = 'error';
+    result.textContent = 'Liên kết xác minh không hợp lệ.';
+}
+button.addEventListener('click', async () => {
+    button.disabled = true;
+    result.className = '';
+    result.textContent = 'Đang xác nhận…';
+    try {
+        const response = await fetch('/api/v1/public/account-deletion/confirm', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({token})
+        });
+        if (!response.ok) throw new Error('confirmation_failed');
+        result.className = 'success';
+        result.textContent = 'Yêu cầu đã được xác nhận. Tài khoản của bạn đã bị khóa và dữ liệu sẽ được xử lý.';
+        history.replaceState({}, document.title, window.location.pathname);
+    } catch (_) {
+        result.className = 'error';
+        result.textContent = 'Liên kết không hợp lệ, đã hết hạn hoặc đã được sử dụng.';
+        button.disabled = false;
+    }
+});
+</script>
+</body>
+</html>

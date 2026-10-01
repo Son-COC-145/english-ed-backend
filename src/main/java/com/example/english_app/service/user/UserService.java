@@ -6,7 +6,6 @@ import com.example.english_app.entity.user.User;
 import com.example.english_app.exception.ErrorCode;
 import com.example.english_app.repository.user.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,7 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserService {
 
     private final UserRepository userRepository;
-    private final RedisTemplate<String, String> redisTemplate;
 
     public UserResponse getCurrentUser(String email) {
         User user = userRepository.findByEmail(email)
@@ -33,18 +31,6 @@ public class UserService {
         user.setAvatarUrl(request.getAvatarUrl());
 
         return toUserResponse(userRepository.save(user));
-    }
-
-    public void deleteAccount(String email, String refreshToken) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
-
-        user.setIsActive(false);
-        userRepository.save(user);
-
-        if (refreshToken != null && !refreshToken.isBlank()) {
-            redisTemplate.delete("refresh_token:" + refreshToken);
-        }
     }
 
     private UserResponse toUserResponse(User user) {

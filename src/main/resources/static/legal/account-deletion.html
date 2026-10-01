@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="no-referrer">
+    <title>Xóa tài khoản | English App</title>
+    <link rel="stylesheet" href="/legal/legal.css">
+</head>
+<body>
+<main>
+    <nav>
+        <a href="/legal/privacy-policy.html">Quyền riêng tư</a>
+        <a href="/legal/terms-of-service.html">Điều khoản</a>
+        <a href="/legal/account-deletion.html">Xóa tài khoản</a>
+        <a href="/legal/support.html">Hỗ trợ</a>
+    </nav>
+    <h1>Yêu cầu xóa tài khoản English App</h1>
+    <p>Bạn có thể xóa trong ứng dụng tại <strong>Cài đặt → Tài khoản → Xóa tài khoản</strong>, hoặc gửi yêu cầu bên dưới nếu không còn truy cập ứng dụng.</p>
+    <div class="notice">
+        Sau khi bạn xác nhận qua email, tài khoản sẽ bị khóa và quá trình xóa bắt đầu. Dữ liệu cá nhân và học tập sẽ được xóa hoặc ẩn danh hóa. Bản ghi giao dịch tối thiểu có thể được giữ khi cần đáp ứng nghĩa vụ pháp lý.
+    </div>
+
+    <h2>Gửi liên kết xác minh</h2>
+    <form id="deletion-form">
+        <label for="email">Email của tài khoản</label>
+        <input id="email" name="email" type="email" autocomplete="email" required maxlength="255">
+        <button type="submit">Gửi yêu cầu xác minh</button>
+    </form>
+    <p id="result" role="status" aria-live="polite"></p>
+</main>
+<script>
+const form = document.getElementById('deletion-form');
+const result = document.getElementById('result');
+form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const button = form.querySelector('button');
+    button.disabled = true;
+    result.className = '';
+    result.textContent = 'Đang gửi yêu cầu…';
+    try {
+        const response = await fetch('/api/v1/public/account-deletion/request', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({email: form.email.value})
+        });
+        if (!response.ok) throw new Error('request_failed');
+        result.className = 'success';
+        result.textContent = 'Nếu tài khoản tồn tại, email xác minh sẽ được gửi trong ít phút.';
+        form.reset();
+    } catch (_) {
+        result.className = 'error';
+        result.textContent = 'Không thể gửi yêu cầu lúc này. Vui lòng thử lại sau.';
+    } finally {
+        button.disabled = false;
+    }
+});
+</script>
+</body>
+</html>

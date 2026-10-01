@@ -12,4 +12,5 @@ import com.example.english_app.entity.notification.UserDeviceToken;
 public interface UserDeviceTokenRepository extends JpaRepository<UserDeviceToken, Long> {
     List<UserDeviceToken> findByUserId(Long userId);
     Optional<UserDeviceToken> findByUserIdAndToken(Long userId, String token);
+    void deleteAllByUserId(Long userId);
 }

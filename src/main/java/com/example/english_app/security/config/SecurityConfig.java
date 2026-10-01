@@ -5,6 +5,7 @@ import org.springframework.http.HttpMethod;
 import com.example.english_app.security.oauth2.CustomOAuth2UserService;
 import com.example.english_app.security.oauth2.OAuth2FailureHandler;
 import com.example.english_app.security.oauth2.OAuth2SuccessHandler;
+import com.example.english_app.security.filter.ActiveAccountFilter;
 import com.example.english_app.security.userdetails.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -23,6 +24,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -45,6 +47,7 @@ public class SecurityConfig {
         private final CustomOAuth2UserService oAuth2UserService;
         private final OAuth2SuccessHandler oAuth2SuccessHandler;
         private final OAuth2FailureHandler oAuth2FailureHandler;
+        private final ActiveAccountFilter activeAccountFilter;
 
         @Value("${app.cors.allowed-origins}")
         private List<String> allowedOrigins;
@@ -63,19 +66,23 @@ public class SecurityConfig {
                                                 "/login/**",
                                                 "/swagger-ui/**",
                                                 "/v3/api-docs/**",
-                                                "/actuator/**")
+                                                "/actuator/**",
+                                                "/legal/**")
                                 .authorizeHttpRequests(auth -> auth
                                                 .requestMatchers(
                                                                 "/swagger-ui/**",
                                                                 "/v3/api-docs/**",
                                                                 "/oauth2/**",
                                                                 "/login/**",
+                                                                "/legal/**",
                                                                 "/api/v1/auth/register",
                                                                 "/api/v1/auth/login",
                                                                 "/api/v1/auth/forgot-password",
                                                                 "/api/v1/auth/reset-password",
                                                                 "/api/v1/auth/refresh-token",
                                                                 "/api/v1/auth/oauth2/exchange",
+                                                                "/api/v1/public/app-info",
+                                                                "/api/v1/public/account-deletion/**",
                                                                 "/api/v1/payments/vnpay-return",
                                                                 "/api/v1/payments/vnpay-ipn",
                                                                 "/actuator/health")
@@ -97,7 +104,8 @@ public class SecurityConfig {
                                 .oauth2ResourceServer(resource -> resource
                                                 .jwt(jwt -> jwt
                                                                 .jwtAuthenticationConverter(
-                                                                                jwtAuthenticationConverter())));
+                                                                                jwtAuthenticationConverter())))
+                                .addFilterAfter(activeAccountFilter, BearerTokenAuthenticationFilter.class);
 
                 return http.build();
         }
