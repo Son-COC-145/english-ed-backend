@@ -53,7 +53,8 @@ public class RoadmapJobService {
     @Transactional
     public List<RoadmapGenerationJob> claimBatch(int limit) {
         LocalDateTime now = LocalDateTime.now();
-        List<RoadmapGenerationJob> jobs = jobRepository.lockDispatchable(limit, now);
+        LocalDateTime staleBefore = now.minusMinutes(5);
+        List<RoadmapGenerationJob> jobs = jobRepository.lockDispatchable(limit, now, staleBefore);
         for (RoadmapGenerationJob job : jobs) {
             int attempt = job.getAttemptCount() + 1;
             job.setStatus(RoadmapGenerationStatus.PROCESSING);
