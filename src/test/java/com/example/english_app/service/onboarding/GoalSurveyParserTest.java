@@ -1,5 +1,7 @@
 package com.example.english_app.service.onboarding;
 
+import com.example.english_app.entity.enums.LearnerSkill;
+import com.example.english_app.entity.enums.LearningGoal;
 import com.example.english_app.entity.enums.TopicCategory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,14 +26,27 @@ class GoalSurveyParserTest {
     }
 
     @Test
-    void extractCategories_ShouldMapWorkCorrectly() {
+    void parseStructuredCodes() {
+        String json = """
+                {"learningGoal":"COMMUNICATION","focusSkills":["SPEAKING","PRONUNCIATION"]}
+                """;
+
+        GoalSurveyParser.ParsedGoalSurvey survey = parser.parse(json);
+
+        assertEquals(LearningGoal.COMMUNICATION, survey.learningGoal());
+        assertEquals(List.of(TopicCategory.DAILY_CONVERSATION), survey.categories());
+        assertEquals(List.of(LearnerSkill.SPEAKING, LearnerSkill.PRONUNCIATION), survey.focusSkills());
+    }
+
+    @Test
+    void extractCategories_ShouldMapLegacyWorkCorrectly() {
         String json = "{\"learningPurpose\": \"Phục vụ công việc\"}";
         List<TopicCategory> categories = parser.extractCategories(json);
         assertTrue(categories.contains(TopicCategory.WORK));
     }
 
     @Test
-    void extractCategories_ShouldMapTravelCorrectly() {
+    void extractCategories_ShouldMapLegacyTravelCorrectly() {
         String json = "{\"learningPurpose\": \"Đi du lịch\"}";
         List<TopicCategory> categories = parser.extractCategories(json);
         assertTrue(categories.contains(TopicCategory.TRAVEL));
@@ -45,17 +60,16 @@ class GoalSurveyParserTest {
     }
 
     @Test
-    void extractFocusSkills_ShouldExtractCorrectly() {
-        String json = "{\"focusSkills\": [\"Giao tiếp\", \"Nghe hiểu\"]}";
-        List<String> skills = parser.extractFocusSkills(json);
+    void extractFocusSkills_ShouldMapLegacyLabelsToStableCodes() {
+        String json = "{\"focusSkills\": [\"Giao tiếp\", \"Nghe hiểu\", \"Giao tiếp\"]}";
+        List<LearnerSkill> skills = parser.extractFocusSkills(json);
         assertEquals(2, skills.size());
-        assertTrue(skills.contains("Giao tiếp"));
-        assertTrue(skills.contains("Nghe hiểu"));
+        assertEquals(List.of(LearnerSkill.SPEAKING, LearnerSkill.LISTENING), skills);
     }
     
     @Test
     void extractFocusSkills_ShouldHandleNullOrEmpty() {
-        List<String> skills = parser.extractFocusSkills(null);
+        List<LearnerSkill> skills = parser.extractFocusSkills(null);
         assertNotNull(skills);
         assertTrue(skills.isEmpty());
         

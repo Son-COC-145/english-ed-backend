@@ -96,33 +96,8 @@ public class OnboardingLifecycleService {
     public OnboardingStatusResponse getStatus(Long userId) {
         Optional<StudentOnboarding> opt = onboardingRepository.findByStudentIdWithUser(userId);
 
-        // Tải 1 lần, dùng cho cả 2 nhánh (opt.isEmpty và !placementDone)
-        // tránh 2 DB round-trips cho cùng 1 query trong 1 request
-        var activeSessionOpt = sessionRepository
-                .findTopByStudentIdAndIsCompletedFalseOrderByStartedAtDesc(userId);
-
         if (opt.isEmpty()) {
             User user = findUser(userId);
-
-            if (activeSessionOpt.isPresent() && !activeSessionOpt.get().isExpired()) {
-                var s = activeSessionOpt.get();
-                return OnboardingStatusResponse.builder()
-                        .goalSurveyCompleted(false)
-                        .placementTestCompleted(false)
-                        .isPlacementSkipped(false)
-                        .settingsCompleted(false)
-                        .onboardingCompleted(false)
-                        .placementTestStatus("IN_PROGRESS")
-                        .activePlacementSessionId(s.getId())
-                        .nextStep("PLACEMENT_TEST")
-                        .stepNumber(STEP_PLACEMENT_TEST)
-                        .totalSteps(TOTAL_STEPS)
-                        .userName(user.getFullName())
-                        .roadmapGenerated(false)
-                        .roadmapStatus("NOT_STARTED")
-                        .build();
-            }
-
             return OnboardingStatusResponse.builder()
                     .goalSurveyCompleted(false)
                     .placementTestCompleted(false)
@@ -159,8 +134,9 @@ public class OnboardingLifecycleService {
             } else {
                 placementStatus = "COMPLETED";
             }
-        } else {
-            // Dùng lại activeSessionOpt đã load ở trên — không query lại
+        } else if (goalDone) {
+            var activeSessionOpt = sessionRepository
+                    .findTopByStudentIdAndIsCompletedFalseOrderByStartedAtDesc(userId);
             if (activeSessionOpt.isPresent()) {
                 var s = activeSessionOpt.get();
                 if (!s.isExpired()) {
@@ -174,12 +150,12 @@ public class OnboardingLifecycleService {
         String nextStep;
         int stepNumber;
 
-        if ("IN_PROGRESS".equals(placementStatus)) {
-            nextStep = "PLACEMENT_TEST";
-            stepNumber = STEP_PLACEMENT_TEST;
-        } else if (!goalDone) {
+        if (!goalDone) {
             nextStep = "GOAL_SURVEY";
             stepNumber = STEP_GOAL_SURVEY;
+        } else if ("IN_PROGRESS".equals(placementStatus)) {
+            nextStep = "PLACEMENT_TEST";
+            stepNumber = STEP_PLACEMENT_TEST;
         } else if (!placementDone) {
             nextStep = "PLACEMENT_TEST";
             stepNumber = STEP_PLACEMENT_TEST;
@@ -224,18 +200,40 @@ public class OnboardingLifecycleService {
 
     /** Lưu kết quả khảo sát mục tiêu. Tạo StudentOnboarding record nếu chưa có. */
     public void submitGoalSurvey(Long userId, GoalSurveyRequest request) {
-        User user = findUser(userId);
+        // Serialize concurrent survey retries/changes with placement start/skip for this learner.
+        User user = userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
 
         StudentOnboarding ob = onboardingRepository.findByStudentId(userId)
                 .orElseGet(() -> StudentOnboarding.builder().student(user).build());
 
+        final String goalSurveyJson;
         try {
-            ob.setGoalSurveyJson(objectMapper.writeValueAsString(request));
+            goalSurveyJson = objectMapper.writeValueAsString(request);
         } catch (JsonProcessingException e) {
             log.error("Failed to serialize goal survey for user {}", userId, e);
             throw ErrorCode.SYSTEM_ERROR.toException();
         }
 
+        // Network retries must stay idempotent, including after placement/onboarding completion.
+        if (sameJson(ob.getGoalSurveyJson(), goalSurveyJson)) {
+            return;
+        }
+        if (Boolean.TRUE.equals(ob.getOnboardingCompleted())) {
+            throw ErrorCode.ONBOARDING_ALREADY_COMPLETED.toException();
+        }
+
+        boolean firstGoalAfterLegacyPlacement = isBlank(ob.getGoalSurveyJson())
+                && ob.getPlacementCefrLevel() != null;
+        if (!isBlank(ob.getGoalSurveyJson()) && hasPlacementStarted(userId, ob)) {
+            throw ErrorCode.GOAL_SURVEY_LOCKED.toException();
+        }
+
+        ob.setGoalSurveyJson(goalSurveyJson);
+        if (firstGoalAfterLegacyPlacement) {
+            queueRoadmapRegeneration(ob, userId);
+            return;
+        }
         onboardingRepository.save(ob);
     }
 
@@ -312,14 +310,36 @@ public class OnboardingLifecycleService {
 
     /** Lưu cài đặt cá nhân hoá và khởi tạo DailyGoal + StudentStat nếu chưa có. */
     public void saveSettings(Long userId, OnboardingSettingsRequest request) {
-        User user = findUser(userId);
-
         if (!request.isValidDailyGoalXp()) {
             throw ErrorCode.INVALID_REQUEST.toException();
         }
 
+        // Serialize settings with /complete so a late request cannot skip or reopen onboarding.
+        User user = userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
+        requireStudent(user);
         StudentOnboarding ob = onboardingRepository.findByStudentId(userId)
-                .orElseThrow(() -> ErrorCode.SYSTEM_ERROR.toException());
+                .orElseThrow(() -> ErrorCode.GOAL_SURVEY_REQUIRED.toException());
+
+        if (Boolean.TRUE.equals(ob.getOnboardingCompleted())) {
+            boolean sameSettings = Objects.equals(ob.getDailyGoalXp(), request.getDailyGoalXp())
+                    && (request.getReminderTime() == null
+                    || Objects.equals(ob.getReminderTime(), request.getReminderTime()));
+            if (sameSettings) return;
+            throw ErrorCode.ONBOARDING_ALREADY_COMPLETED.toException();
+        }
+        if (isBlank(ob.getGoalSurveyJson())) {
+            throw ErrorCode.GOAL_SURVEY_REQUIRED.toException();
+        }
+        if (ob.getPlacementCefrLevel() == null) {
+            throw ErrorCode.PLACEMENT_TEST_INCOMPLETE.toException();
+        }
+        if (!isRoadmapReady(ob)) {
+            if (effectiveRoadmapStatus(ob) == RoadmapGenerationStatus.FAILED) {
+                throw ErrorCode.ROADMAP_GENERATION_FAILED.toException();
+            }
+            throw ErrorCode.ROADMAP_GENERATING.toException();
+        }
 
         ob.setDailyGoalXp(request.getDailyGoalXp());
         if (request.getReminderTime() != null) {
@@ -358,8 +378,14 @@ public class OnboardingLifecycleService {
         StudentOnboarding ob = onboardingRepository.findByStudentId(userId)
                 .orElseThrow(() -> ErrorCode.SYSTEM_ERROR.toException());
 
+        // Mobile may retry after the first 200 response was lost. Treat completion as a terminal,
+        // idempotent command and repair the read-optimized users flag if necessary.
         if (Boolean.TRUE.equals(ob.getOnboardingCompleted())) {
-            throw ErrorCode.ONBOARDING_ALREADY_COMPLETED.toException();
+            if (!Boolean.TRUE.equals(user.getOnboardingCompleted())) {
+                user.setOnboardingCompleted(true);
+                userRepository.save(user);
+            }
+            return;
         }
 
         // Pre-condition: tất cả 3 bước (goal, placement, settings) phải hoàn tất.
@@ -455,6 +481,41 @@ public class OnboardingLifecycleService {
         if (!Role.STUDENT.equals(user.getRole())) {
             throw ErrorCode.INVALID_REQUEST.toException();
         }
+    }
+
+    private boolean hasPlacementStarted(Long userId, StudentOnboarding onboarding) {
+        if (onboarding.getPlacementCefrLevel() != null) return true;
+        return sessionRepository.findTopByStudentIdAndIsCompletedFalseOrderByStartedAtDesc(userId)
+                .filter(session -> !session.isExpired())
+                .isPresent();
+    }
+
+    private boolean sameJson(String currentJson, String requestedJson) {
+        if (isBlank(currentJson)) return false;
+        try {
+            return objectMapper.readTree(currentJson).equals(objectMapper.readTree(requestedJson));
+        } catch (JsonProcessingException exception) {
+            log.warn("Stored goal survey JSON is invalid; treating the request as a change", exception);
+            return false;
+        }
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    private void queueRoadmapRegeneration(StudentOnboarding onboarding, Long userId) {
+        int nextVersion = Optional.ofNullable(onboarding.getRoadmapGenerationVersion()).orElse(0) + 1;
+        LocalDateTime now = LocalDateTime.now();
+        onboarding.setRoadmapJson(null);
+        onboarding.setRoadmapStatus(RoadmapGenerationStatus.PENDING);
+        onboarding.setRoadmapGenerationVersion(nextVersion);
+        onboarding.setRoadmapGenerationAttempts(0);
+        onboarding.setRoadmapLastError(null);
+        onboarding.setRoadmapUpdatedAt(now);
+        onboardingRepository.save(onboarding);
+        roadmapJobService.enqueue(
+                userId, nextVersion, onboarding.getPlacementCefrLevel(), onboarding.getGoalSurveyJson());
     }
 
     private boolean isRoadmapReady(StudentOnboarding onboarding) {

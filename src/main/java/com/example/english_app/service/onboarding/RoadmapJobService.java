@@ -5,6 +5,8 @@ import com.example.english_app.entity.enums.RoadmapGenerationStatus;
 import com.example.english_app.entity.onboarding.RoadmapGenerationJob;
 import com.example.english_app.entity.onboarding.StudentOnboarding;
 import com.example.english_app.dto.response.roadmap.RoadmapResponse;
+import com.example.english_app.dto.response.roadmap.RoadmapMilestone;
+import com.example.english_app.dto.response.roadmap.RoadmapModule;
 import com.example.english_app.exception.ErrorCode;
 import com.example.english_app.repository.onboarding.OnboardingRepository;
 import com.example.english_app.repository.onboarding.RoadmapGenerationJobRepository;
@@ -71,6 +73,7 @@ public class RoadmapJobService {
 
     @Transactional
     public void markReady(RoadmapGenerationJob job, RoadmapResponse roadmap) {
+        validateReadyRoadmap(roadmap);
         final String roadmapJson;
         try {
             roadmapJson = objectMapper.writeValueAsString(roadmap);
@@ -91,6 +94,31 @@ public class RoadmapJobService {
                 onboarding.setRoadmapUpdatedAt(LocalDateTime.now());
             }
         });
+    }
+
+    private void validateReadyRoadmap(RoadmapResponse roadmap) {
+        if (roadmap == null || roadmap.getMilestones() == null || roadmap.getMilestones().isEmpty()) {
+            throw new RoadmapContentUnavailableException("Generated roadmap has no milestones");
+        }
+        if (roadmap.getTotalWeeks() != roadmap.getMilestones().size()) {
+            throw new RoadmapContentUnavailableException("Generated roadmap has inconsistent totalWeeks");
+        }
+
+        for (RoadmapMilestone milestone : roadmap.getMilestones()) {
+            if (milestone == null || milestone.getModules() == null || milestone.getModules().isEmpty()) {
+                throw new RoadmapContentUnavailableException("Generated roadmap contains an empty milestone");
+            }
+            for (RoadmapModule module : milestone.getModules()) {
+                if (module == null
+                        || module.getModuleKey() == null || module.getModuleKey().isBlank()
+                        || module.getContentVersion() == null || module.getContentVersion().isBlank()
+                        || module.getContentItemIds() == null || module.getContentItemIds().isEmpty()
+                        || module.getItemCount() != module.getContentItemIds().size()) {
+                    throw new RoadmapContentUnavailableException(
+                            "Generated roadmap contains a module without a valid content snapshot");
+                }
+            }
+        }
     }
 
     @Transactional

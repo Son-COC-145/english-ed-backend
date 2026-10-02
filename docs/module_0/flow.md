@@ -81,6 +81,12 @@ sequenceDiagram
         BE-->>App: Lưu thành công
     else nextStep == "PLACEMENT_TEST"
         App->>Student: Điều hướng vào Bài Test (hoặc Resume câu dở nếu IN_PROGRESS)
+    else nextStep == "ROADMAP_GENERATING"
+        App->>BE: GET /api/v1/onboarding/roadmap/status (poll có backoff)
+        BE-->>App: PENDING / PROCESSING / READY
+    else nextStep == "ROADMAP_FAILED"
+        App->>BE: POST /api/v1/onboarding/roadmap/retry
+        BE-->>App: PENDING
     else nextStep == "SETTINGS"
         App->>Student: Màn hình Cài đặt Mục tiêu XP/ngày & Giờ nhắc nhở
         Student->>App: Chọn mục tiêu 50 XP/ngày & 20:00 nhắc học
@@ -100,15 +106,16 @@ sequenceDiagram
 
 ### 📋 Ma trận Chuyển đổi Trạng thái Bất biến (State Invariants)
 
-| `placementTestStatus` | `goalDone` | `settingsDone` | `isCompleted` | `nextStep` trả về | `stepNumber` | Màn hình Mobile điều hướng đến |
-|---|:---:|:---:|:---:|---|:---:|---|
-| `NOT_STARTED` | `false` | `false` | `false` | `"GOAL_SURVEY"` | 1 | Màn hình Khảo sát mục tiêu |
-| `NOT_STARTED` | `true` | `false` | `false` | `"PLACEMENT_TEST"` | 2 | Màn hình Bắt đầu làm bài Test |
-| `IN_PROGRESS` | *bất kỳ* | *bất kỳ* | `false` | `"PLACEMENT_TEST"` | 2 | Màn hình Tiếp tục làm bài test dở (`activePlacementSessionId`) |
-| `COMPLETED` / `SKIPPED` | `false` | `false` | `false` | `"GOAL_SURVEY"` | 1 | Màn hình Khảo sát mục tiêu |
-| `COMPLETED` / `SKIPPED` | `true` | `false` | `false` | `"SETTINGS"` | 4 | Màn hình Cài đặt mục tiêu (XP & Giờ nhắc) |
-| `COMPLETED` / `SKIPPED` | `true` | `true` | `false` | `"COMPLETE"` | 4 | Dialog / Nút xác nhận "Hoàn tất Onboarding" |
-| `COMPLETED` / `SKIPPED` | `true` | `true` | `true` | `"COMPLETED"` | 5 | Màn hình chính (Home/Dashboard) |
+| `placementTestStatus` | `goalDone` | `roadmapStatus` | `settingsDone` | `isCompleted` | `nextStep` | `stepNumber` |
+|---|:---:|---|:---:|:---:|---|:---:|
+| `NOT_STARTED` | `false` | `NOT_STARTED` | `false` | `false` | `GOAL_SURVEY` | 1 |
+| `NOT_STARTED` | `true` | `NOT_STARTED` | `false` | `false` | `PLACEMENT_TEST` | 2 |
+| `IN_PROGRESS` | `true` | `NOT_STARTED` | `false` | `false` | `PLACEMENT_TEST` | 2 |
+| `COMPLETED` / `SKIPPED` | `true` | `PENDING` / `PROCESSING` | `false` | `false` | `ROADMAP_GENERATING` | 3 |
+| `COMPLETED` / `SKIPPED` | `true` | `FAILED` | `false` | `false` | `ROADMAP_FAILED` | 3 |
+| `COMPLETED` / `SKIPPED` | `true` | `READY` | `false` | `false` | `SETTINGS` | 4 |
+| `COMPLETED` / `SKIPPED` | `true` | `READY` | `true` | `false` | `COMPLETE` | 4 |
+| `COMPLETED` / `SKIPPED` | `true` | `READY` | `true` | `true` | `COMPLETED` | 5 |
 
 ### 📦 Đặc tả API tương ứng (OnboardingController)
 
@@ -143,13 +150,18 @@ sequenceDiagram
   - **Body (JSON):**
     ```json
     {
-      "targetLevel": "B2",
-      "dailyTimeCommitmentMinutes": 30,
-      "learningReason": "CAREER",
-      "learningStyle": "VISUAL",
-      "occupation": "SOFTWARE_ENGINEER"
+      "learningGoal": "COMMUNICATION",
+      "otherGoalText": null,
+      "focusSkills": ["SPEAKING", "PRONUNCIATION"],
+      "dailyStudyMinutes": 30,
+      "preferredEnvironment": "ONLINE",
+      "previousExperience": "BEGINNER"
     }
     ```
+  - `learningGoal` bắt buộc: `COMMUNICATION`, `WORK`, `TRAVEL`, `EXAM`, `GENERAL`.
+  - `focusSkills` bắt buộc từ 1–3 mã: `VOCABULARY`, `SPEAKING`, `PRONUNCIATION`, `READING`, `LISTENING`, `GRAMMAR`.
+  - `dailyStudyMinutes` là tuỳ chọn; nếu có phải trong khoảng 5–120. `otherGoalText` tối đa 200 ký tự.
+  - Sau khi placement test đã bắt đầu, goal survey bị khoá. Retry cùng payload là idempotent; payload khác trả lỗi `5023 GOAL_SURVEY_LOCKED`.
 
 #### 2.3 Lưu cài đặt mục tiêu (Settings)
 - **`POST /api/v1/onboarding/settings`**:
@@ -160,15 +172,18 @@ sequenceDiagram
       "reminderTime": "20:00"
     }
     ```
+  - Chỉ được lưu sau khi Goal Survey, Placement Test và Roadmap đều hoàn tất (`roadmapStatus = READY`).
+  - Nếu roadmap đang tạo hoặc thất bại, client tiếp tục xử lý theo `nextStep` thay vì bỏ qua Settings.
 
 #### 2.4 Hoàn thành Onboarding
 - **`POST /api/v1/onboarding/complete`**:
   - **Response (200 OK):** `{"code": 1000, "message": "Chúc mừng bạn đã hoàn thành onboarding!"}`
+  - Endpoint idempotent: retry sau khi đã hoàn tất vẫn trả thành công và đồng bộ lại cờ `users.onboarding_completed` nếu cần.
 
 ---
 
 ## 3. Luồng Kiểm tra Phân loại Trình độ Thích ứng (Adaptive CAT Placement Test Flow)
-Quy trình làm bài kiểm tra thích ứng máy tính (Computerized Adaptive Testing - CAT). Độ khó câu hỏi tự động tăng/giảm theo từng câu trả lời đúng/sai để xác định chính xác trình độ CEFR (A1 - C2) với số lượng câu tối thiểu.
+Quy trình làm bài kiểm tra thích ứng máy tính (Computerized Adaptive Testing - CAT). Độ khó câu hỏi tự động tăng/giảm theo từng câu trả lời đúng/sai để xác định trình độ CEFR (A1 - C2). Mỗi bài phải hoàn thành đúng 20 câu; không kết thúc sớm theo confidence.
 
 ```mermaid
 sequenceDiagram
@@ -186,7 +201,7 @@ sequenceDiagram
     BE-->>App: Trả về câu hỏi đầu tiên (Question 1)
 
     %% Vòng lặp làm bài (Trắc nghiệm hoặc Phát âm)
-    loop Các câu hỏi kiểm tra CAT
+    loop Đủ 20 câu hỏi kiểm tra CAT
         alt Câu hỏi Trắc nghiệm / Nghe / Đọc
             Student->>App: Chọn đáp án
             App->>BE: POST /api/v1/onboarding/placement-test/submit-answer
@@ -203,11 +218,11 @@ sequenceDiagram
     end
 
     %% Hoàn tất bài test
-    Note over BE,DB: Đạt ngưỡng tự tin (Confidence >= 85%) hoặc đủ số câu quy định
+    Note over BE,DB: Chỉ hoàn tất sau khi đã trả lời đủ 20 câu
     BE->>DB: Đánh dấu session is_completed = true, lưu điểm 5 kỹ năng & CEFR vào StudentOnboarding
-    BE->>Roadmap: Tự động sinh Roadmap cá nhân hóa dựa trên CEFR & Goal Survey
-    Roadmap->>DB: Lưu roadmap_json
-    BE-->>App: Trả về PlacementResultResponse (CEFR, Radar chart 5 kỹ năng, Lời khuyên điểm yếu, Roadmap)
+    BE->>DB: Tạo durable Roadmap Job trạng thái PENDING
+    BE-->>App: Trả về PlacementResultResponse ngay, roadmapStatus = PENDING
+    Roadmap->>DB: Worker sinh roadmap bất đồng bộ và chuyển READY hoặc FAILED
     App->>Student: Hiển thị màn hình Kết quả chẩn đoán năng lực
 ```
 
@@ -222,6 +237,7 @@ sequenceDiagram
   - **Body (JSON):**
     ```json
     {
+      "submissionId": "47a18f74-1b55-45fe-bca2-7cb9b7fdcf83",
       "sessionId": 108,
       "questionId": 25,
       "answerGiven": "B",
@@ -237,10 +253,9 @@ sequenceDiagram
         "submittedQuestionId": 25,
         "sessionStatus": "IN_PROGRESS",
         "previousAnswerCorrect": true,
-        "previousCorrectAnswer": "B",
         "questionId": 26,
         "questionIndex": 4,
-        "totalQuestions": 30,
+        "totalQuestions": 20,
         "cefrLevel": "B1",
         "skill": "GRAMMAR",
         "questionType": "MULTIPLE_CHOICE",
@@ -252,7 +267,7 @@ sequenceDiagram
         "nextQuestion": {
           "questionId": 26,
           "questionIndex": 4,
-          "totalQuestions": 30,
+          "totalQuestions": 20,
           "cefrLevel": "B1",
           "skill": "GRAMMAR",
           "questionType": "MULTIPLE_CHOICE",
@@ -268,7 +283,8 @@ sequenceDiagram
 #### 3.3 Nộp câu trả lời phát âm (Single-Trip Pronunciation Progression)
 - **`POST /api/v1/onboarding/placement-test/pronunciation/submit-answer`**:
   - **Content-Type:** `multipart/form-data`
-  - **Params:** `sessionId` (Long), `questionId` (Long), `audioFile` (File WAV/WebM/OGG, <= 5MB), `word` (String), `wordIndex` (int).
+  - **Form fields:** `sessionId` (Long), `questionId` (Long), `submissionId` (UUID), `audioFile` (File WAV/WebM/OGG, <= 5MB).
+  - Flutter tạo một `submissionId` khi render câu hỏi và giữ nguyên UUID đó cho mọi lần retry cùng bản ghi âm. Backend tự lấy reference text từ `questionId`; client không gửi `word`.
   - **Response (200 OK):**
     ```json
     {
@@ -290,7 +306,7 @@ sequenceDiagram
         "nextQuestion": {
           "questionId": 29,
           "questionIndex": 6,
-          "totalQuestions": 30,
+          "totalQuestions": 20,
           "cefrLevel": "B1",
           "skill": "LISTENING",
           "questionType": "AUDIO_CHOICE"
@@ -312,7 +328,7 @@ sequenceDiagram
 ---
 
 ## 4. Luồng Lộ trình Học tập Cá nhân hóa (Roadmap Flow)
-Quy trình sinh và theo dõi tiến độ lộ trình học tập tự động sau bài kiểm tra phân loại.
+Quy trình sinh bất đồng bộ và theo dõi tiến độ lộ trình học tập sau bài kiểm tra phân loại. Roadmap chỉ được chuyển sang `READY` khi có ít nhất một milestone và mỗi milestone có module hợp lệ.
 
 ```mermaid
 sequenceDiagram
@@ -321,10 +337,18 @@ sequenceDiagram
     participant BE as Backend (RoadmapGenerationService)
     participant DB as Database
 
-    Student->>App: Xem Lộ trình học tập (Roadmap)
+    App->>BE: GET /api/v1/onboarding/roadmap/status
+    BE-->>App: PENDING hoặc PROCESSING
+    App->>BE: Poll lại có backoff khi màn hình đang chờ
+    BE-->>App: READY
     App->>BE: GET /api/v1/onboarding/roadmap
     BE->>DB: Đọc roadmap_json từ StudentOnboarding
-    BE-->>App: Trả về cấu trúc Milestones (Tuần 1 -> Tuần 12, từng module bài học)
+    BE-->>App: Trả về cấu trúc Milestones và Modules
+
+    alt roadmapStatus == FAILED
+        App->>BE: POST /api/v1/onboarding/roadmap/retry
+        BE-->>App: PENDING (worker được đánh thức ngay)
+    end
 
     Student->>App: Mở Home / Dashboard
     App->>BE: GET /api/v1/onboarding/roadmap/progress
@@ -334,6 +358,8 @@ sequenceDiagram
 ```
 
 ### 📦 Đặc tả API tương ứng
+- **`GET /api/v1/onboarding/roadmap/status`**: Trả `PENDING`, `PROCESSING`, `READY` hoặc `FAILED`; dùng để polling. Chỉ polling khi người dùng đang ở màn hình chờ và dừng ngay khi `READY`/`FAILED` hoặc rời màn hình.
+- **`POST /api/v1/onboarding/roadmap/retry`**: Retry thủ công khi trạng thái `FAILED`; thao tác idempotent và đánh thức worker ngay.
 - **`GET /api/v1/onboarding/roadmap`**: Lấy chi tiết toàn bộ các mốc tuần học (Milestones) và danh sách bài học (Modules).
 - **`GET /api/v1/onboarding/roadmap/progress`**: Lấy thống kê tổng quát:
   ```json

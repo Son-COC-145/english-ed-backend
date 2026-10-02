@@ -140,12 +140,12 @@ class Module0And1FlowTest {
         @Test
         @DisplayName("Luồng 0.2: Nộp Goal Survey -> Trạng thái chuyển sang PLACEMENT_TEST")
         void testSubmitGoalSurvey() {
-            given(userRepository.findById(1L)).willReturn(Optional.of(mockUser));
+            given(userRepository.findByIdForUpdate(1L)).willReturn(Optional.of(mockUser));
             given(onboardingRepository.findByStudentId(1L)).willReturn(Optional.empty());
 
             GoalSurveyRequest request = new GoalSurveyRequest();
-            request.setLearningPurpose("GIAO_TIEP");
-            request.setFocusSkills(List.of("Giao tiếp"));
+            request.setLearningGoal(LearningGoal.COMMUNICATION);
+            request.setFocusSkills(List.of(LearnerSkill.SPEAKING));
             request.setDailyStudyMinutes(20);
             request.setPreferredEnvironment("ONLINE");
             request.setPreviousExperience("BEGINNER");
@@ -153,7 +153,7 @@ class Module0And1FlowTest {
             lifecycleService.submitGoalSurvey(1L, request);
 
             verify(onboardingRepository).save(argThat(ob ->
-                    ob.getGoalSurveyJson() != null && ob.getGoalSurveyJson().contains("GIAO_TIEP")
+                    ob.getGoalSurveyJson() != null && ob.getGoalSurveyJson().contains("COMMUNICATION")
             ));
         }
 
@@ -226,7 +226,6 @@ class Module0And1FlowTest {
         @Test
         @DisplayName("Luồng 0.5: Lưu Cài đặt & Hoàn tất Onboarding")
         void testSaveSettingsAndCompleteOnboarding() {
-            given(userRepository.findById(1L)).willReturn(Optional.of(mockUser));
             given(userRepository.findByIdForUpdate(1L)).willReturn(Optional.of(mockUser));
             StudentOnboarding ob = StudentOnboarding.builder()
                     .student(mockUser)
@@ -267,7 +266,6 @@ class Module0And1FlowTest {
                     .build();
 
             given(onboardingRepository.findByStudentIdWithUser(1L)).willReturn(Optional.of(ob));
-            given(sessionRepository.findTopByStudentIdAndIsCompletedFalseOrderByStartedAtDesc(1L)).willReturn(Optional.empty());
 
             OnboardingStatusResponse status = lifecycleService.getStatus(1L);
 
