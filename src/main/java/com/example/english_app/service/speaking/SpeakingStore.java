@@ -19,6 +19,8 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
@@ -81,6 +83,11 @@ public class SpeakingStore {
     public List<SpeakingSession> activeSessions(Long userId) {
         return sessions.findTop20ByStudentIdAndStatusInOrderByStartedAtDescIdDesc(userId,
                 List.of("ONGOING", "EVALUATING", "EVALUATION_FAILED"));
+    }
+
+    public Page<SpeakingSession> reports(Long userId, Pageable pageable) {
+        return sessions.findByStudentIdAndStatusAndEvaluationJsonIsNotNull(
+                userId, "COMPLETED", pageable);
     }
 
     public SpeakingSession start(Long userId, Short scenarioId, String requestKey) {
@@ -212,7 +219,11 @@ public class SpeakingStore {
 
         List<SpeakingTurn> history = history(id);
         if (history.stream().noneMatch(t -> t.getSpeaker() == SpeakerRole.STUDENT)) {
-            throw ErrorCode.SPEAKING_CONFLICT.toException();
+            // A session the learner leaves before speaking is still terminal, but it must not
+            // schedule evaluation, award XP, or appear in the report history.
+            s.setStatus("CANCELLED");
+            s.setEndedAt(LocalDateTime.now());
+            return s;
         }
 
         s.setStatus("EVALUATING");

@@ -7,6 +7,7 @@ import java.util.stream.StreamSupport;
 
 import com.example.english_app.dto.response.SpeakingScenarioResponse;
 import com.example.english_app.dto.response.SpeakingSessionResponse;
+import com.example.english_app.dto.response.SpeakingReportSummaryResponse;
 import com.example.english_app.dto.response.SpeakingTurnResponse;
 import com.example.english_app.entity.speaking.SpeakingScenario;
 import com.example.english_app.entity.speaking.SpeakingSession;
@@ -73,6 +74,26 @@ public class SpeakingMapper {
                 .xpEarned(entity.getXpEarned())
                 .evaluation(evaluation)
                 .turns(turnResponses)
+                .build();
+    }
+
+    public SpeakingReportSummaryResponse toReportSummary(SpeakingSession entity) {
+        if (entity == null) return null;
+
+        SpeakingScenario scenario = entity.getScenario();
+        return SpeakingReportSummaryResponse.builder()
+                .sessionId(entity.getId())
+                .scenarioId(scenario != null ? scenario.getId() : null)
+                .scenarioTitleVi(scenario != null ? scenario.getTitleVi() : null)
+                .scenarioTitleEn(scenario != null ? scenario.getTitleEn() : null)
+                .cefrLevel(scenario != null ? scenario.getCefrLevel() : null)
+                .startedAt(entity.getStartedAt())
+                .endedAt(entity.getEndedAt())
+                .hintUsedCount(entity.getHintUsedCount())
+                .taskCompletionScore(entity.getTaskCompletionScore())
+                .fluencyScore(entity.getFluencyScore())
+                .intonationScore(entity.getIntonationScore())
+                .xpEarned(entity.getXpEarned())
                 .build();
     }
 
