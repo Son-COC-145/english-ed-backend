@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.Optional;
 
 public interface IpaPhonemeRepository extends JpaRepository<IpaPhoneme, Short> {
+
+    List<IpaPhoneme> findAllByOrderByIdAsc();
     
     @Query("""
            SELECT p FROM IpaPhoneme p 

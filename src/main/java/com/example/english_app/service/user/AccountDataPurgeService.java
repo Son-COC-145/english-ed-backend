@@ -49,6 +49,7 @@ public class AccountDataPurgeService {
                     + "(SELECT id FROM placement_test_sessions WHERE student_id = ?)",
             "DELETE FROM placement_test_sessions WHERE student_id = ?",
             "DELETE FROM roadmap_generation_jobs WHERE student_id = ?",
+            "DELETE FROM roadmap_module_progress WHERE student_id = ?",
             "DELETE FROM student_onboarding WHERE student_id = ?",
 
             "DELETE FROM minigame_results WHERE student_id = ?",

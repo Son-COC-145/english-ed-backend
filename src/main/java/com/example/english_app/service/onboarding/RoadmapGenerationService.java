@@ -6,9 +6,8 @@ import com.example.english_app.dto.response.roadmap.RoadmapResponse;
 import com.example.english_app.entity.enums.CefrLevel;
 import com.example.english_app.entity.enums.TopicCategory;
 import com.example.english_app.entity.vocabulary.Topic;
-import com.example.english_app.repository.speaking.SpeakingScenarioRepository;
 import com.example.english_app.repository.vocabulary.TopicRepository;
-import com.example.english_app.repository.vocabulary.VocabularyRepository;
+import com.example.english_app.service.adaptive.roadmap.RoadmapContentSnapshotService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -30,8 +29,7 @@ public class RoadmapGenerationService {
 
     private final GoalSurveyParser goalSurveyParser;
     private final TopicRepository topicRepository;
-    private final VocabularyRepository vocabularyRepository;
-    private final SpeakingScenarioRepository speakingScenarioRepository;
+    private final RoadmapContentSnapshotService contentSnapshotService;
 
     /** Builds a roadmap without updating onboarding state; the durable worker owns persistence. */
     @Transactional(readOnly = true)
@@ -64,7 +62,7 @@ public class RoadmapGenerationService {
     }
 
     private List<Topic> selectTopics(CefrLevel level, List<String> categories) {
-        List<Topic> primaryTopics = topicRepository.findForRoadmap(level, categories, PageRequest.of(0, 10));
+        List<Topic> primaryTopics = topicRepository.findForRoadmap(level, categories, PageRequest.of(0, 5));
         
         // Fallback nếu không có topic nào thoả mãn
         if (primaryTopics.isEmpty()) {
@@ -79,50 +77,16 @@ public class RoadmapGenerationService {
 
     private List<RoadmapMilestone> assembleMilestones(CefrLevel level, List<Topic> topics, boolean includeSpeaking, List<String> focusSkills) {
         List<RoadmapMilestone> milestones = new ArrayList<>();
-        
+
         int week = 1;
         for (Topic topic : topics) {
             List<RoadmapModule> modules = new ArrayList<>();
-            
-            // 1. Vocabulary Module
-            int vocabCount = (int) vocabularyRepository.countByTopicId(topic.getId());
-            if (vocabCount > 0) {
-                modules.add(RoadmapModule.builder()
-                        .type("VOCABULARY")
-                        .title("Từ vựng: " + topic.getNameVi())
-                        .topicId(topic.getId())
-                        .itemCount(vocabCount)
-                        .cefrLevel(topic.getCefrLevel() != null ? topic.getCefrLevel().name() : level.name())
-                        .build());
-            }
 
-            // 2. Speaking Module
+            contentSnapshotService.vocabularyModule(topic, level).ifPresent(modules::add);
             if (includeSpeaking) {
-                List<Short> topicIds = List.of(topic.getId());
-                long speakingCount = speakingScenarioRepository.findByCefrLevelAndTopicIdInAndIsActiveTrue(level, topicIds).size();
-                if (speakingCount > 0) {
-                    modules.add(RoadmapModule.builder()
-                            .type("SPEAKING")
-                            .title("Giao tiếp thực tế: " + topic.getNameVi())
-                            .topicId(topic.getId())
-                            .itemCount((int) speakingCount)
-                            .cefrLevel(level.name())
-                            .build());
-                }
+                contentSnapshotService.speakingModule(topic, level).ifPresent(modules::add);
             }
 
-            // 3. IPA Module (Module 1) - Chỉ thêm vào Tuần 1
-            if (week == 1 && (level == CefrLevel.A1 || level == CefrLevel.A2 || (focusSkills != null && focusSkills.stream().anyMatch(s -> s.equalsIgnoreCase("Phát âm") || s.equalsIgnoreCase("Giao tiếp"))))) {
-                modules.add(RoadmapModule.builder()
-                        .type("IPA_PRONUNCIATION")
-                        .title("Nền tảng phát âm IPA")
-                        .topicId(null)
-                        .itemCount(44)
-                        .cefrLevel(level.name())
-                        .build());
-            }
-
-            // Chỉ tạo milestone nếu có module
             if (!modules.isEmpty()) {
                 milestones.add(RoadmapMilestone.builder()
                         .weekNumber(week)
@@ -134,6 +98,45 @@ public class RoadmapGenerationService {
             }
         }
 
+        boolean includePronunciation = shouldIncludePronunciation(level, focusSkills);
+        if (includePronunciation && milestones.isEmpty() && !topics.isEmpty()) {
+            Topic topic = topics.getFirst();
+            milestones.add(RoadmapMilestone.builder()
+                    .weekNumber(1)
+                    .title("Tuần 1: " + topic.getNameVi())
+                    .description("Xây dựng nền tảng phát âm tiếng Anh")
+                    .modules(new ArrayList<>())
+                    .build());
+        }
+        if (includePronunciation && !milestones.isEmpty()) {
+            distributeIpaModules(milestones, contentSnapshotService.ipaModuleGroups(level));
+        }
+        milestones.removeIf(milestone ->
+                milestone.getModules() == null || milestone.getModules().isEmpty());
+
         return milestones;
+    }
+
+    private boolean shouldIncludePronunciation(CefrLevel level, List<String> focusSkills) {
+        return level == CefrLevel.A1
+                || level == CefrLevel.A2
+                || (focusSkills != null && focusSkills.stream().anyMatch(skill ->
+                        skill.equalsIgnoreCase("Phát âm") || skill.equalsIgnoreCase("Giao tiếp")));
+    }
+
+    private void distributeIpaModules(
+            List<RoadmapMilestone> milestones,
+            List<RoadmapContentSnapshotService.IpaModuleGroup> groups) {
+        int lastWeekIndex = milestones.size() - 1;
+        for (int groupIndex = 0; groupIndex < groups.size(); groupIndex++) {
+            int weekIndex = Math.min(groupIndex, lastWeekIndex);
+            RoadmapMilestone milestone = milestones.get(weekIndex);
+            if (milestone.getModules() == null) {
+                milestone.setModules(new ArrayList<>());
+            } else if (!(milestone.getModules() instanceof ArrayList<?>)) {
+                milestone.setModules(new ArrayList<>(milestone.getModules()));
+            }
+            milestone.getModules().addAll(groups.get(groupIndex).modules());
+        }
     }
 }

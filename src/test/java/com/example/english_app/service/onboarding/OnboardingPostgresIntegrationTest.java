@@ -44,6 +44,7 @@ class OnboardingPostgresIntegrationTest {
         assertThat(columnExists("users", "onboarding_completed")).isTrue();
         assertThat(tableExists("roadmap_generation_jobs")).isTrue();
         assertThat(tableExists("placement_pronunciation_submissions")).isTrue();
+        assertThat(tableExists("roadmap_module_progress")).isTrue();
 
         Boolean dailyGoalNullable = jdbc.queryForObject("""
                 SELECT is_nullable = 'YES'

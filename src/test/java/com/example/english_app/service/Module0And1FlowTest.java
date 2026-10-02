@@ -35,6 +35,7 @@ import com.example.english_app.repository.question.PlacementTestSessionRepositor
 import com.example.english_app.repository.question.QuestionRepository;
 import com.example.english_app.repository.user.UserRepository;
 import com.example.english_app.service.audio.AudioAssessmentPort;
+import com.example.english_app.service.adaptive.roadmap.RoadmapProgressService;
 import com.example.english_app.service.ipa.IpaPronunciationServiceImpl;
 import com.example.english_app.service.ipa.IpaServiceImpl;
 import com.example.english_app.service.onboarding.OnboardingLifecycleService;
@@ -84,6 +85,7 @@ class Module0And1FlowTest {
     @Mock private PlacementQuestionContentMapper questionContentMapper;
     @Mock private PlacementSessionExpiryService expiryService;
     @Mock private RoadmapJobService roadmapJobService;
+    @Mock private RoadmapProgressService roadmapProgressService;
 
     @InjectMocks private OnboardingLifecycleService lifecycleService;
     @InjectMocks private PlacementTestService placementTestService;
@@ -201,6 +203,17 @@ class Module0And1FlowTest {
                     .roadmapJson(objectMapper.writeValueAsString(mockRoadmap))
                     .build();
             given(onboardingRepository.findByStudentId(1L)).willReturn(Optional.of(ob));
+
+            RoadmapProgressResponse calculated = RoadmapProgressResponse.builder()
+                    .cefrLevel("A1")
+                    .totalWeeks(2)
+                    .currentWeek(1)
+                    .totalModules(3)
+                    .nextSuggestedModule("Từ vựng 1")
+                    .milestones(mockRoadmap.getMilestones())
+                    .build();
+            given(roadmapProgressService.recalculateAll(ob))
+                    .willReturn(new RoadmapProgressService.RoadmapProgressResult(mockRoadmap, calculated));
 
             RoadmapProgressResponse progress = lifecycleService.getRoadmapProgress(1L);
 
