@@ -49,7 +49,8 @@ class RoadmapJobServiceTest {
         RoadmapGenerationJob job = job(1);
         StudentOnboarding onboarding = StudentOnboarding.builder()
                 .roadmapGenerationVersion(1).build();
-        when(jobRepository.lockDispatchable(eq(1), any(LocalDateTime.class))).thenReturn(List.of(job));
+        when(jobRepository.lockDispatchable(
+                eq(1), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(List.of(job));
         when(onboardingRepository.findByStudentId(7L)).thenReturn(Optional.of(onboarding));
 
         List<RoadmapGenerationJob> claimed = service.claimBatch(1);
@@ -62,8 +63,11 @@ class RoadmapJobServiceTest {
         assertThat(onboarding.getRoadmapGenerationAttempts()).isEqualTo(1);
 
         ArgumentCaptor<LocalDateTime> nowCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
-        verify(jobRepository).lockDispatchable(eq(1), nowCaptor.capture());
+        ArgumentCaptor<LocalDateTime> staleBeforeCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(jobRepository).lockDispatchable(
+                eq(1), nowCaptor.capture(), staleBeforeCaptor.capture());
         assertThat(job.getLockedAt()).isEqualTo(nowCaptor.getValue());
+        assertThat(staleBeforeCaptor.getValue()).isEqualTo(nowCaptor.getValue().minusMinutes(5));
     }
 
     @Test
