@@ -18,7 +18,7 @@ Backend biết **học viên đang ở đâu, tiến bộ thế nào và nên h�
 | Module | Đang có | Dùng cho Module 5 |
 |---|---|---|
 | Placement | CEFR và điểm 0–100 cho Vocab, Grammar, Reading, Listening, Pronunciation | CEFR hiện tại, năng lực ban đầu |
-| Goal survey | Mục tiêu học và kỹ năng muốn tập trung (đang là **chữ tự do**), số phút học mỗi ngày (tuỳ chọn) | Ưu tiên đề xuất, thời lượng mặc định |
+| Goal survey | Mục tiêu học và kỹ năng muốn tập trung dùng **mã enum cố định**; parser vẫn đọc được dữ liệu legacy, số phút học mỗi ngày (tuỳ chọn) | Ưu tiên đề xuất, thời lượng mặc định |
 | Từ vựng (SRS) | Lịch ôn từng từ theo SM-2, trạng thái NEW → MASTERED | Từ đến hạn ôn, năng lực từ vựng |
 | Mini-game | Lượt chơi theo chủ đề: điểm 0–100, thời lượng | Năng lực từ vựng, thời gian học |
 | Phát âm | Log từng lần luyện, mức thành thạo từng âm | Âm yếu, năng lực phát âm |
@@ -35,7 +35,7 @@ Backend biết **học viên đang ở đâu, tiến bộ thế nào và nên h�
 | 2 | Roadmap **chưa theo dõi tiến độ** (luôn "tuần 1, chưa xong module nào") | Làm tiến độ roadmap là **việc đầu tiên** |
 | 3 | **Chưa ghi thời gian học** | Ghi thời lượng cho mỗi hoạt động, tách đo thật / ước tính |
 | 4 | Có hai "kế hoạch hôm nay" nếu giữ Daily Mission | Today Plan thay Daily Mission |
-| 5 | Goal survey lưu mục tiêu và kỹ năng dạng chữ tự do, khó dùng để đề xuất | Chuyển sang dữ liệu có cấu trúc (mã cố định) |
+| 5 | Dữ liệu legacy của Goal survey từng lưu dạng chữ tự do | API mới dùng mã cố định; parser tương thích dữ liệu legacy trong giai đoạn chuyển đổi |
 | 6 | Module phát âm tuần 1 gồm cả 44 âm, quá lớn với quy tắc "làm hết mới hoàn thành" | Chia thành các module nhỏ 8–12 âm |
 
 ---

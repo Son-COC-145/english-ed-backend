@@ -1,16 +1,19 @@
 package com.example.english_app.service.onboarding;
 
-import com.example.english_app.dto.request.GoalSurveyRequest;
+import com.example.english_app.entity.enums.LearnerSkill;
+import com.example.english_app.entity.enums.LearningGoal;
 import com.example.english_app.entity.enums.TopicCategory;
-import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
@@ -19,36 +22,82 @@ public class GoalSurveyParser {
 
     private final ObjectMapper objectMapper;
 
-    public GoalSurveyRequest parse(String goalSurveyJson) {
+    public ParsedGoalSurvey parse(String goalSurveyJson) {
         if (goalSurveyJson == null || goalSurveyJson.isBlank()) {
-            return null;
+            return defaultSurvey();
         }
         try {
-            return objectMapper.readValue(goalSurveyJson, GoalSurveyRequest.class);
-        } catch (JsonProcessingException e) {
+            JsonNode root = objectMapper.readTree(goalSurveyJson);
+            String learningGoalCode = text(root, "learningGoal");
+            String legacyPurpose = text(root, "learningPurpose");
+
+            LearningGoal learningGoal = parseLearningGoal(learningGoalCode, legacyPurpose);
+            List<TopicCategory> categories = learningGoalCode != null
+                    ? categoriesForGoal(learningGoal)
+                    : legacyCategories(legacyPurpose);
+            List<LearnerSkill> focusSkills = parseFocusSkills(root.path("focusSkills"));
+            return new ParsedGoalSurvey(learningGoal, categories, focusSkills);
+        } catch (Exception e) {
             log.warn("Failed to parse goal_survey_json", e);
-            return null;
+            return defaultSurvey();
         }
     }
 
     public List<TopicCategory> extractCategories(String goalSurveyJson) {
-        GoalSurveyRequest request = parse(goalSurveyJson);
-        if (request == null || request.getLearningPurpose() == null) {
-            return List.of(TopicCategory.DAILY_CONVERSATION); // fallback
+        return parse(goalSurveyJson).categories();
+    }
+
+    public List<LearnerSkill> extractFocusSkills(String goalSurveyJson) {
+        return parse(goalSurveyJson).focusSkills();
+    }
+
+    private LearningGoal parseLearningGoal(String code, String legacyPurpose) {
+        if (code != null) {
+            try {
+                return LearningGoal.valueOf(normalizeCode(code));
+            } catch (IllegalArgumentException exception) {
+                log.warn("Unknown learningGoal code '{}'; using GENERAL", code);
+                return LearningGoal.GENERAL;
+            }
+        }
+        List<TopicCategory> categories = legacyCategories(legacyPurpose);
+        TopicCategory primary = categories.getFirst();
+        return switch (primary) {
+            case WORK -> LearningGoal.WORK;
+            case TRAVEL -> LearningGoal.TRAVEL;
+            case EXAM_IELTS -> LearningGoal.EXAM;
+            case DAILY_CONVERSATION -> LearningGoal.COMMUNICATION;
+            case STUDY_ABROAD -> LearningGoal.GENERAL;
+        };
+    }
+
+    private List<TopicCategory> categoriesForGoal(LearningGoal goal) {
+        return switch (goal) {
+            case WORK -> List.of(TopicCategory.WORK);
+            case TRAVEL -> List.of(TopicCategory.TRAVEL);
+            case EXAM -> List.of(TopicCategory.EXAM_IELTS);
+            case COMMUNICATION, GENERAL -> List.of(TopicCategory.DAILY_CONVERSATION);
+        };
+    }
+
+    private List<TopicCategory> legacyCategories(String purpose) {
+        if (purpose == null || purpose.isBlank()) {
+            return List.of(TopicCategory.DAILY_CONVERSATION);
         }
 
-        String purpose = request.getLearningPurpose().trim();
-
-        // Tầng 1: match theo enum key (Flutter có thể gửi "WORK", "TRAVEL", "EXAM_IELTS", v.v.)
+        String normalized = normalizeCode(purpose);
         try {
-            TopicCategory byKey = TopicCategory.valueOf(purpose.toUpperCase().replace(" ", "_").replace("-", "_"));
+            TopicCategory byKey = TopicCategory.valueOf(normalized);
             return List.of(byKey);
         } catch (IllegalArgumentException ignored) {
-            // Không match enum key → thử text matching bên dưới
+            try {
+                return categoriesForGoal(LearningGoal.valueOf(normalized));
+            } catch (IllegalArgumentException ignoredGoal) {
+                // Fall through to legacy free-text matching.
+            }
         }
 
-        // Tầng 2: match bằng substring tiếng Việt / tiếng Anh (legacy / freeform)
-        String lower = purpose.toLowerCase();
+        String lower = purpose.toLowerCase(Locale.ROOT);
         List<TopicCategory> categories = new ArrayList<>();
 
         if (lower.contains("công việc") || lower.contains("đi làm") || lower.contains("work")) {
@@ -76,11 +125,57 @@ public class GoalSurveyParser {
         return categories;
     }
 
-    public List<String> extractFocusSkills(String goalSurveyJson) {
-        GoalSurveyRequest request = parse(goalSurveyJson);
-        if (request == null || request.getFocusSkills() == null || request.getFocusSkills().isEmpty()) {
-            return Collections.emptyList();
+    private List<LearnerSkill> parseFocusSkills(JsonNode node) {
+        if (!node.isArray()) return List.of();
+        Set<LearnerSkill> skills = new LinkedHashSet<>();
+        for (JsonNode item : node) {
+            if (!item.isTextual()) continue;
+            LearnerSkill skill = parseSkill(item.asText());
+            if (skill != null) skills.add(skill);
         }
-        return request.getFocusSkills();
+        return List.copyOf(skills);
+    }
+
+    private LearnerSkill parseSkill(String value) {
+        try {
+            return LearnerSkill.valueOf(normalizeCode(value));
+        } catch (IllegalArgumentException ignored) {
+            String lower = value.toLowerCase(Locale.ROOT);
+            if (lower.contains("từ vựng") || lower.contains("vocab")) return LearnerSkill.VOCABULARY;
+            if (lower.contains("giao tiếp") || lower.contains("speaking") || lower.equals("nói")) {
+                return LearnerSkill.SPEAKING;
+            }
+            if (lower.contains("phát âm") || lower.contains("pronunciation") || lower.contains("ipa")) {
+                return LearnerSkill.PRONUNCIATION;
+            }
+            if (lower.contains("đọc") || lower.contains("reading")) return LearnerSkill.READING;
+            if (lower.contains("nghe") || lower.contains("listening")) return LearnerSkill.LISTENING;
+            if (lower.contains("ngữ pháp") || lower.contains("grammar")) return LearnerSkill.GRAMMAR;
+            log.debug("Ignoring unknown legacy focus skill '{}'", value);
+            return null;
+        }
+    }
+
+    private String text(JsonNode root, String field) {
+        JsonNode node = root.get(field);
+        if (node == null || !node.isTextual() || node.asText().isBlank()) return null;
+        return node.asText().trim();
+    }
+
+    private String normalizeCode(String value) {
+        return value.trim().toUpperCase(Locale.ROOT).replace(' ', '_').replace('-', '_');
+    }
+
+    private ParsedGoalSurvey defaultSurvey() {
+        return new ParsedGoalSurvey(
+                LearningGoal.GENERAL,
+                List.of(TopicCategory.DAILY_CONVERSATION),
+                List.of());
+    }
+
+    public record ParsedGoalSurvey(
+            LearningGoal learningGoal,
+            List<TopicCategory> categories,
+            List<LearnerSkill> focusSkills) {
     }
 }

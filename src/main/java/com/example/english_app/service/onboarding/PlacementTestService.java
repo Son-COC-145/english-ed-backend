@@ -63,6 +63,7 @@ public class PlacementTestService {
         // Trước đây throw exception → FE hiển thị lỗi "đã hoàn thành" gây nhầm lẫn khi
         // mở lại app sau khi CAT kết thúc sớm (early-stop) mà user chưa kịp thấy kết quả.
         var existingOnboarding = onboardingRepository.findByStudentId(userId);
+        requireGoalSurvey(existingOnboarding.orElse(null));
         if (existingOnboarding.isPresent() && existingOnboarding.get().getPlacementCefrLevel() != null) {
             PlacementResultResponse result = getResult(userId);
             return PlacementQuestionResponse.builder()
@@ -111,18 +112,19 @@ public class PlacementTestService {
         com.example.english_app.entity.user.User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
 
+        StudentOnboarding onboarding = onboardingRepository.findByStudentId(userId)
+                .orElseGet(() -> StudentOnboarding.builder().student(user).build());
+        requireGoalSurvey(onboarding);
+
+        if (onboarding.getPlacementCefrLevel() != null) {
+            throw ErrorCode.PLACEMENT_TEST_ALREADY_COMPLETED.toException();
+        }
+
         sessionRepository.findActiveByStudentIdForUpdate(userId)
                 .ifPresent(s -> {
                     s.setIsCompleted(true);
                     s.setCurrentQuestionId(null);
                 });
-
-        StudentOnboarding onboarding = onboardingRepository.findByStudentId(userId)
-                .orElseGet(() -> StudentOnboarding.builder().student(user).build());
-
-        if (onboarding.getPlacementCefrLevel() != null) {
-            throw ErrorCode.PLACEMENT_TEST_ALREADY_COMPLETED.toException();
-        }
 
         // Đóng session đang dở (nếu có)
         short baselineScore = 20;
@@ -387,6 +389,12 @@ public class PlacementTestService {
             throw ErrorCode.PLACEMENT_TEST_INCOMPLETE.toException();
         }
 
+        // Defense in depth for sessions created by an older application version or callers that
+        // bypassed /start. Never publish a placement result/roadmap without its goal snapshot.
+        StudentOnboarding onboarding = onboardingRepository.findByStudentId(userId)
+                .orElseThrow(() -> ErrorCode.GOAL_SURVEY_REQUIRED.toException());
+        requireGoalSurvey(onboarding);
+
         session.setIsCompleted(true);
         session.setCurrentQuestionId(null);
         sessionRepository.save(session);
@@ -399,12 +407,6 @@ public class PlacementTestService {
 
         // Overall CEFR = median của 5 skill estimates
         CefrLevel finalLevel = resultFactory.calculateFinalCefrMedian(skillCefrs);
-
-        // Lưu kết quả vào StudentOnboarding
-        StudentOnboarding onboarding = onboardingRepository.findByStudentId(userId)
-                .orElseGet(() -> StudentOnboarding.builder()
-                        .student(session.getStudent())
-                        .build());
 
         onboarding.setPlacementCefrLevel(finalLevel);
         onboarding.setIsPlacementSkipped(false);
@@ -682,7 +684,6 @@ public class PlacementTestService {
                 session.getId(), session.getCurrentQuestionIndex(), next);
         response.setSubmittedQuestionId(answer.getQuestion().getId());
         response.setPreviousAnswerCorrect(answer.getIsCorrect());
-        response.setPreviousCorrectAnswer(answer.getQuestion().getCorrectAnswer());
         return response;
     }
 
@@ -882,6 +883,7 @@ public class PlacementTestService {
                 .orElseThrow(() -> ErrorCode.USER_NOT_FOUND.toException());
 
         Optional<StudentOnboarding> currentOnboarding = onboardingRepository.findByStudentId(userId);
+        requireGoalSurvey(currentOnboarding.orElse(null));
         if (currentOnboarding.isPresent() && currentOnboarding.get().getPlacementCefrLevel() != null) {
             return PlacementQuestionResponse.builder()
                     .sessionStatus("COMPLETED")
@@ -906,5 +908,13 @@ public class PlacementTestService {
 
         session = sessionRepository.save(session);
         return getNextQuestion(session.getId(), userId);
+    }
+
+    private void requireGoalSurvey(StudentOnboarding onboarding) {
+        if (onboarding == null
+                || onboarding.getGoalSurveyJson() == null
+                || onboarding.getGoalSurveyJson().isBlank()) {
+            throw ErrorCode.GOAL_SURVEY_REQUIRED.toException();
+        }
     }
 }
