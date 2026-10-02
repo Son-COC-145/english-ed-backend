@@ -17,6 +17,15 @@ public interface SpeakingScenarioRepository extends JpaRepository<SpeakingScenar
     List<SpeakingScenario> findByCefrLevelAndTopicIdInAndIsActiveTrue(
             CefrLevel cefrLevel, List<Short> topicIds);
 
+    @Query("SELECT s.id FROM SpeakingScenario s " +
+           "WHERE s.cefrLevel = :cefrLevel " +
+           "AND s.topic.id = :topicId " +
+           "AND s.isActive = true " +
+           "ORDER BY s.id")
+    List<Short> findActiveIdsForRoadmap(
+            @Param("cefrLevel") CefrLevel cefrLevel,
+            @Param("topicId") Short topicId);
+
     boolean existsByTitleVi(String titleVi);
     boolean existsByTitleEn(String titleEn);
 

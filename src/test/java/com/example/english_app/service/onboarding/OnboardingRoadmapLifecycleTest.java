@@ -12,6 +12,7 @@ import com.example.english_app.repository.gamification.StudentStatRepository;
 import com.example.english_app.repository.onboarding.OnboardingRepository;
 import com.example.english_app.repository.question.PlacementTestSessionRepository;
 import com.example.english_app.repository.user.UserRepository;
+import com.example.english_app.service.adaptive.roadmap.RoadmapProgressService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,6 +36,7 @@ class OnboardingRoadmapLifecycleTest {
     @Mock private DailyGoalRepository dailyGoalRepository;
     @Mock private StudentStatRepository studentStatRepository;
     @Mock private RoadmapJobService roadmapJobService;
+    @Mock private RoadmapProgressService roadmapProgressService;
 
     private OnboardingLifecycleService service;
     private StudentOnboarding onboarding;
@@ -43,7 +45,8 @@ class OnboardingRoadmapLifecycleTest {
     void setUp() {
         service = new OnboardingLifecycleService(
                 userRepository, onboardingRepository, sessionRepository,
-                dailyGoalRepository, studentStatRepository, new ObjectMapper(), roadmapJobService);
+                dailyGoalRepository, studentStatRepository, new ObjectMapper(), roadmapJobService,
+                roadmapProgressService);
         onboarding = StudentOnboarding.builder()
                 .student(User.builder().id(1L).fullName("Learner").build())
                 .goalSurveyJson("{}")

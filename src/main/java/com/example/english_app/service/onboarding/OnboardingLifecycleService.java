@@ -6,8 +6,6 @@ import com.example.english_app.dto.response.OnboardingStatusResponse;
 import com.example.english_app.dto.response.RoadmapGenerationStatusResponse;
 import com.example.english_app.dto.response.roadmap.RoadmapProgressResponse;
 import com.example.english_app.dto.response.roadmap.RoadmapResponse;
-import com.example.english_app.dto.response.roadmap.RoadmapMilestone;
-import com.example.english_app.dto.response.roadmap.RoadmapModule;
 import com.example.english_app.entity.gamification.DailyGoal;
 import com.example.english_app.entity.gamification.StudentStat;
 import com.example.english_app.entity.onboarding.PlacementTestSession;
@@ -21,6 +19,7 @@ import com.example.english_app.repository.gamification.StudentStatRepository;
 import com.example.english_app.repository.onboarding.OnboardingRepository;
 import com.example.english_app.repository.question.PlacementTestSessionRepository;
 import com.example.english_app.repository.user.UserRepository;
+import com.example.english_app.service.adaptive.roadmap.RoadmapProgressService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -63,6 +62,7 @@ public class OnboardingLifecycleService {
     private final StudentStatRepository       studentStatRepository;
     private final ObjectMapper                objectMapper;
     private final RoadmapJobService           roadmapJobService;
+    private final RoadmapProgressService      roadmapProgressService;
 
     // ─── Step constants (dùng chung với frontend) ────────────────────────────
     // Flow: GOAL_SURVEY(1) → PLACEMENT_TEST(2) → ROADMAP_VIEW(3) → SETTINGS(4) → COMPLETED(5)
@@ -246,7 +246,7 @@ public class OnboardingLifecycleService {
      * Lộ trình được tạo bởi RoadmapGenerationService (trong PlacementTestService).
      * Đây chỉ là đọc — không sinh lại.
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public RoadmapResponse getRoadmap(Long userId) {
         StudentOnboarding ob = onboardingRepository.findByStudentId(userId)
                 .orElseThrow(() -> ErrorCode.SYSTEM_ERROR.toException());
@@ -262,9 +262,9 @@ public class OnboardingLifecycleService {
         }
 
         try {
-            return objectMapper.readValue(ob.getRoadmapJson(), RoadmapResponse.class);
-        } catch (Exception e) {
-            log.error("Failed to parse roadmap_json for user {}", userId, e);
+            return roadmapProgressService.recalculateAll(ob).roadmap();
+        } catch (IllegalStateException e) {
+            log.error("Failed to resolve roadmap for user {}", userId, e);
             throw ErrorCode.SYSTEM_ERROR.toException();
         }
     }
@@ -291,7 +291,7 @@ public class OnboardingLifecycleService {
     /**
      * Lấy tiến độ học tập trên lộ trình (Roadmap Progress).
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public RoadmapProgressResponse getRoadmapProgress(Long userId) {
         StudentOnboarding ob = onboardingRepository.findByStudentId(userId)
                 .orElseThrow(() -> ErrorCode.SYSTEM_ERROR.toException());
@@ -301,41 +301,8 @@ public class OnboardingLifecycleService {
         }
 
         try {
-            com.example.english_app.dto.response.roadmap.RoadmapResponse roadmap = 
-                    objectMapper.readValue(ob.getRoadmapJson(), com.example.english_app.dto.response.roadmap.RoadmapResponse.class);
-
-            List<RoadmapMilestone> milestones = roadmap.getMilestones() != null ? roadmap.getMilestones() : Collections.emptyList();
-            int totalWeeks = milestones.size();
-            int totalModules = 0;
-            String nextModule = null;
-
-            for (RoadmapMilestone milestone : milestones) {
-                if (milestone.getModules() != null) {
-                    totalModules += milestone.getModules().size();
-                    if (nextModule == null && !milestone.getModules().isEmpty()) {
-                        nextModule = milestone.getModules().get(0).getTitle();
-                    }
-                }
-            }
-
-            int completedModules = 0;
-            int completedWeeks = 0;
-            int currentWeek = totalWeeks > 0 ? 1 : 0;
-            double percent = totalModules > 0 ? ((double) completedModules / totalModules) * 100.0 : 0.0;
-
-            return RoadmapProgressResponse.builder()
-                    .cefrLevel(roadmap.getCefrLevel())
-                    .totalWeeks(totalWeeks)
-                    .completedWeeks(completedWeeks)
-                    .currentWeek(currentWeek)
-                    .totalModules(totalModules)
-                    .completedModules(completedModules)
-                    .percentCompleted(Math.round(percent * 10.0) / 10.0)
-                    .nextSuggestedModule(nextModule)
-                    .milestones(milestones)
-                    .build();
-
-        } catch (Exception e) {
+            return roadmapProgressService.recalculateAll(ob).progress();
+        } catch (IllegalStateException e) {
             log.error("Failed to calculate roadmap progress for user {}", userId, e);
             throw ErrorCode.SYSTEM_ERROR.toException();
         }

@@ -15,6 +15,7 @@ import java.util.List;
 public class RoadmapProgressResponse implements Serializable {
     private static final long serialVersionUID = 1L;
 
+    private int roadmapVersion;
     private String cefrLevel;
     private int totalWeeks;
     private int completedWeeks;
