@@ -4,6 +4,8 @@ import com.example.english_app.dto.response.roadmap.RoadmapMilestone;
 import com.example.english_app.dto.response.roadmap.RoadmapModule;
 import com.example.english_app.dto.response.roadmap.RoadmapResponse;
 import com.example.english_app.entity.enums.CefrLevel;
+import com.example.english_app.entity.enums.LearnerSkill;
+import com.example.english_app.entity.enums.LearningGoal;
 import com.example.english_app.entity.enums.TopicCategory;
 import com.example.english_app.entity.vocabulary.Topic;
 import com.example.english_app.repository.vocabulary.TopicRepository;
@@ -34,15 +36,18 @@ public class RoadmapGenerationService {
     /** Builds a roadmap without updating onboarding state; the durable worker owns persistence. */
     @Transactional(readOnly = true)
     public RoadmapResponse generateRoadmap(CefrLevel level, String goalSurveyJson) {
-        List<TopicCategory> categories = goalSurveyParser.extractCategories(goalSurveyJson);
-        List<String> focusSkills = goalSurveyParser.extractFocusSkills(goalSurveyJson);
-        return buildRoadmap(level, categories, focusSkills);
+        GoalSurveyParser.ParsedGoalSurvey survey = goalSurveyParser.parse(goalSurveyJson);
+        return buildRoadmap(level, survey.categories(), survey.learningGoal(), survey.focusSkills());
     }
 
     /**
      * Logic thuần tuý để lắp ráp lộ trình.
      */
-    private RoadmapResponse buildRoadmap(CefrLevel level, List<TopicCategory> categories, List<String> focusSkills) {
+    private RoadmapResponse buildRoadmap(
+            CefrLevel level,
+            List<TopicCategory> categories,
+            LearningGoal learningGoal,
+            List<LearnerSkill> focusSkills) {
         
         List<String> categoryNames = categories.stream().map(Enum::name).collect(Collectors.toList());
         
@@ -50,9 +55,11 @@ public class RoadmapGenerationService {
         List<Topic> topics = selectTopics(level, categoryNames);
         
         // 2. Lấy Speaking Scenarios (tuỳ vào focusSkills)
-        boolean hasSpeaking = focusSkills != null && focusSkills.stream().anyMatch(s -> s.equalsIgnoreCase("Giao tiếp"));
+        boolean hasSpeaking = learningGoal == LearningGoal.COMMUNICATION
+                || focusSkills.contains(LearnerSkill.SPEAKING);
         
-        List<RoadmapMilestone> milestones = assembleMilestones(level, topics, hasSpeaking, focusSkills);
+        List<RoadmapMilestone> milestones = assembleMilestones(
+                level, topics, hasSpeaking, learningGoal, focusSkills);
 
         return RoadmapResponse.builder()
                 .cefrLevel(level.name())
@@ -75,7 +82,12 @@ public class RoadmapGenerationService {
         return primaryTopics;
     }
 
-    private List<RoadmapMilestone> assembleMilestones(CefrLevel level, List<Topic> topics, boolean includeSpeaking, List<String> focusSkills) {
+    private List<RoadmapMilestone> assembleMilestones(
+            CefrLevel level,
+            List<Topic> topics,
+            boolean includeSpeaking,
+            LearningGoal learningGoal,
+            List<LearnerSkill> focusSkills) {
         List<RoadmapMilestone> milestones = new ArrayList<>();
 
         int week = 1;
@@ -98,7 +110,7 @@ public class RoadmapGenerationService {
             }
         }
 
-        boolean includePronunciation = shouldIncludePronunciation(level, focusSkills);
+        boolean includePronunciation = shouldIncludePronunciation(level, learningGoal, focusSkills);
         if (includePronunciation && milestones.isEmpty() && !topics.isEmpty()) {
             Topic topic = topics.getFirst();
             milestones.add(RoadmapMilestone.builder()
@@ -117,11 +129,15 @@ public class RoadmapGenerationService {
         return milestones;
     }
 
-    private boolean shouldIncludePronunciation(CefrLevel level, List<String> focusSkills) {
+    private boolean shouldIncludePronunciation(
+            CefrLevel level,
+            LearningGoal learningGoal,
+            List<LearnerSkill> focusSkills) {
         return level == CefrLevel.A1
                 || level == CefrLevel.A2
-                || (focusSkills != null && focusSkills.stream().anyMatch(skill ->
-                        skill.equalsIgnoreCase("Phát âm") || skill.equalsIgnoreCase("Giao tiếp")));
+                || learningGoal == LearningGoal.COMMUNICATION
+                || focusSkills.contains(LearnerSkill.PRONUNCIATION)
+                || focusSkills.contains(LearnerSkill.SPEAKING);
     }
 
     private void distributeIpaModules(

@@ -115,6 +115,8 @@ Bước 1, 2 và 5a độc lập, làm song song được. Nên làm **5a sớm*
 
 ### Bước 5a – Goal survey có cấu trúc (Thiết kế 6.5)
 
+**Trạng thái:** Đã triển khai contract enum, validation, parser tương thích legacy và tích hợp sinh roadmap.
+
 1. Enum `LearningGoal`, `LearnerSkill`; đổi `GoalSurveyRequest` (`learningGoal`, `otherGoalText`, `focusSkills`, `dailyStudyMinutes`) + Bean Validation.
 2. `GoalSurveyParser`: đọc dạng mới; dạng cũ quy đổi chuỗi → mã ở một chỗ duy nhất.
 3. `RoadmapGenerationService`: dùng mã thay cho so chuỗi "Giao tiếp" / "Phát âm".
@@ -189,7 +191,7 @@ Mỗi PR: có test, chạy `mvn test` xanh, cập nhật tài liệu Thiết k�
 - [ ] Năng lực Vocabulary / Pronunciation / Speaking đổi sau hoạt động tương ứng.
 - [ ] Thời gian học hôm nay đúng giờ Việt Nam, tách đo thật / ước tính.
 - [ ] Today Plan có `estimatedMinutes ≤ budgetMinutes` (chỉ vượt khi có bài tập P0/P1), P0 trước P1, có `reasonCode`, `rulesVersion`, thay đổi sau khi học.
-- [ ] Goal survey nhận mã cố định; roadmap sinh module phát âm chia nhỏ (≤ 12 âm/module).
+- [x] Goal survey nhận mã cố định; roadmap sinh module phát âm chia nhỏ (≤ 12 âm/module).
 - [ ] Learner Profile đúng mẫu.
 - [ ] `mvn test` xanh; test tích hợp Postgres chạy được khi bật biến môi trường.
 - [ ] Swagger và tài liệu Thiết kế khớp với code.

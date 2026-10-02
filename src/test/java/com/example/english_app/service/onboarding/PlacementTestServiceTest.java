@@ -167,6 +167,7 @@ class PlacementTestServiceTest {
 
         assertThat(response.getQuestionId()).isEqualTo(20L);
         assertThat(response.getSubmittedQuestionId()).isEqualTo(10L);
+        assertThat(response.getPreviousCorrectAnswer()).isNull();
         assertThat(session.getCurrentQuestionIndex()).isEqualTo(1);
         verify(answerRepository, never()).save(any());
         verify(questionRepository, never()).findBestAvailableForPlacement(anyLong(), anyString(), anyInt());
@@ -244,7 +245,8 @@ class PlacementTestServiceTest {
 
     @Test
     void startTest_failsBeforeCreatingSessionWhenAnySkillCannotSupplyFourQuestions() {
-        when(onboardingRepository.findByStudentId(1L)).thenReturn(Optional.empty());
+        when(onboardingRepository.findByStudentId(1L)).thenReturn(Optional.of(
+                StudentOnboarding.builder().student(session.getStudent()).goalSurveyJson("{}").build()));
         when(sessionRepository.findTopByStudentIdAndIsCompletedFalseOrderByStartedAtDesc(1L))
                 .thenReturn(Optional.empty());
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(session.getStudent()));
@@ -262,6 +264,51 @@ class PlacementTestServiceTest {
                         .isEqualTo(ErrorCode.PLACEMENT_QUESTION_EXHAUSTED));
 
         verify(sessionRepository, never()).save(any());
+    }
+
+    @Test
+    void startTest_requiresGoalSurveyBeforeReadingOrCreatingSession() {
+        when(onboardingRepository.findByStudentId(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.startTest(1L))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.GOAL_SURVEY_REQUIRED));
+
+        verifyNoInteractions(sessionRepository);
+        verifyNoInteractions(questionRepository);
+    }
+
+    @Test
+    void skipTest_requiresGoalSurveyWithoutClosingActiveSession() {
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(session.getStudent()));
+        when(onboardingRepository.findByStudentId(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.skipTest(1L))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.GOAL_SURVEY_REQUIRED));
+
+        verify(sessionRepository, never()).findActiveByStudentIdForUpdate(anyLong());
+        verify(roadmapJobService, never()).enqueue(anyLong(), anyInt(), any(), any());
+    }
+
+    @Test
+    void completingLegacySessionWithoutGoalSurveyIsRejectedWithoutPublishingResult() {
+        session.setCurrentQuestionIndex(20);
+        when(sessionRepository.findByIdWithStudentForUpdate(100L)).thenReturn(Optional.of(session));
+        when(answerRepository.findBySessionIdOrderByAnsweredAtAsc(100L))
+                .thenReturn(Collections.nCopies(20, PlacementTestAnswer.builder().build()));
+        when(onboardingRepository.findByStudentId(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.completeTest(100L, 1L))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.GOAL_SURVEY_REQUIRED));
+
+        assertThat(session.getIsCompleted()).isFalse();
+        verify(resultFactory, never()).calculateAllSkills(anyList());
+        verify(roadmapJobService, never()).enqueue(anyLong(), anyInt(), any(), any());
     }
 
     @Test

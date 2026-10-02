@@ -3,6 +3,8 @@ package com.example.english_app.service.onboarding;
 import com.example.english_app.dto.response.roadmap.RoadmapResponse;
 import com.example.english_app.dto.response.roadmap.RoadmapModule;
 import com.example.english_app.entity.enums.CefrLevel;
+import com.example.english_app.entity.enums.LearnerSkill;
+import com.example.english_app.entity.enums.LearningGoal;
 import com.example.english_app.entity.enums.TopicCategory;
 import com.example.english_app.entity.vocabulary.Topic;
 import com.example.english_app.repository.vocabulary.TopicRepository;
@@ -50,8 +52,10 @@ class RoadmapGenerationServiceTest {
         String goalJson = "{}";
         CefrLevel level = CefrLevel.B1;
         
-        when(goalSurveyParser.extractCategories(goalJson)).thenReturn(List.of(TopicCategory.WORK));
-        when(goalSurveyParser.extractFocusSkills(goalJson)).thenReturn(List.of("Giao tiếp"));
+        when(goalSurveyParser.parse(goalJson)).thenReturn(survey(
+                LearningGoal.COMMUNICATION,
+                List.of(TopicCategory.WORK),
+                List.of(LearnerSkill.SPEAKING)));
         
         when(topicRepository.findForRoadmap(eq(level), any(), any())).thenReturn(List.of(mockTopic));
         
@@ -97,8 +101,10 @@ class RoadmapGenerationServiceTest {
         String goalJson = "{}";
         CefrLevel level = CefrLevel.B1;
         
-        when(goalSurveyParser.extractCategories(goalJson)).thenReturn(List.of(TopicCategory.WORK));
-        when(goalSurveyParser.extractFocusSkills(goalJson)).thenReturn(List.of());
+        when(goalSurveyParser.parse(goalJson)).thenReturn(survey(
+                LearningGoal.WORK,
+                List.of(TopicCategory.WORK),
+                List.of()));
         
         // Return empty for first query, return mockTopic for fallback query
         when(topicRepository.findForRoadmap(eq(level), eq(List.of("WORK")), any())).thenReturn(List.of());
@@ -119,10 +125,11 @@ class RoadmapGenerationServiceTest {
         secondTopic.setId((short) 2);
         secondTopic.setNameVi("Du lịch");
         secondTopic.setCefrLevel(CefrLevel.A1);
-        when(goalSurveyParser.extractCategories("{}"))
-                .thenReturn(List.of(TopicCategory.WORK));
-        when(goalSurveyParser.extractFocusSkills("{}"))
-                .thenReturn(List.of("Phát âm"));
+        when(goalSurveyParser.parse("{}"))
+                .thenReturn(survey(
+                        LearningGoal.WORK,
+                        List.of(TopicCategory.WORK),
+                        List.of(LearnerSkill.PRONUNCIATION)));
         when(topicRepository.findForRoadmap(eq(CefrLevel.A1), any(), any()))
                 .thenReturn(List.of(mockTopic, secondTopic));
         when(contentSnapshotService.vocabularyModule(any(), eq(CefrLevel.A1)))
@@ -164,5 +171,12 @@ class RoadmapGenerationServiceTest {
                 .itemCount(1)
                 .build();
         return new RoadmapContentSnapshotService.IpaModuleGroup(key, List.of(module));
+    }
+
+    private GoalSurveyParser.ParsedGoalSurvey survey(
+            LearningGoal goal,
+            List<TopicCategory> categories,
+            List<LearnerSkill> focusSkills) {
+        return new GoalSurveyParser.ParsedGoalSurvey(goal, categories, focusSkills);
     }
 }

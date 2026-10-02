@@ -1,6 +1,8 @@
 package com.example.english_app.service.onboarding;
 
 import com.example.english_app.dto.response.roadmap.RoadmapResponse;
+import com.example.english_app.dto.response.roadmap.RoadmapMilestone;
+import com.example.english_app.dto.response.roadmap.RoadmapModule;
 import com.example.english_app.entity.enums.CefrLevel;
 import com.example.english_app.entity.enums.RoadmapGenerationStatus;
 import com.example.english_app.entity.onboarding.RoadmapGenerationJob;
@@ -21,7 +23,9 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -89,7 +93,7 @@ class RoadmapJobServiceTest {
                 eq(null), eq(1), any(LocalDateTime.class))).thenReturn(1);
         when(onboardingRepository.findByStudentId(7L)).thenReturn(Optional.of(onboarding));
 
-        service.markReady(job, RoadmapResponse.builder().cefrLevel("B1").build());
+        service.markReady(job, validRoadmap());
 
         assertThat(onboarding.getRoadmapStatus()).isEqualTo(RoadmapGenerationStatus.READY);
         assertThat(onboarding.getRoadmapJson()).contains("\"cefrLevel\":\"B1\"");
@@ -104,7 +108,7 @@ class RoadmapJobServiceTest {
                 eq(11L), eq("stale"), eq(RoadmapGenerationStatus.READY),
                 eq(null), eq(1), any(LocalDateTime.class))).thenReturn(0);
 
-        service.markReady(job, RoadmapResponse.builder().cefrLevel("B1").build());
+        service.markReady(job, validRoadmap());
 
         verify(onboardingRepository, never()).findByStudentId(any());
     }
@@ -122,6 +126,51 @@ class RoadmapJobServiceTest {
 
         verify(onboardingRepository, never()).findByStudentId(any());
         verify(publisher, never()).publishEvent(any(ApplicationEvent.class));
+    }
+
+    @Test
+    void emptyRoadmapCannotTransitionJobOrOnboardingToReady() {
+        RoadmapGenerationJob job = job(1);
+        job.setClaimToken("claim");
+        job.setAttemptCount(1);
+        RoadmapResponse empty = RoadmapResponse.builder()
+                .cefrLevel("B1")
+                .totalWeeks(0)
+                .milestones(List.of())
+                .build();
+
+        assertThatThrownBy(() -> service.markReady(job, empty))
+                .isInstanceOf(RoadmapContentUnavailableException.class)
+                .hasMessageContaining("no milestones");
+
+        verify(jobRepository, never()).completeClaim(
+                any(), any(), any(), any(), anyInt(), any(LocalDateTime.class));
+        verify(onboardingRepository, never()).findByStudentId(any());
+    }
+
+    @Test
+    void moduleWithoutContentSnapshotCannotTransitionToReady() {
+        RoadmapGenerationJob job = job(1);
+        RoadmapResponse invalid = RoadmapResponse.builder()
+                .cefrLevel("B1")
+                .totalWeeks(1)
+                .milestones(List.of(RoadmapMilestone.builder()
+                        .weekNumber(1)
+                        .modules(List.of(RoadmapModule.builder()
+                                .moduleKey("VOCABULARY:1")
+                                .contentVersion("v1")
+                                .contentItemIds(List.of())
+                                .itemCount(0)
+                                .build()))
+                        .build()))
+                .build();
+
+        assertThatThrownBy(() -> service.markReady(job, invalid))
+                .isInstanceOf(RoadmapContentUnavailableException.class)
+                .hasMessageContaining("valid content snapshot");
+
+        verify(jobRepository, never()).completeClaim(
+                any(), any(), any(), any(), anyInt(), any(LocalDateTime.class));
     }
 
     @Test
@@ -204,7 +253,7 @@ class RoadmapJobServiceTest {
                 eq(null), eq(1), any(LocalDateTime.class))).thenReturn(1);
         when(onboardingRepository.findByStudentId(7L)).thenReturn(Optional.of(resetOnboarding));
 
-        service.markReady(job, RoadmapResponse.builder().cefrLevel("B1").build());
+        service.markReady(job, validRoadmap());
 
         assertThat(resetOnboarding.getRoadmapStatus()).isNull();
         assertThat(resetOnboarding.getRoadmapJson()).isNull();
@@ -219,6 +268,23 @@ class RoadmapJobServiceTest {
                 .status(RoadmapGenerationStatus.PENDING)
                 .attemptCount(0)
                 .availableAt(LocalDateTime.now())
+                .build();
+    }
+
+    private RoadmapResponse validRoadmap() {
+        return RoadmapResponse.builder()
+                .cefrLevel("B1")
+                .totalWeeks(1)
+                .milestones(List.of(RoadmapMilestone.builder()
+                        .weekNumber(1)
+                        .modules(List.of(RoadmapModule.builder()
+                                .type("VOCABULARY")
+                                .moduleKey("VOCABULARY:1")
+                                .contentItemIds(List.of(10L))
+                                .contentVersion("snapshot-v1")
+                                .itemCount(1)
+                                .build()))
+                        .build()))
                 .build();
     }
 }

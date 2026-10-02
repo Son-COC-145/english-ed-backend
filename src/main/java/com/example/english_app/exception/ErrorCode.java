@@ -54,6 +54,8 @@ public enum ErrorCode {
 
     IDEMPOTENCY_KEY_REUSED(5020, "Submission ID đã được dùng cho dữ liệu khác", HttpStatus.CONFLICT),
     SUBMISSION_IN_PROGRESS(5021, "Đáp án này đang được xử lý, vui lòng retry cùng submissionId", HttpStatus.CONFLICT),
+    GOAL_SURVEY_REQUIRED(5022, "Vui lòng hoàn thành khảo sát mục tiêu trước khi làm bài kiểm tra phân loại", HttpStatus.CONFLICT),
+    GOAL_SURVEY_LOCKED(5023, "Không thể thay đổi khảo sát mục tiêu sau khi đã bắt đầu bài kiểm tra phân loại", HttpStatus.CONFLICT),
 
     // AI Quota
     QUOTA_EXCEEDED(6001, "Bạn đã hết lượt sử dụng AI hôm nay. Vui lòng nâng cấp gói Premium!", HttpStatus.FORBIDDEN),
