@@ -94,6 +94,7 @@ onboarding:
   placement:
     max-questions: 20
   roadmap:
+    # Low-frequency crash recovery only. New and retryable jobs wake the worker via after-commit events.
     poll-ms: ${ONBOARDING_ROADMAP_POLL_MS:1800000}
     max-jobs-per-poll: ${ONBOARDING_ROADMAP_MAX_JOBS_PER_POLL:10}
 

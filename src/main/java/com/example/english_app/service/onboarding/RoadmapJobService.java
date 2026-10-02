@@ -36,21 +36,22 @@ public class RoadmapJobService {
             CefrLevel level,
             String goalSurveyJson) {
         if (jobRepository.existsByStudentIdAndGenerationVersion(userId, generationVersion)) return;
+        LocalDateTime availableAt = LocalDateTime.now();
         jobRepository.save(RoadmapGenerationJob.builder()
                 .studentId(userId)
                 .generationVersion(generationVersion)
                 .cefrLevel(level)
                 .goalSurveyJson(goalSurveyJson)
                 .status(RoadmapGenerationStatus.PENDING)
-                .availableAt(LocalDateTime.now())
+                .availableAt(availableAt)
                 .build());
-        publisher.publishEvent(new RoadmapJobCreatedEvent(this));
+        publisher.publishEvent(new RoadmapJobWakeupEvent(this, availableAt));
     }
 
     @Transactional
     public List<RoadmapGenerationJob> claimBatch(int limit) {
-        List<RoadmapGenerationJob> jobs = jobRepository.lockDispatchable(limit);
         LocalDateTime now = LocalDateTime.now();
+        List<RoadmapGenerationJob> jobs = jobRepository.lockDispatchable(limit, now);
         for (RoadmapGenerationJob job : jobs) {
             int attempt = job.getAttemptCount() + 1;
             job.setStatus(RoadmapGenerationStatus.PROCESSING);
@@ -101,10 +102,11 @@ public class RoadmapJobService {
         RoadmapGenerationStatus next = terminal
                 ? RoadmapGenerationStatus.FAILED
                 : RoadmapGenerationStatus.PENDING;
+        LocalDateTime availableAt = LocalDateTime.now().plusSeconds(delaySeconds);
 
         int completed = jobRepository.completeClaim(
                 job.getId(), job.getClaimToken(), next, error, attempts,
-                LocalDateTime.now().plusSeconds(delaySeconds));
+                availableAt);
         if (completed != 1) return;
 
         onboardingRepository.findByStudentId(job.getStudentId()).ifPresent(onboarding -> {
@@ -115,6 +117,9 @@ public class RoadmapJobService {
                 onboarding.setRoadmapUpdatedAt(LocalDateTime.now());
             }
         });
+        if (!terminal) {
+            publisher.publishEvent(new RoadmapJobWakeupEvent(this, availableAt));
+        }
     }
 
     @Transactional
@@ -146,5 +151,6 @@ public class RoadmapJobService {
         onboarding.setRoadmapGenerationAttempts(0);
         onboarding.setRoadmapLastError(null);
         onboarding.setRoadmapUpdatedAt(LocalDateTime.now());
+        publisher.publishEvent(new RoadmapJobWakeupEvent(this, job.getAvailableAt()));
     }
 }
