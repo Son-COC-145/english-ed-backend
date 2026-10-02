@@ -12,7 +12,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEvent;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -43,7 +45,7 @@ class RoadmapJobServiceTest {
         RoadmapGenerationJob job = job(1);
         StudentOnboarding onboarding = StudentOnboarding.builder()
                 .roadmapGenerationVersion(1).build();
-        when(jobRepository.lockDispatchable(1)).thenReturn(List.of(job));
+        when(jobRepository.lockDispatchable(eq(1), any(LocalDateTime.class))).thenReturn(List.of(job));
         when(onboardingRepository.findByStudentId(7L)).thenReturn(Optional.of(onboarding));
 
         List<RoadmapGenerationJob> claimed = service.claimBatch(1);
@@ -51,8 +53,28 @@ class RoadmapJobServiceTest {
         assertThat(claimed).containsExactly(job);
         assertThat(job.getAttemptCount()).isEqualTo(1);
         assertThat(job.getClaimToken()).isNotBlank();
+        assertThat(job.getLockedAt()).isNotNull();
         assertThat(onboarding.getRoadmapStatus()).isEqualTo(RoadmapGenerationStatus.PROCESSING);
         assertThat(onboarding.getRoadmapGenerationAttempts()).isEqualTo(1);
+
+        ArgumentCaptor<LocalDateTime> nowCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(jobRepository).lockDispatchable(eq(1), nowCaptor.capture());
+        assertThat(job.getLockedAt()).isEqualTo(nowCaptor.getValue());
+    }
+
+    @Test
+    void enqueuePublishesImmediateWakeupUsingPersistedAvailability() {
+        when(jobRepository.existsByStudentIdAndGenerationVersion(7L, 1)).thenReturn(false);
+
+        service.enqueue(7L, 1, CefrLevel.B1, "{}");
+
+        ArgumentCaptor<RoadmapGenerationJob> jobCaptor = ArgumentCaptor.forClass(RoadmapGenerationJob.class);
+        ArgumentCaptor<ApplicationEvent> eventCaptor = ArgumentCaptor.forClass(ApplicationEvent.class);
+        verify(jobRepository).save(jobCaptor.capture());
+        verify(publisher).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue()).isInstanceOf(RoadmapJobWakeupEvent.class);
+        RoadmapJobWakeupEvent event = (RoadmapJobWakeupEvent) eventCaptor.getValue();
+        assertThat(event.getAvailableAt()).isEqualTo(jobCaptor.getValue().getAvailableAt());
     }
 
     @Test
@@ -99,6 +121,74 @@ class RoadmapJobServiceTest {
         service.markFailure(job, new IllegalStateException("generation failed"));
 
         verify(onboardingRepository, never()).findByStudentId(any());
+        verify(publisher, never()).publishEvent(any(ApplicationEvent.class));
+    }
+
+    @Test
+    void retryableFailurePublishesDelayedWakeupAfterSuccessfulClaimCompletion() {
+        RoadmapGenerationJob job = job(1);
+        job.setClaimToken("claim");
+        job.setAttemptCount(1);
+        when(jobRepository.completeClaim(
+                eq(11L), eq("claim"), eq(RoadmapGenerationStatus.PENDING),
+                eq("IllegalStateException"), eq(1), any(LocalDateTime.class))).thenReturn(1);
+
+        service.markFailure(job, new IllegalStateException("generation failed"));
+
+        ArgumentCaptor<LocalDateTime> availableAtCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(jobRepository).completeClaim(
+                eq(11L), eq("claim"), eq(RoadmapGenerationStatus.PENDING),
+                eq("IllegalStateException"), eq(1), availableAtCaptor.capture());
+        ArgumentCaptor<ApplicationEvent> eventCaptor = ArgumentCaptor.forClass(ApplicationEvent.class);
+        verify(publisher).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue()).isInstanceOf(RoadmapJobWakeupEvent.class);
+        assertThat(((RoadmapJobWakeupEvent) eventCaptor.getValue()).getAvailableAt())
+                .isEqualTo(availableAtCaptor.getValue());
+    }
+
+    @Test
+    void terminalFailureDoesNotScheduleAnotherWakeup() {
+        RoadmapGenerationJob job = job(1);
+        job.setClaimToken("claim");
+        job.setAttemptCount(5);
+        when(jobRepository.completeClaim(
+                eq(11L), eq("claim"), eq(RoadmapGenerationStatus.FAILED),
+                eq("IllegalStateException"), eq(5), any(LocalDateTime.class))).thenReturn(1);
+
+        service.markFailure(job, new IllegalStateException("generation failed"));
+
+        verify(publisher, never()).publishEvent(any(ApplicationEvent.class));
+    }
+
+    @Test
+    void manualRetryResetsFailedJobAndPublishesImmediateWakeup() {
+        RoadmapGenerationJob job = job(1);
+        job.setStatus(RoadmapGenerationStatus.FAILED);
+        job.setAttemptCount(5);
+        job.setLastError("IllegalStateException");
+        StudentOnboarding onboarding = StudentOnboarding.builder()
+                .placementCefrLevel(CefrLevel.B1)
+                .roadmapGenerationVersion(1)
+                .roadmapStatus(RoadmapGenerationStatus.FAILED)
+                .roadmapGenerationAttempts(5)
+                .roadmapLastError("IllegalStateException")
+                .build();
+        when(onboardingRepository.findByStudentId(7L)).thenReturn(Optional.of(onboarding));
+        when(jobRepository.findTopByStudentIdOrderByGenerationVersionDesc(7L)).thenReturn(Optional.of(job));
+
+        service.retry(7L);
+
+        assertThat(job.getStatus()).isEqualTo(RoadmapGenerationStatus.PENDING);
+        assertThat(job.getAttemptCount()).isZero();
+        assertThat(job.getLastError()).isNull();
+        assertThat(onboarding.getRoadmapStatus()).isEqualTo(RoadmapGenerationStatus.PENDING);
+        assertThat(onboarding.getRoadmapGenerationAttempts()).isZero();
+
+        ArgumentCaptor<ApplicationEvent> eventCaptor = ArgumentCaptor.forClass(ApplicationEvent.class);
+        verify(publisher).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue()).isInstanceOf(RoadmapJobWakeupEvent.class);
+        assertThat(((RoadmapJobWakeupEvent) eventCaptor.getValue()).getAvailableAt())
+                .isEqualTo(job.getAvailableAt());
     }
 
     @Test

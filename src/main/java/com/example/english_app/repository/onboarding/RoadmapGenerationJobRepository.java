@@ -19,13 +19,13 @@ public interface RoadmapGenerationJobRepository extends JpaRepository<RoadmapGen
 
     @Query(value = """
             SELECT * FROM roadmap_generation_jobs
-            WHERE (status = 'PENDING' AND available_at <= CURRENT_TIMESTAMP)
-               OR (status = 'PROCESSING' AND locked_at < CURRENT_TIMESTAMP - INTERVAL '5 minutes')
+            WHERE (status = 'PENDING' AND available_at <= :now)
+               OR (status = 'PROCESSING' AND locked_at < :now - INTERVAL '5 minutes')
             ORDER BY id
             LIMIT :limit
             FOR UPDATE SKIP LOCKED
             """, nativeQuery = true)
-    List<RoadmapGenerationJob> lockDispatchable(@Param("limit") int limit);
+    List<RoadmapGenerationJob> lockDispatchable(@Param("limit") int limit, @Param("now") LocalDateTime now);
 
     @Modifying
     @Query("""
