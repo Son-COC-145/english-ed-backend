@@ -97,6 +97,10 @@ onboarding:
     poll-ms: ${ONBOARDING_ROADMAP_POLL_MS:1800000}
     max-jobs-per-poll: ${ONBOARDING_ROADMAP_MAX_JOBS_PER_POLL:10}
 
+adaptive:
+  roadmap:
+    ipa-max-per-module: ${ADAPTIVE_ROADMAP_IPA_MAX_PER_MODULE:12}
+
 account:
   deletion:
     # Access is disabled immediately. The durable purge starts after this grace period.

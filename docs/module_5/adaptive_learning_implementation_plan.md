@@ -31,7 +31,7 @@ Bước 1, 2 và 5a độc lập, làm song song được. Nên làm **5a sớm*
 
 **Trước khi bắt đầu:** nhóm xem lại các câu hỏi mở (Phạm vi mục 6). Câu nào chưa chốt thì dùng đề xuất mặc định trong bảng đó, không chặn tiến độ.
 
-**Migration:** số version dưới đây giả định bản mới nhất trên `main` là `V57`; khi làm, lấy số kế tiếp thực tế.
+**Migration:** số version dưới đây giả định bản mới nhất trên `main` là `V58`; khi làm, lấy số kế tiếp thực tế.
 
 ---
 
@@ -40,7 +40,7 @@ Bước 1, 2 và 5a độc lập, làm song song được. Nên làm **5a sớm*
 ### Bước 1 – Tiến độ roadmap (Thiết kế mục 2)
 
 **Việc cần làm**
-1. Migration `V58__roadmap_module_progress.sql`: bảng `roadmap_module_progress` (Thiết kế 2.3).
+1. Migration `V59__roadmap_module_progress.sql`: bảng `roadmap_module_progress` (Thiết kế 2.3).
 2. `RoadmapModule`: thêm `moduleKey`, `contentItemIds`, `contentVersion`.
 3. `RoadmapGenerationService.assembleMilestones`: điền 3 trường trên khi sinh (từ vựng: id từ của chủ đề; nói: id kịch bản đúng chủ đề + CEFR).
    Chia module phát âm theo `phoneme_type` thành `IPA_VOWELS_BASIC`, `IPA_DIPHTHONGS`, `IPA_CONSONANTS_1`, `IPA_CONSONANTS_2` (tối đa 12 âm/module), mỗi tuần 1 nhóm (Thiết kế 2.6).
@@ -55,7 +55,7 @@ Bước 1, 2 và 5a độc lập, làm song song được. Nên làm **5a sớm*
 ### Bước 2 – Hạ tầng sự kiện học tập (Thiết kế mục 3)
 
 **Việc cần làm**
-1. Migration `V59__learning_events.sql`: bảng, `UNIQUE(student_id, source, source_reference, event_type)`, các index.
+1. Migration `V60__learning_events.sql`: bảng, `UNIQUE(student_id, source, source_reference, event_type)`, các index.
 2. Entity/enum: `LearningEvent`, `LearningEventType`, `LearningEventSource`, `LearningEventStatus`, `DurationSource`.
 3. `LearningEventPublisher.publish(...)`: `INSERT … ON CONFLICT DO NOTHING`, propagation `MANDATORY`, phát `LearningEventCreated`.
 4. `LearningEventWorker`: đánh thức sau commit + `@Scheduled`; claim theo câu SQL ở Thiết kế 3.3 (tuần tự theo học viên, `FOR UPDATE SKIP LOCKED`); xử lý mỗi sự kiện một transaction; retry backoff; `DEAD`; trả job treo.
@@ -88,9 +88,9 @@ Bước 1, 2 và 5a độc lập, làm song song được. Nên làm **5a sớm*
 
 **Việc cần làm**
 1. `RoadmapProgressConsumer`: nối `RoadmapProgressService` vào sự kiện; phát `ROADMAP_MODULE_COMPLETED` / `ROADMAP_WEEK_COMPLETED` / `ROADMAP_COMPLETED`.
-2. Migration `V60__learner_model.sql`: `learner_profile`, `learner_skill_state`.
+2. Migration `V61__learner_model.sql`: `learner_profile`, `learner_skill_state`.
 3. `LearnerModelConsumer` + `ObservationMapper`: khởi tạo từ placement, quy đổi observation, EMA, confidence, trend, overall; tăng `profile_version`.
-4. Migration `V61__student_daily_activity.sql`.
+4. Migration `V62__student_daily_activity.sql`.
 5. `StudyTimeConsumer`: upsert theo ngày giờ HCM, tách đo thật / ước tính, trần 15 phút; cộng `student_stats.total_study_minutes`.
 6. `PlanCacheConsumer`: tăng `profile_version` cho sự kiện chỉ tới cache (ví dụ `ASSIGNMENT_GRADED`, `ROADMAP_GENERATED`).
 
@@ -137,13 +137,13 @@ Bước 1, 2 và 5a độc lập, làm song song được. Nên làm **5a sớm*
 
 ### Bước 8 – Snapshot theo ngày + Progress API (sau MVP, Thiết kế 7.1, 8.4)
 
-1. Migration `V62__learner_progress_snapshot.sql`.
+1. Migration `V63__learner_progress_snapshot.sql`.
 2. Job `@Scheduled` 23:55 giờ HCM ghi snapshot.
 3. `GET /learner/progress/summary`, `GET /learner/progress/history`.
 
 ### Bước 9 – Mốc + thông báo (sau MVP, Thiết kế 7.2)
 
-1. Migration `V63__learner_milestones.sql`.
+1. Migration `V64__learner_milestones.sql`.
 2. `MilestoneConsumer`: 6 loại mốc; thông báo qua `NotificationOutboxService`.
 3. `GET /learner/milestones`.
 
@@ -182,7 +182,7 @@ Mỗi PR: có test, chạy `mvn test` xanh, cập nhật tài liệu Thiết k�
 
 ## 5. Checklist nghiệm thu MVP
 
-- [ ] Migration V58–V61 chạy sạch trên DB trống và DB dev hiện có.
+- [ ] Migration V59–V62 chạy sạch trên DB trống và DB dev hiện có.
 - [ ] 7 điểm phát sự kiện hoạt động; gửi lại request không tạo sự kiện trùng.
 - [ ] Không có sự kiện nào `DEAD` khi chạy kịch bản demo.
 - [ ] Tiến độ roadmap đúng; làm lại placement có roadmap mới và tiến độ mới.

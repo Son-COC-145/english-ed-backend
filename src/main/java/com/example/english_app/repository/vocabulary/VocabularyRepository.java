@@ -18,6 +18,12 @@ public interface VocabularyRepository extends JpaRepository<Vocabulary, Long> {
     
     long countByTopicId(Short topicId);
 
+    @Query("SELECT v.id FROM Vocabulary v " +
+           "WHERE v.topic.id = :topicId " +
+           "AND v.status = com.example.english_app.entity.enums.VocabularyStatus.PUBLISHED " +
+           "ORDER BY v.id")
+    List<Long> findPublishedIdsByTopicId(@Param("topicId") Short topicId);
+
     @Query("SELECT v.topic.id, COUNT(v) FROM Vocabulary v " +
            "WHERE v.topic.id IN :topicIds " +
            "AND (:publishedOnly = false OR v.status = com.example.english_app.entity.enums.VocabularyStatus.PUBLISHED) " +

@@ -20,4 +20,12 @@ public interface SpeakingSessionRepository extends JpaRepository<SpeakingSession
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT s FROM SpeakingSession s WHERE s.id = :id")
     Optional<SpeakingSession> lockById(@Param("id") Long id);
+
+    @Query("SELECT COUNT(DISTINCT s.scenario.id) FROM SpeakingSession s " +
+           "WHERE s.student.id = :studentId " +
+           "AND s.status = 'COMPLETED' " +
+           "AND s.scenario.id IN :scenarioIds")
+    long countCompletedScenarioIds(
+            @Param("studentId") Long studentId,
+            @Param("scenarioIds") List<Short> scenarioIds);
 }
