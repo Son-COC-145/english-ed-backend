@@ -1,6 +1,7 @@
 package com.example.english_app.service.speaking;
 
 import com.example.english_app.entity.enums.SpeakerRole;
+import com.example.english_app.entity.speaking.SpeakingScenario;
 import com.example.english_app.entity.speaking.SpeakingSession;
 import com.example.english_app.entity.speaking.SpeakingTurn;
 import com.example.english_app.entity.user.User;
@@ -12,6 +13,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import java.util.List;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -89,5 +92,24 @@ class SpeakingSessionServiceContractTest {
         assertThat(service.recover("start-key").getSessionId()).isEqualTo(1L);
         verify(store, never()).start(any(), any(), any());
         verify(store, never()).end(any(), any());
+    }
+
+    @Test void reportHistoryIsScopedToCurrentUserAndMappedAsSummaries() {
+        var pageable = PageRequest.of(0, 20);
+        session.setScenario(SpeakingScenario.builder()
+                .id((short) 3)
+                .titleVi("Gọi món")
+                .titleEn("Ordering food")
+                .build());
+        session.setTaskCompletionScore((short) 85);
+        when(store.reports(7L, pageable)).thenReturn(new PageImpl<>(List.of(session), pageable, 1));
+
+        var reports = service.reports(pageable);
+
+        assertThat(reports.getTotalElements()).isEqualTo(1);
+        assertThat(reports.getContent().getFirst().getSessionId()).isEqualTo(1L);
+        assertThat(reports.getContent().getFirst().getScenarioTitleVi()).isEqualTo("Gọi món");
+        assertThat(reports.getContent().getFirst().getTaskCompletionScore()).isEqualTo((short) 85);
+        verify(store).reports(7L, pageable);
     }
 }

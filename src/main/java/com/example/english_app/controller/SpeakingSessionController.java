@@ -6,6 +6,8 @@ import com.example.english_app.dto.response.ApiResponse;
 import com.example.english_app.dto.response.AudioInputResponse;
 import com.example.english_app.dto.response.SessionEvaluationResponse;
 import com.example.english_app.dto.response.SpeakingSessionResponse;
+import com.example.english_app.dto.response.SpeakingReportSummaryResponse;
+import com.example.english_app.dto.response.PageResponse;
 import com.example.english_app.service.speaking.AiStreamingService;
 import com.example.english_app.service.speaking.SpeakingSessionService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -28,6 +30,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 
 import java.util.List;
 import java.util.ArrayList;
@@ -102,7 +107,10 @@ public class SpeakingSessionController {
     @PostMapping("/{id}/end")
     public ResponseEntity<ApiResponse<SessionEvaluationResponse>> end(@PathVariable Long id) {
         var report = sessions.endSession(id);
-        int statusCode = "COMPLETED".equals(report.getStatus()) ? 200 : 202;
+        int statusCode = switch (report.getStatus()) {
+            case "COMPLETED", "CANCELLED" -> 200;
+            default -> 202;
+        };
         return ResponseEntity.status(statusCode).body(ApiResponse.success(report));
     }
 
@@ -110,6 +118,14 @@ public class SpeakingSessionController {
     @GetMapping("/{id}/report")
     public ResponseEntity<ApiResponse<SessionEvaluationResponse>> report(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success(sessions.report(id)));
+    }
+
+    @Operation(summary = "Lấy lịch sử báo cáo các phiên luyện nói đã hoàn thành",
+            description = "Chỉ trả các phiên đã tạo báo cáo. Phiên kết thúc trước khi người học nói sẽ không xuất hiện trong danh sách này.")
+    @GetMapping("/reports")
+    public ResponseEntity<ApiResponse<PageResponse<SpeakingReportSummaryResponse>>> reports(
+            @PageableDefault(size = 20, sort = "endedAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.success(sessions.reports(pageable)));
     }
 
     @Operation(summary = "Lấy gợi ý câu thoại cho phiên nói")

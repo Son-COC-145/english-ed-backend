@@ -35,7 +35,7 @@ public class AdminVocabularyController {
 
     @Operation(summary = "Generate vocabulary", description = "Generate vocabulary")
     @PostMapping("/generate")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
     public ResponseEntity<Vocabulary> generateVocabulary(
             @RequestParam String word,
             @RequestParam Short topicId,

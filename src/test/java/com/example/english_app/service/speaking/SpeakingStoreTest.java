@@ -73,6 +73,16 @@ class SpeakingStoreTest {
         verifyNoInteractions(jobs, rewards, turns);
     }
 
+    @Test void endWithoutStudentTurnCompletesWithoutCreatingReportJobOrReward() {
+        when(turns.findBySessionIdOrderByTurnIndexAscIdAsc(1L)).thenReturn(List.of(
+                SpeakingTurn.builder().speaker(SpeakerRole.AI).status("COMPLETED").build()));
+
+        assertThat(store.end(1L, 7L).getStatus()).isEqualTo("CANCELLED");
+        assertThat(session.getEndedAt()).isNotNull();
+        assertThat(session.getEvaluationJson()).isNull();
+        verifyNoInteractions(jobs, rewards);
+    }
+
     @Test void duplicateKeyReturnsExistingEvenAfterEndButChangedPayloadConflicts() {
         session.setStatus("EVALUATING");
         var existing = SpeakingTurn.builder().id(3L).inputHash("same").build();

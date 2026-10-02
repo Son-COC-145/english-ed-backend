@@ -5,6 +5,8 @@ import com.example.english_app.dto.response.AudioInputResponse;
 import com.example.english_app.dto.response.SessionEvaluationResponse;
 import com.example.english_app.dto.response.SpeakingSessionResponse;
 import com.example.english_app.dto.response.SpeakingTurnResponse;
+import com.example.english_app.dto.response.SpeakingReportSummaryResponse;
+import com.example.english_app.dto.response.PageResponse;
 import com.example.english_app.entity.speaking.SpeakingSession;
 import com.example.english_app.entity.speaking.SpeakingTurn;
 import com.example.english_app.entity.enums.SpeakerRole;
@@ -17,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.data.domain.Pageable;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -191,6 +194,11 @@ public class SpeakingSessionService {
     public List<SpeakingSessionResponse> activeSessions() {
         return store.activeSessions(access.userId()).stream()
                 .map(s -> mapper.toSessionResponse(s, store.history(s.getId()))).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<SpeakingReportSummaryResponse> reports(Pageable pageable) {
+        return PageResponse.of(store.reports(access.userId(), pageable).map(mapper::toReportSummary));
     }
 
 

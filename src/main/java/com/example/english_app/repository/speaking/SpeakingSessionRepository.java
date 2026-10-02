@@ -7,6 +7,9 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 
 import java.util.Collection;
 import java.util.List;
@@ -16,6 +19,10 @@ import java.util.Optional;
 public interface SpeakingSessionRepository extends JpaRepository<SpeakingSession, Long> {
     List<SpeakingSession> findTop20ByStudentIdAndStatusInOrderByStartedAtDescIdDesc(
             Long studentId, Collection<String> statuses);
+
+    @EntityGraph(attributePaths = "scenario")
+    Page<SpeakingSession> findByStudentIdAndStatusAndEvaluationJsonIsNotNull(
+            Long studentId, String status, Pageable pageable);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT s FROM SpeakingSession s WHERE s.id = :id")
