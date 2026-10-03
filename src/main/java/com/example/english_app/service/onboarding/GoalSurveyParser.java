@@ -36,7 +36,8 @@ public class GoalSurveyParser {
                     ? categoriesForGoal(learningGoal)
                     : legacyCategories(legacyPurpose);
             List<LearnerSkill> focusSkills = parseFocusSkills(root.path("focusSkills"));
-            return new ParsedGoalSurvey(learningGoal, categories, focusSkills);
+            Integer dailyStudyMinutes = integer(root, "dailyStudyMinutes");
+            return new ParsedGoalSurvey(learningGoal, categories, focusSkills, dailyStudyMinutes);
         } catch (Exception e) {
             log.warn("Failed to parse goal_survey_json", e);
             return defaultSurvey();
@@ -162,6 +163,11 @@ public class GoalSurveyParser {
         return node.asText().trim();
     }
 
+    private Integer integer(JsonNode root, String field) {
+        JsonNode node = root.get(field);
+        return node != null && node.canConvertToInt() ? node.intValue() : null;
+    }
+
     private String normalizeCode(String value) {
         return value.trim().toUpperCase(Locale.ROOT).replace(' ', '_').replace('-', '_');
     }
@@ -170,12 +176,14 @@ public class GoalSurveyParser {
         return new ParsedGoalSurvey(
                 LearningGoal.GENERAL,
                 List.of(TopicCategory.DAILY_CONVERSATION),
-                List.of());
+                List.of(),
+                null);
     }
 
     public record ParsedGoalSurvey(
             LearningGoal learningGoal,
             List<TopicCategory> categories,
-            List<LearnerSkill> focusSkills) {
+            List<LearnerSkill> focusSkills,
+            Integer dailyStudyMinutes) {
     }
 }

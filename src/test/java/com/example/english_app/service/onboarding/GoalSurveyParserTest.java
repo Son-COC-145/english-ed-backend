@@ -28,7 +28,7 @@ class GoalSurveyParserTest {
     @Test
     void parseStructuredCodes() {
         String json = """
-                {"learningGoal":"COMMUNICATION","focusSkills":["SPEAKING","PRONUNCIATION"]}
+                {"learningGoal":"COMMUNICATION","focusSkills":["SPEAKING","PRONUNCIATION"],"dailyStudyMinutes":30}
                 """;
 
         GoalSurveyParser.ParsedGoalSurvey survey = parser.parse(json);
@@ -36,6 +36,7 @@ class GoalSurveyParserTest {
         assertEquals(LearningGoal.COMMUNICATION, survey.learningGoal());
         assertEquals(List.of(TopicCategory.DAILY_CONVERSATION), survey.categories());
         assertEquals(List.of(LearnerSkill.SPEAKING, LearnerSkill.PRONUNCIATION), survey.focusSkills());
+        assertEquals(30, survey.dailyStudyMinutes());
     }
 
     @Test

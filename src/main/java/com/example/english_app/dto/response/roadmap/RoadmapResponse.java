@@ -16,13 +16,21 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class RoadmapResponse {
+
+    /** Version of the stored roadmap JSON contract, independent from per-user generation version. */
+    @Builder.Default
+    private int schemaVersion = 2;
+
+    private String currentCefrLevel;
+
+    private String targetCefrLevel;
     
     /** Trình độ CEFR mục tiêu của lộ trình (thường là cấp độ hiện tại của học viên) */
     private String cefrLevel;
     
     /** Tổng số tuần trong lộ trình */
     private int totalWeeks;
-    
+
     /** Danh sách các mốc học tập (từng tuần) */
     private List<RoadmapMilestone> milestones;
 }

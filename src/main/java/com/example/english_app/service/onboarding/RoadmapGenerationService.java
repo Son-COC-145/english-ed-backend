@@ -17,51 +17,44 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
-/**
- * Service độc lập chịu trách nhiệm sinh lộ trình học tập (Roadmap) dựa trên
- * mục tiêu và trình độ của học viên.
- *
- * Worker bền vững chịu trách nhiệm retry và publish kết quả; service này chỉ dựng dữ liệu.
- */
 @Service
 @RequiredArgsConstructor
 public class RoadmapGenerationService {
+
+    private static final int ROADMAP_SCHEMA_VERSION = 2;
 
     private final GoalSurveyParser goalSurveyParser;
     private final TopicRepository topicRepository;
     private final RoadmapContentSnapshotService contentSnapshotService;
 
-    /** Builds a roadmap without updating onboarding state; the durable worker owns persistence. */
+    /** Builds a stable weekly roadmap. Daily allocation belongs to Today Plan. */
     @Transactional(readOnly = true)
     public RoadmapResponse generateRoadmap(CefrLevel level, String goalSurveyJson) {
         GoalSurveyParser.ParsedGoalSurvey survey = goalSurveyParser.parse(goalSurveyJson);
-        return buildRoadmap(level, survey.categories(), survey.learningGoal(), survey.focusSkills());
+        return buildRoadmap(
+                level,
+                survey.categories(),
+                survey.learningGoal(),
+                survey.focusSkills());
     }
 
-    /**
-     * Logic thuần tuý để lắp ráp lộ trình.
-     */
     private RoadmapResponse buildRoadmap(
             CefrLevel level,
             List<TopicCategory> categories,
             LearningGoal learningGoal,
             List<LearnerSkill> focusSkills) {
-        
-        List<String> categoryNames = categories.stream().map(Enum::name).collect(Collectors.toList());
-        
-        // 1. Lấy Topics (ưu tiên đúng level và đúng category)
+        List<String> categoryNames = categories.stream().map(Enum::name).toList();
         List<Topic> topics = selectTopics(level, categoryNames);
-        
-        // 2. Lấy Speaking Scenarios (tuỳ vào focusSkills)
-        boolean hasSpeaking = learningGoal == LearningGoal.COMMUNICATION
+        boolean includeSpeaking = learningGoal == LearningGoal.COMMUNICATION
                 || focusSkills.contains(LearnerSkill.SPEAKING);
-        
         List<RoadmapMilestone> milestones = assembleMilestones(
-                level, topics, hasSpeaking, learningGoal, focusSkills);
+                level, topics, includeSpeaking, learningGoal, focusSkills);
 
         return RoadmapResponse.builder()
+                .schemaVersion(ROADMAP_SCHEMA_VERSION)
+                .currentCefrLevel(level.name())
+                .targetCefrLevel(nextLevel(level).name())
                 .cefrLevel(level.name())
                 .totalWeeks(milestones.size())
                 .milestones(milestones)
@@ -69,17 +62,14 @@ public class RoadmapGenerationService {
     }
 
     private List<Topic> selectTopics(CefrLevel level, List<String> categories) {
-        List<Topic> primaryTopics = topicRepository.findForRoadmap(level, categories, PageRequest.of(0, 5));
-        
-        // Fallback nếu không có topic nào thoả mãn
-        if (primaryTopics.isEmpty()) {
-            primaryTopics = topicRepository.findForRoadmap(level, null, PageRequest.of(0, 5));
+        List<Topic> topics = topicRepository.findForRoadmap(level, categories, PageRequest.of(0, 5));
+        if (topics.isEmpty()) {
+            topics = topicRepository.findForRoadmap(level, null, PageRequest.of(0, 5));
         }
-        // Fallback lần 2 nếu vẫn rỗng (Database quá ít dữ liệu)
-        if (primaryTopics.isEmpty()) {
-            primaryTopics = topicRepository.findForRoadmap(null, null, PageRequest.of(0, 5));
+        if (topics.isEmpty()) {
+            topics = topicRepository.findForRoadmap(null, null, PageRequest.of(0, 5));
         }
-        return primaryTopics;
+        return topics;
     }
 
     private List<RoadmapMilestone> assembleMilestones(
@@ -93,17 +83,16 @@ public class RoadmapGenerationService {
         int week = 1;
         for (Topic topic : topics) {
             List<RoadmapModule> modules = new ArrayList<>();
-
             contentSnapshotService.vocabularyModule(topic, level).ifPresent(modules::add);
             if (includeSpeaking) {
                 contentSnapshotService.speakingModule(topic, level).ifPresent(modules::add);
             }
-
             if (!modules.isEmpty()) {
                 milestones.add(RoadmapMilestone.builder()
                         .weekNumber(week)
                         .title("Tuần " + week + ": " + topic.getNameVi())
-                        .description("Hoàn thiện từ vựng và kỹ năng liên quan đến chủ đề " + topic.getNameVi())
+                        .description("Hoàn thiện từ vựng và kỹ năng liên quan đến chủ đề "
+                                + topic.getNameVi())
                         .modules(modules)
                         .build());
                 week++;
@@ -125,7 +114,6 @@ public class RoadmapGenerationService {
         }
         milestones.removeIf(milestone ->
                 milestone.getModules() == null || milestone.getModules().isEmpty());
-
         return milestones;
     }
 
@@ -145,8 +133,7 @@ public class RoadmapGenerationService {
             List<RoadmapContentSnapshotService.IpaModuleGroup> groups) {
         int lastWeekIndex = milestones.size() - 1;
         for (int groupIndex = 0; groupIndex < groups.size(); groupIndex++) {
-            int weekIndex = Math.min(groupIndex, lastWeekIndex);
-            RoadmapMilestone milestone = milestones.get(weekIndex);
+            RoadmapMilestone milestone = milestones.get(Math.min(groupIndex, lastWeekIndex));
             if (milestone.getModules() == null) {
                 milestone.setModules(new ArrayList<>());
             } else if (!(milestone.getModules() instanceof ArrayList<?>)) {
@@ -154,5 +141,15 @@ public class RoadmapGenerationService {
             }
             milestone.getModules().addAll(groups.get(groupIndex).modules());
         }
+    }
+
+    private CefrLevel nextLevel(CefrLevel level) {
+        return switch (level) {
+            case A1 -> CefrLevel.A2;
+            case A2 -> CefrLevel.B1;
+            case B1 -> CefrLevel.B2;
+            case B2 -> CefrLevel.C1;
+            case C1, C2 -> CefrLevel.C2;
+        };
     }
 }

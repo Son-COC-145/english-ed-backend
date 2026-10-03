@@ -85,10 +85,14 @@ Sau placement/skip, roadmap được sinh bất đồng bộ.
 1. Gọi `GET /api/v1/onboarding/roadmap/status` khi đang ở màn hình chờ.
 2. Nếu `PENDING`/`PROCESSING`, poll lại theo `data.retryAfterMs`; nếu thiếu thì dùng 1500–2000 ms và backoff tối đa khoảng 10 giây.
 3. Dừng poll khi rời màn hình, app background, `READY` hoặc `FAILED`.
-4. `READY`: gọi `GET /api/v1/onboarding/roadmap` rồi đi tiếp Settings.
+4. `READY`: gọi `GET /api/v1/onboarding/roadmap/progress` rồi đi tiếp Settings.
 5. `FAILED`: chỉ gọi `POST /api/v1/onboarding/roadmap/retry` khi người dùng bấm thử lại; response chuyển về `PENDING` và worker được đánh thức ngay.
 
 Không poll toàn app hoặc chạy timer vĩnh viễn. Backend có durable scheduler dự phòng nên client không cần giữ worker sống.
+
+Contract weekly roadmap, progress, completion và unlock được mô tả tại
+[roadmap_progress_contract.md](./roadmap_progress_contract.md). Flutter dùng
+`currentModuleKey`, không match theo title và không parse cấu trúc của `moduleKey`.
 
 ## 5. Settings và Complete
 
