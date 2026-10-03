@@ -115,6 +115,9 @@ class RoadmapContentResolverTest {
                 .itemCount(2)
                 .build();
         RoadmapResponse current = RoadmapResponse.builder()
+                .schemaVersion(2)
+                .currentCefrLevel("A1")
+                .targetCefrLevel("A2")
                 .cefrLevel("A1")
                 .totalWeeks(1)
                 .milestones(List.of(RoadmapMilestone.builder()

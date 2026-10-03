@@ -3,12 +3,15 @@ package com.example.english_app.service.onboarding;
 import com.example.english_app.dto.response.roadmap.RoadmapResponse;
 import com.example.english_app.dto.response.roadmap.RoadmapMilestone;
 import com.example.english_app.dto.response.roadmap.RoadmapModule;
+import com.example.english_app.dto.request.adaptive.LearningEventRequest;
 import com.example.english_app.entity.enums.CefrLevel;
+import com.example.english_app.entity.enums.LearningEventType;
 import com.example.english_app.entity.enums.RoadmapGenerationStatus;
 import com.example.english_app.entity.onboarding.RoadmapGenerationJob;
 import com.example.english_app.entity.onboarding.StudentOnboarding;
 import com.example.english_app.repository.onboarding.OnboardingRepository;
 import com.example.english_app.repository.onboarding.RoadmapGenerationJobRepository;
+import com.example.english_app.service.adaptive.event.LearningEventOutboxService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,11 +40,17 @@ class RoadmapJobServiceTest {
     @Mock private RoadmapGenerationJobRepository jobRepository;
     @Mock private OnboardingRepository onboardingRepository;
     @Mock private org.springframework.context.ApplicationEventPublisher publisher;
+    @Mock private LearningEventOutboxService learningEventOutboxService;
     private RoadmapJobService service;
 
     @BeforeEach
     void setUp() {
-        service = new RoadmapJobService(jobRepository, onboardingRepository, new ObjectMapper(), publisher);
+        service = new RoadmapJobService(
+                jobRepository,
+                onboardingRepository,
+                new ObjectMapper(),
+                publisher,
+                learningEventOutboxService);
     }
 
     @Test
@@ -101,6 +110,12 @@ class RoadmapJobServiceTest {
 
         assertThat(onboarding.getRoadmapStatus()).isEqualTo(RoadmapGenerationStatus.READY);
         assertThat(onboarding.getRoadmapJson()).contains("\"cefrLevel\":\"B1\"");
+        ArgumentCaptor<LearningEventRequest> eventCaptor =
+                ArgumentCaptor.forClass(LearningEventRequest.class);
+        verify(learningEventOutboxService).saveOutbox(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().getEventType())
+                .isEqualTo(LearningEventType.ROADMAP_GENERATED);
+        assertThat(eventCaptor.getValue().getSourceReference()).isEqualTo("7:1");
     }
 
     @Test
@@ -156,6 +171,9 @@ class RoadmapJobServiceTest {
     void moduleWithoutContentSnapshotCannotTransitionToReady() {
         RoadmapGenerationJob job = job(1);
         RoadmapResponse invalid = RoadmapResponse.builder()
+                .schemaVersion(2)
+                .currentCefrLevel("B1")
+                .targetCefrLevel("B2")
                 .cefrLevel("B1")
                 .totalWeeks(1)
                 .milestones(List.of(RoadmapMilestone.builder()
@@ -277,6 +295,9 @@ class RoadmapJobServiceTest {
 
     private RoadmapResponse validRoadmap() {
         return RoadmapResponse.builder()
+                .schemaVersion(2)
+                .currentCefrLevel("B1")
+                .targetCefrLevel("B2")
                 .cefrLevel("B1")
                 .totalWeeks(1)
                 .milestones(List.of(RoadmapMilestone.builder()

@@ -47,7 +47,7 @@
 
 - Sinh ở `RoadmapGenerationService.assembleMilestones`, lưu JSON vào `student_onboarding.roadmap_json` tại `RoadmapJobService.markReady`, kèm `roadmap_generation_version`.
 - Mỗi tuần là một chủ đề (tối đa 5 tuần). Module: `VOCABULARY` (từ của chủ đề), `SPEAKING` (khi học viên chọn "Giao tiếp"), `IPA_PRONUNCIATION` (tuần 1, cả 44 âm — sẽ chia nhỏ, mục 2.6).
-- `OnboardingLifecycleService.getRoadmapProgress` đang gán cứng `currentWeek = 1`, `completedModules = 0`.
+- `RoadmapProgressService` tính tiến độ thật từ snapshot nội dung và các bảng nguồn. API đọc vẫn tính lại để làm fallback khi worker bị trễ.
 
 ### 2.2 Thay đổi trong JSON roadmap
 
@@ -87,12 +87,13 @@ Thêm vào `RoadmapModule` (chỉ thêm trường, JSON cũ vẫn đọc đượ
 
 - `progressPercent = done_count × 100 / total_count`; `status = COMPLETED` khi `done_count = total_count`, `IN_PROGRESS` khi `0 < done_count`, còn lại `NOT_STARTED`.
 - "Đã làm" chỉ tăng, nên `COMPLETED` không quay lại.
-- **Tuần** hoàn thành khi mọi module trong tuần `COMPLETED`. **Tuần hiện tại** = tuần nhỏ nhất còn module chưa xong (hết thì = tuần cuối). **Module gợi ý** = module đầu tiên chưa xong của tuần hiện tại.
-- Module có `total_count = 0` (chủ đề hết nội dung) được coi là `COMPLETED` để không chặn tuần.
+- **Tuần** hoàn thành khi mọi module trong tuần `COMPLETED`. Tuần đầu luôn mở; tuần sau chỉ mở khi tuần trước hoàn thành. Mọi module trong tuần hiện tại đều có thể truy cập; Today Plan chọn module nên học trước.
+- Tiến độ tổng và tiến độ tuần tính theo `sum(done_count) / sum(total_count)`, không chia đều trọng số cho các module có kích thước khác nhau.
+- Module có `total_count = 0` là dữ liệu roadmap không hợp lệ. Roadmap mới có module rỗng không được chuyển sang `READY`.
 
 ### 2.5 Cách tính
 
-- Consumer `RoadmapProgressConsumer` nhận sự kiện học tập, tìm các module của **phiên bản roadmap hiện tại** có `contentItemIds` chứa đối tượng của sự kiện (từ → module từ vựng; kịch bản → module nói; từ ví dụ → âm → module IPA), rồi đếm lại theo bảng 2.4 và upsert.
+- Consumer `RoadmapProgressConsumer` nhận sự kiện học tập, đếm lại theo bảng 2.4 bằng các truy vấn batch và batch-upsert toàn bộ module của **phiên bản roadmap hiện tại**. Roadmap nhỏ (tối đa khoảng 5 tuần), nên cách này ưu tiên tính đúng và khả năng tự phục hồi; có thể tối ưu thành targeted update sau khi đo tải production.
 - Sự kiện `ROADMAP_GENERATED` → tạo dòng cho **mọi** module của phiên bản mới và đếm ngay (học viên đã học trước đó vẫn được tính vì đếm từ bảng nguồn).
 - Khi một module chuyển sang `COMPLETED`: ghi sự kiện dẫn xuất `ROADMAP_MODULE_COMPLETED`; nếu cả tuần xong: `ROADMAP_WEEK_COMPLETED`; nếu cả roadmap xong: `ROADMAP_COMPLETED`.
 - Roadmap chưa có trường mới (sinh trước khi triển khai): khi đọc, service sinh `moduleKey`/`contentItemIds` từ nội dung hiện tại và ghi lại vào JSON một lần.
@@ -414,10 +415,14 @@ Tất cả: `@PreAuthorize("hasRole('STUDENT')")`, học viên lấy từ token,
 }
 ```
 
-### 8.3 Roadmap (MVP, chỉ thêm trường)
+### 8.3 Weekly Roadmap progress v2
 
-- `GET /api/v1/onboarding/roadmap`: mỗi module thêm `moduleKey`, `contentVersion`, `status`, `progressPercent`, `doneCount`, `totalCount`.
-- `GET /api/v1/onboarding/roadmap/progress`: `currentWeek`, `completedModules`, `totalModules`, `completedWeeks`, `percent`, `nextSuggestedModule` tính thật.
+- `GET /api/v1/onboarding/roadmap`: snapshot roadmap ổn định theo tuần; module có `moduleKey`, `contentItemIds`, `contentVersion`.
+- `GET /api/v1/onboarding/roadmap/progress`: backend trả cấu trúc `week -> module`, CEFR hiện tại/mục tiêu, `currentWeek`, `currentModuleKey`, completion, accessibility, unlock condition và progress tính thật.
+- Roadmap không chứa ngày học. Phân bổ theo ngày thuộc Today Plan tại `GET /api/v1/recommendations/today`.
+- `moduleKey` là opaque identifier. Mobile không parse key, không match theo title và không tự tính business rule.
+- `cefrLevel` và `nextSuggestedModule` chỉ giữ tạm trong cửa sổ migration; client mới dùng `currentCefrLevel` và `currentModuleKey`.
+- Contract chi tiết: `docs/module_0/roadmap_progress_contract.md`.
 
 ### 8.4 Sau MVP
 

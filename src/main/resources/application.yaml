@@ -102,7 +102,8 @@ adaptive:
   roadmap:
     ipa-max-per-module: ${ADAPTIVE_ROADMAP_IPA_MAX_PER_MODULE:12}
   worker:
-    poll-ms: ${ADAPTIVE_WORKER_POLL_MS:5000}
+    # Recovery polling; normal events wake the worker immediately after commit.
+    poll-ms: ${ADAPTIVE_WORKER_POLL_MS:300000}
     batch-size: ${ADAPTIVE_WORKER_BATCH_SIZE:50}
     max-attempts: ${ADAPTIVE_WORKER_MAX_ATTEMPTS:5}
     stuck-after-ms: ${ADAPTIVE_WORKER_STUCK_AFTER_MS:600000}

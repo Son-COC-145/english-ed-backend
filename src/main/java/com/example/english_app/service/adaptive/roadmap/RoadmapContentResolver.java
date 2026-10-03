@@ -36,6 +36,19 @@ public class RoadmapContentResolver {
         CefrLevel level = roadmapLevel(roadmap, onboarding);
         boolean changed = false;
 
+        if (roadmap.getCurrentCefrLevel() == null) {
+            roadmap.setCurrentCefrLevel(level.name());
+            changed = true;
+        }
+        if (roadmap.getTargetCefrLevel() == null) {
+            roadmap.setTargetCefrLevel(nextLevel(level).name());
+            changed = true;
+        }
+        if (roadmap.getCefrLevel() == null) {
+            roadmap.setCefrLevel(level.name());
+            changed = true;
+        }
+
         if (removeLegacyIpaModules(milestones)) {
             distributeIpaModules(milestones, contentSnapshotService.ipaModuleGroups(level));
             changed = true;
@@ -49,6 +62,7 @@ public class RoadmapContentResolver {
                 changed = true;
             }
             List<RoadmapModule> modules = mutableModules(milestone);
+            clearApiProgress(milestone);
             for (int moduleIndex = 0; moduleIndex < modules.size(); moduleIndex++) {
                 RoadmapModule module = modules.get(moduleIndex);
                 if (!contentSnapshotService.isSnapshotComplete(module)) {
@@ -143,8 +157,30 @@ public class RoadmapContentResolver {
 
     private void clearApiProgress(RoadmapModule module) {
         module.setStatus(null);
+        module.setCompleted(null);
+        module.setAccessible(null);
         module.setDoneCount(null);
         module.setTotalCount(null);
         module.setProgressPercent(null);
+        module.setUnlockCondition(null);
+        module.setCompletedAt(null);
+    }
+
+    private void clearApiProgress(RoadmapMilestone milestone) {
+        milestone.setStatus(null);
+        milestone.setCompleted(null);
+        milestone.setAccessible(null);
+        milestone.setProgressPercent(null);
+        milestone.setUnlockCondition(null);
+    }
+
+    private CefrLevel nextLevel(CefrLevel level) {
+        return switch (level) {
+            case A1 -> CefrLevel.A2;
+            case A2 -> CefrLevel.B1;
+            case B1 -> CefrLevel.B2;
+            case B2 -> CefrLevel.C1;
+            case C1, C2 -> CefrLevel.C2;
+        };
     }
 }

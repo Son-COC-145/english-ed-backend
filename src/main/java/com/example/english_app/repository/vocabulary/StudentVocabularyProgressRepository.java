@@ -114,6 +114,14 @@ public interface StudentVocabularyProgressRepository extends JpaRepository<Stude
             @Param("studentId") Long studentId,
             @Param("vocabularyIds") List<Long> vocabularyIds);
 
+    @Query("SELECT DISTINCT p.vocabulary.id FROM StudentVocabularyProgress p " +
+           "WHERE p.student.id = :studentId " +
+           "AND p.lastPracticedAt IS NOT NULL " +
+           "AND p.vocabulary.id IN :vocabularyIds")
+    List<Long> findPracticedVocabularyIds(
+            @Param("studentId") Long studentId,
+            @Param("vocabularyIds") List<Long> vocabularyIds);
+
     // ─── Topic Progress Counts ───────────────────────────────────────────────
 
     /** Đếm số từ MASTERED theo từng topicId cho danh sách topic */

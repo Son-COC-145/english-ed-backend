@@ -32,5 +32,14 @@ public interface PronunciationPracticeLogRepository extends JpaRepository<Pronun
     long countPracticedPhonemeIds(
             @Param("studentId") Long studentId,
             @Param("phonemeIds") List<Short> phonemeIds);
+
+    @Query("SELECT DISTINCT w.phoneme.id " +
+           "FROM PronunciationPracticeLog l " +
+           "JOIN IpaExampleWord w ON l.refId = w.id " +
+           "WHERE l.student.id = :studentId " +
+           "AND w.phoneme.id IN :phonemeIds")
+    List<Short> findPracticedPhonemeIds(
+            @Param("studentId") Long studentId,
+            @Param("phonemeIds") List<Short> phonemeIds);
 }
 

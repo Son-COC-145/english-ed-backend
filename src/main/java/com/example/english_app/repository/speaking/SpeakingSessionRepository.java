@@ -35,4 +35,12 @@ public interface SpeakingSessionRepository extends JpaRepository<SpeakingSession
     long countCompletedScenarioIds(
             @Param("studentId") Long studentId,
             @Param("scenarioIds") List<Short> scenarioIds);
+
+    @Query("SELECT DISTINCT s.scenario.id FROM SpeakingSession s " +
+           "WHERE s.student.id = :studentId " +
+           "AND s.status = 'COMPLETED' " +
+           "AND s.scenario.id IN :scenarioIds")
+    List<Short> findCompletedScenarioIds(
+            @Param("studentId") Long studentId,
+            @Param("scenarioIds") List<Short> scenarioIds);
 }
