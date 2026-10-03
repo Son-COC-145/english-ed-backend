@@ -54,17 +54,19 @@ Bước 1, 2 và 5a độc lập, làm song song được. Nên làm **5a sớm*
 
 ### Bước 2 – Hạ tầng sự kiện học tập (Thiết kế mục 3)
 
+**Trạng thái:** Đã hoàn thành hạ tầng: migration `V60`/`V61`, entity/enum, atomic `saveOutbox` (`MANDATORY`, `ON CONFLICT DO NOTHING`), wake-up sau commit, Scheduled polling, claim tuần tự theo học viên, router, retry/`FAILED` và trả job treo. Chưa gọi `saveOutbox` từ nghiệp vụ; việc gắn các module thuộc Bước 3.
+
 **Việc cần làm**
 1. Migration `V60__learning_events.sql`: bảng, `UNIQUE(student_id, source, source_reference, event_type)`, các index.
 2. Entity/enum: `LearningEvent`, `LearningEventType`, `LearningEventSource`, `LearningEventStatus`, `DurationSource`.
-3. `LearningEventPublisher.publish(...)`: `INSERT … ON CONFLICT DO NOTHING`, propagation `MANDATORY`, phát `LearningEventCreated`.
-4. `LearningEventWorker`: đánh thức sau commit + `@Scheduled`; claim theo câu SQL ở Thiết kế 3.3 (tuần tự theo học viên, `FOR UPDATE SKIP LOCKED`); xử lý mỗi sự kiện một transaction; retry backoff; `DEAD`; trả job treo.
+3. `LearningEventOutboxService.saveOutbox(...)`: `INSERT … ON CONFLICT DO NOTHING`, propagation `MANDATORY`, phát `LearningEventCreatedEvent`.
+4. `LearningEventWorker`: đánh thức sau commit + `@Scheduled`; claim theo câu SQL ở Thiết kế 3.3 (tuần tự theo học viên, `FOR UPDATE SKIP LOCKED`); xử lý mỗi sự kiện một transaction; retry backoff; `FAILED`; trả job treo.
 5. `LearningEventRouter`: bảng định tuyến (Thiết kế 3.4) + interface `LearningEventConsumer` (`supports(type)`, `apply(event)`), thứ tự consumer cố định.
-6. `AdaptiveProperties` + khối `adaptive:` trong `application.yaml` (Thiết kế mục 9).
+6. `AdaptiveWorkerProperties` + khối `adaptive.worker` trong `application.yaml` (Thiết kế mục 9).
 
 **Kiểm tra**
 - Unit test: định tuyến; thứ tự consumer; tính backoff.
-- Tích hợp Postgres: ghi trùng chỉ còn 1 dòng; 2 sự kiện của cùng học viên xử lý đúng thứ tự `seq`; consumer ném lỗi → retry → `DEAD`; `PROCESSING` quá hạn trở về `PENDING`; nghiệp vụ rollback → không có sự kiện.
+- Tích hợp Postgres: ghi trùng chỉ còn 1 dòng; 2 sự kiện của cùng học viên xử lý đúng thứ tự `seq`; consumer ném lỗi → retry → `FAILED`; `PROCESSING` quá hạn trở về `PENDING`; nghiệp vụ rollback → không có sự kiện.
 
 ### Bước 3 – Hook các module (Thiết kế 3.2)
 
@@ -134,7 +136,7 @@ Bước 1, 2 và 5a độc lập, làm song song được. Nên làm **5a sớm*
 
 1. Chạy đủ kịch bản demo (Phạm vi mục 8) trên môi trường dev với Postgres + Redis Docker.
 2. Kiểm tra Definition of Done (Phạm vi mục 7) từng mục.
-3. Kiểm tra metric trên Actuator: sự kiện `PENDING`/`DEAD`, độ trễ xử lý.
+3. Kiểm tra metric trên Actuator: sự kiện `PENDING`/`FAILED`, độ trễ xử lý.
 4. Gửi Mobile: tài liệu API (Thiết kế mục 8) + Swagger.
 
 ### Bước 8 – Snapshot theo ngày + Progress API (sau MVP, Thiết kế 7.1, 8.4)
@@ -186,7 +188,7 @@ Mỗi PR: có test, chạy `mvn test` xanh, cập nhật tài liệu Thiết k�
 
 - [ ] Migration V59–V62 chạy sạch trên DB trống và DB dev hiện có.
 - [ ] 7 điểm phát sự kiện hoạt động; gửi lại request không tạo sự kiện trùng.
-- [ ] Không có sự kiện nào `DEAD` khi chạy kịch bản demo.
+- [ ] Không có sự kiện nào `FAILED` khi chạy kịch bản demo.
 - [ ] Tiến độ roadmap đúng; làm lại placement có roadmap mới và tiến độ mới.
 - [ ] Năng lực Vocabulary / Pronunciation / Speaking đổi sau hoạt động tương ứng.
 - [ ] Thời gian học hôm nay đúng giờ Việt Nam, tách đo thật / ước tính.
