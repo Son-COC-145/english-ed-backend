@@ -30,7 +30,7 @@
 | Package | Nội dung |
 |---|---|
 | `entity/adaptive`, `repository/adaptive` | Entity và repository của Module 5 |
-| `service/adaptive/event` | `LearningEventPublisher`, worker, định tuyến |
+| `service/adaptive/event` | `LearningEventOutboxService`, worker, định tuyến |
 | `service/adaptive/roadmap` | `RoadmapProgressService`, snapshot nội dung |
 | `service/adaptive/learner` | `LearnerModelService`, quy đổi điểm |
 | `service/adaptive/activity` | `StudyTimeService` |
@@ -124,7 +124,7 @@ Module phát âm không còn là một module 44 âm mà chia theo cột `ipa_ph
 | Định danh | `event_id` uuid PK, `seq` bigint identity, `student_id`, `event_type` varchar(50) |
 | Nguồn | `source` varchar(40), `source_reference` varchar(120) |
 | Nội dung | `skill` varchar(20) null, `entity_type` varchar(30) null, `entity_id` bigint null, `score` smallint null (0–100), `duration_seconds` int null, `duration_source` varchar(10) null (`MEASURED`/`ESTIMATED`), `payload` jsonb, `schema_version` smallint, `occurred_at` timestamp, `causation_event_id` uuid null |
-| Xử lý | `status` varchar(12) (`PENDING`/`PROCESSING`/`DONE`/`DEAD`), `attempt_count` int, `next_retry_at` timestamp, `last_error` text, `correlation_id` varchar(64), `processing_started_at`, `processed_at`, `created_at` |
+| Xử lý | `status` varchar(12) (`PENDING`/`PROCESSING`/`DONE`/`FAILED`), `attempt_count` int, `next_retry_at` timestamp, `last_error` text, `correlation_id` varchar(64), `processing_started_at`, `processed_at`, `created_at` |
 
 - `UNIQUE(student_id, source, source_reference, event_type)` — chống trùng.
 - Index `(status, next_retry_at)` cho worker; index `(student_id, seq)`.
@@ -145,24 +145,34 @@ Module phát âm không còn là một module 44 âm mà chia theo cột `ipa_ph
 
 - **Thời lượng**: đo thật bị cắt tối đa 15 phút/hoạt động; ước tính lấy từ config.
 - Mini-game trả lời lẻ (không thuộc lượt) **không** phát sự kiện; tiến độ từ vựng của chúng được đếm lại ở sự kiện kế tiếp (đếm từ bảng nguồn).
-- `LearningEventPublisher.publish(...)` dùng `INSERT … ON CONFLICT DO NOTHING`, chạy trong transaction gọi nó (propagation `MANDATORY`), rồi phát `LearningEventCreated` để đánh thức worker sau commit.
+- `LearningEventOutboxService.saveOutbox(...)` dùng `INSERT … ON CONFLICT DO NOTHING`, chạy trong transaction gọi nó (propagation `MANDATORY`), rồi phát `LearningEventCreatedEvent` để đánh thức worker sau commit.
+- Mỗi điểm phát dựng `LearningEventRequest` trong `dto.request.adaptive` và gọi `LearningEventOutboxService.saveOutbox(...)` tường minh tại đúng nhánh nghiệp vụ thành công. Cách này đặc biệt rõ ràng với các sự kiện phụ thuộc chuyển trạng thái như lần đầu chuyển sang `COMPLETED`.
+- `saveOutbox(...)` dùng propagation `MANDATORY`, nên thiếu transaction sẽ fail-fast. Khi chưa có lời gọi tường minh từ nghiệp vụ, hệ thống không ghi dòng `learning_events` nào.
 
 ### 3.3 Worker
 
 1. **Đánh thức:** `@TransactionalEventListener(AFTER_COMMIT) @Async` + `@Scheduled(fixedDelay = adaptive.worker.poll-ms)`.
 2. **Claim** (một lần tối đa `batch-size` sự kiện):
    ```sql
-   UPDATE learning_events e SET status='PROCESSING', correlation_id=:cid, processing_started_at=now()
-   WHERE e.event_id IN (
-     SELECT DISTINCT ON (student_id) event_id FROM learning_events
-     WHERE status='PENDING' AND next_retry_at <= now()
-       AND student_id NOT IN (SELECT student_id FROM learning_events WHERE status='PROCESSING')
-     ORDER BY student_id, seq
-     LIMIT :batch FOR UPDATE SKIP LOCKED)
+   WITH candidates AS (
+     SELECT e.event_id FROM learning_events e
+     WHERE e.status='PENDING' AND e.next_retry_at <= :now
+       AND NOT EXISTS (
+         SELECT 1 FROM learning_events processing
+         WHERE processing.student_id=e.student_id AND processing.status='PROCESSING')
+       AND NOT EXISTS (
+         SELECT 1 FROM learning_events earlier
+         WHERE earlier.student_id=e.student_id
+           AND earlier.status='PENDING' AND earlier.seq < e.seq)
+     ORDER BY e.seq LIMIT :batch FOR UPDATE SKIP LOCKED)
+   UPDATE learning_events e
+   SET status='PROCESSING', correlation_id=:cid, processing_started_at=:now
+   FROM candidates WHERE e.event_id=candidates.event_id
+   RETURNING e.event_id
    ```
    Mỗi học viên chỉ lấy sự kiện `seq` nhỏ nhất, và không lấy nếu học viên đang có sự kiện `PROCESSING` → xử lý tuần tự theo học viên.
 3. **Xử lý:** mỗi sự kiện một transaction, chạy các consumer theo thứ tự cố định **RoadmapProgress → LearnerModel → StudyTime → Milestones → PlanCache** (chỉ consumer được định tuyến ở 3.4), rồi `status = DONE` (kiểm tra `correlation_id` khớp).
-4. **Lỗi:** rollback; transaction riêng tăng `attempt_count`, `next_retry_at = now + min(300, 2^attempt) s`, ghi `last_error` (chỉ tên lớp lỗi); `attempt_count ≥ max-attempts` → `DEAD`.
+4. **Lỗi:** rollback; transaction riêng tăng `attempt_count`, `next_retry_at = now + min(300, 2^attempt) s`, ghi `last_error` (chỉ tên lớp lỗi); `attempt_count ≥ max-attempts` → `FAILED`.
 5. **Job treo:** `PROCESSING` quá `stuck-after` (10 phút) → trả về `PENDING`.
 
 ### 3.4 Định tuyến
@@ -480,7 +490,7 @@ adaptive:
 
 ## 10. Theo dõi và lỗi
 
-- Metric (Micrometer/Actuator): số sự kiện theo `status`, sự kiện `DEAD`, độ trễ từ `created_at` đến `processed_at`, thời gian tạo Today Plan, tỉ lệ cache hit.
+- Metric (Micrometer/Actuator): số sự kiện theo `status`, sự kiện `FAILED`, độ trễ từ `created_at` đến `processed_at`, thời gian tạo Today Plan, tỉ lệ cache hit.
 - Log: mỗi lỗi consumer ghi `event_id`, `event_type`, `student_id`, tên lớp lỗi (không ghi dữ liệu nhạy cảm).
 - API Module 5 không bao giờ chờ worker: nếu sự kiện chưa xử lý xong, trả dữ liệu hiện có.
 
@@ -489,5 +499,5 @@ adaptive:
 | Loại | Nội dung |
 |---|---|
 | Unit (JUnit 5 + Mockito) | Quy tắc làm-hết và tuần hiện tại; EMA, confidence, trend, khởi tạo placement; quy đổi observation; chấm điểm, lọc, đa dạng, ngân sách; định tuyến; phát hiện mốc |
-| Tích hợp Postgres (bật bằng biến môi trường như `Module4PostgresIntegrationTest`) | Chống trùng `ON CONFLICT`; claim tuần tự theo học viên; retry và `DEAD`; job treo; roadmap sinh lại |
+| Tích hợp Postgres (bật bằng biến môi trường như `Module4PostgresIntegrationTest`) | Chống trùng `ON CONFLICT`; claim tuần tự theo học viên; retry và `FAILED`; job treo; roadmap sinh lại |
 | Hợp đồng API | Cấu trúc JSON Today Plan/Profile đúng mẫu mục 8 |
