@@ -192,7 +192,11 @@ public class GameficationService {
         // Load hoặc tạo progress
         StudentVocabularyProgress progress = studentVocabularyProgressRepository
                 .findByStudentIdAndVocabularyId(user.getId(), vocab.getId())
-                .orElseThrow(() -> ErrorCode.VOCABULARY_PROGRESS_NOT_FOUND.toException());
+                .orElseGet(() -> StudentVocabularyProgress.builder()
+                        .student(user)
+                        .vocabulary(vocab)
+                        .status(LearningStatus.NEW)
+                        .build());
 
         LearningStatus previousStatus = progress.getStatus();
 
