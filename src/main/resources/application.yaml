@@ -101,6 +101,29 @@ onboarding:
 adaptive:
   roadmap:
     ipa-max-per-module: ${ADAPTIVE_ROADMAP_IPA_MAX_PER_MODULE:12}
+  learner:
+    alpha: ${ADAPTIVE_LEARNER_ALPHA:0.2}
+    placement-confidence: ${ADAPTIVE_LEARNER_PLACEMENT_CONFIDENCE:0.3}
+    vocabulary-review-reliability: ${ADAPTIVE_LEARNER_VOCABULARY_RELIABILITY:0.3}
+    pronunciation-reliability: ${ADAPTIVE_LEARNER_PRONUNCIATION_RELIABILITY:0.6}
+    speaking-reliability: ${ADAPTIVE_LEARNER_SPEAKING_RELIABILITY:1.0}
+  study-time:
+    max-seconds-per-activity: ${ADAPTIVE_STUDY_TIME_MAX_SECONDS:900}
+    vocabulary-reviewed-seconds: ${ADAPTIVE_STUDY_TIME_VOCABULARY_SECONDS:10}
+    vocabulary-round-seconds: ${ADAPTIVE_STUDY_TIME_ROUND_SECONDS:180}
+    pronunciation-seconds: ${ADAPTIVE_STUDY_TIME_PRONUNCIATION_SECONDS:60}
+    speaking-seconds: ${ADAPTIVE_STUDY_TIME_SPEAKING_SECONDS:480}
+  recommendation:
+    rules-version: ${ADAPTIVE_RECOMMENDATION_RULES_VERSION:2026-10-06.1}
+    default-budget-minutes: ${ADAPTIVE_RECOMMENDATION_DEFAULT_BUDGET_MINUTES:15}
+    weak-phoneme-threshold: ${ADAPTIVE_RECOMMENDATION_WEAK_PHONEME_THRESHOLD:60}
+    assignment-horizon-days: ${ADAPTIVE_RECOMMENDATION_ASSIGNMENT_HORIZON_DAYS:3}
+    weights:
+      due-urgency: ${ADAPTIVE_RECOMMENDATION_WEIGHT_DUE_URGENCY:0.35}
+      weakness: ${ADAPTIVE_RECOMMENDATION_WEIGHT_WEAKNESS:0.25}
+      roadmap: ${ADAPTIVE_RECOMMENDATION_WEIGHT_ROADMAP:0.20}
+      goal: ${ADAPTIVE_RECOMMENDATION_WEIGHT_GOAL:0.10}
+      freshness: ${ADAPTIVE_RECOMMENDATION_WEIGHT_FRESHNESS:0.10}
   worker:
     # Keep local/dev feedback fast; production can override this recovery interval.
     poll-ms: ${ADAPTIVE_WORKER_POLL_MS:5000}

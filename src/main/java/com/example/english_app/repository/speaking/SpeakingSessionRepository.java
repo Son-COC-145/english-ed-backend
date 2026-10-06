@@ -14,9 +14,12 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDateTime;
 
 @Repository
 public interface SpeakingSessionRepository extends JpaRepository<SpeakingSession, Long> {
+    long countByStudentIdAndEndedAtGreaterThanEqual(Long studentId, LocalDateTime since);
+
     List<SpeakingSession> findTop20ByStudentIdAndStatusInOrderByStartedAtDescIdDesc(
             Long studentId, Collection<String> statuses);
 
@@ -43,4 +46,12 @@ public interface SpeakingSessionRepository extends JpaRepository<SpeakingSession
     List<Short> findCompletedScenarioIds(
             @Param("studentId") Long studentId,
             @Param("scenarioIds") List<Short> scenarioIds);
+
+    @Query("SELECT COUNT(s.id) FROM SpeakingSession s " +
+           "WHERE s.student.id = :studentId AND s.status = 'COMPLETED' " +
+           "AND s.scenario.id = :scenarioId AND s.endedAt >= :since")
+    long countCompletedScenarioSince(
+            @Param("studentId") Long studentId,
+            @Param("scenarioId") Short scenarioId,
+            @Param("since") LocalDateTime since);
 }

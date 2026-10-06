@@ -13,16 +13,19 @@
 | Learning Event `V60`/`V61` | Hoàn thành hạ tầng queue/outbox/worker; chưa đủ hook nghiệp vụ |
 | Weekly Roadmap contract v2 | Hoàn thành |
 | RoadmapProgressConsumer | Hoàn thành |
-| Learner Model / Study Time | Chưa triển khai |
-| Today Plan | Chưa triển khai |
+| Learner Model / Study Time | Hoàn thành backend MVP (`V62`/`V63`) |
+| Today Plan | Hoàn thành persisted daily plan MVP (`V64`) |
 
 Migration đã được cấp phát:
 
 - `V59__roadmap_module_progress.sql`
 - `V60__learning_events.sql`
 - `V61__rename_learning_event_dead_status.sql`
+- `V62__learner_model.sql`
+- `V63__student_daily_activity.sql`
+- `V64__today_plans.sql`
 
-Migration tiếp theo phải bắt đầu từ `V62`. Roadmap tuần hiện tại không cần migration mới.
+Migration tiếp theo phải bắt đầu từ `V65`. Roadmap tuần hiện tại không cần migration mới.
 
 ## 2. Giai đoạn A – Weekly Roadmap
 
@@ -136,6 +139,8 @@ Các consumer mới cần chiến lược bootstrap/rebuild dữ liệu cũ. Eve
 - `date`, `timezone`, `revision`, `profileVersion`, `rulesVersion`;
 - `budgetMinutes`, `estimatedMinutes`, `completedMinutes`, `progressPercent`;
 - activity gồm target typed, status, reason code và navigation payload.
+
+Flutter contract và quy ước refresh: `docs/module_5/today_plan_flutter_contract.md`.
 
 ## 6. Production baseline
 

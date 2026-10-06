@@ -22,4 +22,12 @@ class OnboardingAuthorizationContractTest {
         assertThat(annotation).isNotNull();
         assertThat(annotation.value()).isEqualTo("hasRole('ADMIN')");
     }
+
+    @Test
+    void adaptiveLearningControllerIsRestrictedToStudents() {
+        PreAuthorize annotation = AdaptiveLearningController.class.getAnnotation(PreAuthorize.class);
+
+        assertThat(annotation).isNotNull();
+        assertThat(annotation.value()).isEqualTo("hasRole('STUDENT')");
+    }
 }

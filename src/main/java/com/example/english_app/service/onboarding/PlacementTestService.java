@@ -1,9 +1,12 @@
 package com.example.english_app.service.onboarding;
 
+import com.example.english_app.dto.request.adaptive.LearningEventRequest;
 import com.example.english_app.dto.response.PlacementResultResponse;
 import com.example.english_app.dto.response.PlacementPronunciationAnswerResponse;
 import com.example.english_app.dto.response.PronunciationScoreResult;
 import com.example.english_app.entity.enums.CefrLevel;
+import com.example.english_app.entity.enums.LearningEventSource;
+import com.example.english_app.entity.enums.LearningEventType;
 import com.example.english_app.entity.enums.QuestionType;
 import com.example.english_app.entity.enums.Skill;
 import com.example.english_app.entity.onboarding.PlacementTestAnswer;
@@ -18,7 +21,10 @@ import com.example.english_app.repository.question.QuestionRepository;
 import com.example.english_app.dto.request.PlacementAnswerRequest;
 import com.example.english_app.dto.response.PlacementQuestionResponse;
 import com.example.english_app.repository.user.UserRepository;
+import com.example.english_app.service.adaptive.event.LearningEventOutboxService;
 import com.example.english_app.service.onboarding.PlacementResultFactory.SkillScores;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -56,6 +62,8 @@ public class PlacementTestService {
     private final PlacementSessionExpiryService expiryService;
     private final UserRepository userRepository;
     private final RoadmapJobService roadmapJobService;
+    private final LearningEventOutboxService learningEventOutboxService;
+    private final ObjectMapper objectMapper;
 
     public PlacementQuestionResponse startTest(Long userId) {
         // Guard: đã hoàn thành placement test rồi → KHÔNG throw error,
@@ -120,8 +128,8 @@ public class PlacementTestService {
             throw ErrorCode.PLACEMENT_TEST_ALREADY_COMPLETED.toException();
         }
 
-        sessionRepository.findActiveByStudentIdForUpdate(userId)
-                .ifPresent(s -> {
+        Optional<PlacementTestSession> skippedSession = sessionRepository.findActiveByStudentIdForUpdate(userId);
+        skippedSession.ifPresent(s -> {
                     s.setIsCompleted(true);
                     s.setCurrentQuestionId(null);
                 });
@@ -142,6 +150,9 @@ public class PlacementTestService {
         onboarding.setPlacementPronunciationCefr(CefrLevel.A1);
         onboarding.setPlacementCompletedAt(LocalDateTime.now());
         queueRoadmapGeneration(onboarding, userId, CefrLevel.A1);
+        publishPlacementCompleted(
+                onboarding,
+                skippedSession.map(PlacementTestSession::getId).orElse(null));
 
         log.info("Placement test skipped for user {}. Assigned default CEFR: A1 with baseline scores: {}", userId,
                 baselineScore);
@@ -425,6 +436,7 @@ public class PlacementTestService {
 
         onboarding.setPlacementCompletedAt(LocalDateTime.now());
         queueRoadmapGeneration(onboarding, userId, finalLevel);
+        publishPlacementCompleted(onboarding, session.getId());
 
         log.info("Placement test completed for user {}. Overall CEFR: {}, Skill CEFRs: {}",
                 userId, finalLevel, skillCefrs);
@@ -449,6 +461,48 @@ public class PlacementTestService {
         onboarding.setRoadmapUpdatedAt(LocalDateTime.now());
         onboardingRepository.save(onboarding);
         roadmapJobService.enqueue(userId, nextVersion, level, onboarding.getGoalSurveyJson());
+    }
+
+    private void publishPlacementCompleted(StudentOnboarding onboarding, Long sessionId) {
+        ObjectNode skills = objectMapper.createObjectNode();
+        addPlacementSkill(skills, "VOCABULARY",
+                onboarding.getPlacementVocabScore(), onboarding.getPlacementVocabCefr());
+        addPlacementSkill(skills, "GRAMMAR",
+                onboarding.getPlacementGrammarScore(), onboarding.getPlacementGrammarCefr());
+        addPlacementSkill(skills, "READING",
+                onboarding.getPlacementReadingScore(), onboarding.getPlacementReadingCefr());
+        addPlacementSkill(skills, "LISTENING",
+                onboarding.getPlacementListeningScore(), onboarding.getPlacementListeningCefr());
+        addPlacementSkill(skills, "PRONUNCIATION",
+                onboarding.getPlacementPronunciationScore(), onboarding.getPlacementPronunciationCefr());
+
+        ObjectNode payload = objectMapper.createObjectNode()
+                .put("overallCefr", onboarding.getPlacementCefrLevel().name())
+                .put("skipped", Boolean.TRUE.equals(onboarding.getIsPlacementSkipped()));
+        payload.set("skills", skills);
+
+        learningEventOutboxService.saveOutbox(LearningEventRequest.builder()
+                .studentId(onboarding.getStudent().getId())
+                .eventType(LearningEventType.PLACEMENT_COMPLETED)
+                .source(LearningEventSource.PLACEMENT_SESSION)
+                .sourceReference("PLACEMENT:" + onboarding.getRoadmapGenerationVersion())
+                .entityType("PLACEMENT_SESSION")
+                .entityId(sessionId)
+                .schemaVersion((short) 1)
+                .occurredAt(onboarding.getPlacementCompletedAt())
+                .payload(payload)
+                .build());
+    }
+
+    private void addPlacementSkill(
+            ObjectNode skills,
+            String skill,
+            Short score,
+            CefrLevel cefr) {
+        if (score == null) return;
+        ObjectNode value = objectMapper.createObjectNode().put("score", score);
+        if (cefr != null) value.put("cefr", cefr.name());
+        skills.set(skill, value);
     }
 
     /**

@@ -72,4 +72,16 @@ public interface VocabularyRepository extends JpaRepository<Vocabulary, Long> {
         @Param("topicIds") List<Long> topicIds, 
         @Param("studentId") Long studentId, 
         @Param("limit") int limit);
+
+    @Query("SELECT v FROM Vocabulary v JOIN FETCH v.topic t " +
+           "WHERE t.id IN :topicIds " +
+           "AND v.status = com.example.english_app.entity.enums.VocabularyStatus.PUBLISHED " +
+           "AND t.isActive = true " +
+           "AND NOT EXISTS (SELECT 1 FROM StudentVocabularyProgress p " +
+           "WHERE p.vocabulary = v AND p.student.id = :studentId) " +
+           "ORDER BY v.id")
+    List<Vocabulary> findDeterministicNewVocabularies(
+            @Param("topicIds") List<Long> topicIds,
+            @Param("studentId") Long studentId,
+            Pageable pageable);
 }
