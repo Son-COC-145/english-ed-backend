@@ -27,6 +27,9 @@ public class FcmConfig {
     @Value("${firebase.config.path:firebase-adminsdk.json}")
     private String firebaseConfigPath;
 
+    @Value("${FIREBASE_CREDENTIALS:#{null}}")
+    private String firebaseCredentialsJson;
+
     @Bean
     @Nullable
     public FirebaseApp firebaseApp() {
@@ -34,8 +37,11 @@ public class FcmConfig {
         java.io.File envFile = new java.io.File(firebaseConfigPathEnv);
 
         try {
-            if (envFile.exists() && !envFile.isDirectory()) {
-                // Chạy trên Render
+            if (firebaseCredentialsJson != null && !firebaseCredentialsJson.trim().isEmpty()) {
+                log.info("Initializing Firebase from FIREBASE_CREDENTIALS environment variable.");
+                serviceAccount = new java.io.ByteArrayInputStream(firebaseCredentialsJson.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            } else if (envFile.exists() && !envFile.isDirectory()) {
+                // Chạy trên Render hoặc môi trường cloud mount file
                 log.info("Initializing Firebase from absolute path: {}", firebaseConfigPathEnv);
                 serviceAccount = new java.io.FileInputStream(envFile);
             } else {
@@ -45,7 +51,7 @@ public class FcmConfig {
                     log.info("Initializing Firebase from classpath: {}", firebaseConfigPath);
                     serviceAccount = resource.getInputStream();
                 } else {
-                    log.warn("Firebase config file not found at {} or classpath:{}. Push notifications via FCM will be disabled in this environment.",
+                    log.warn("Firebase config not found! FIREBASE_CREDENTIALS is empty, {} does not exist, and classpath:{} is missing. FCM disabled.",
                             firebaseConfigPathEnv, firebaseConfigPath);
                     return null;
                 }
