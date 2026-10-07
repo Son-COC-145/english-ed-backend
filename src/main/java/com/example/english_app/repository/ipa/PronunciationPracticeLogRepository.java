@@ -7,8 +7,11 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.time.LocalDateTime;
 
 public interface PronunciationPracticeLogRepository extends JpaRepository<PronunciationPracticeLog, Long> {
+
+    long countByStudentIdAndPracticedAtGreaterThanEqual(Long studentId, LocalDateTime since);
 
     @Query("SELECT w.phoneme.id AS phonemeId, AVG(l.overallScore) AS avgScore, MAX(l.overallScore) AS maxScore, COUNT(l.id) AS practiceCount " +
            "FROM PronunciationPracticeLog l " +
@@ -41,5 +44,14 @@ public interface PronunciationPracticeLogRepository extends JpaRepository<Pronun
     List<Short> findPracticedPhonemeIds(
             @Param("studentId") Long studentId,
             @Param("phonemeIds") List<Short> phonemeIds);
+
+    @Query("SELECT COUNT(l.id) FROM PronunciationPracticeLog l " +
+           "JOIN IpaExampleWord w ON l.refId = w.id " +
+           "WHERE l.student.id = :studentId AND l.practiceType = 'IPA_PHONEME' " +
+           "AND w.phoneme.id = :phonemeId AND l.practicedAt >= :since")
+    long countPhonemePracticesSince(
+            @Param("studentId") Long studentId,
+            @Param("phonemeId") Short phonemeId,
+            @Param("since") LocalDateTime since);
 }
 

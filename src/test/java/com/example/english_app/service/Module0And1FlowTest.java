@@ -36,6 +36,7 @@ import com.example.english_app.repository.question.QuestionRepository;
 import com.example.english_app.repository.user.UserRepository;
 import com.example.english_app.service.audio.AudioAssessmentPort;
 import com.example.english_app.service.adaptive.roadmap.RoadmapProgressService;
+import com.example.english_app.service.adaptive.event.LearningEventOutboxService;
 import com.example.english_app.service.ipa.IpaPronunciationServiceImpl;
 import com.example.english_app.service.ipa.IpaServiceImpl;
 import com.example.english_app.service.onboarding.OnboardingLifecycleService;
@@ -86,6 +87,7 @@ class Module0And1FlowTest {
     @Mock private PlacementSessionExpiryService expiryService;
     @Mock private RoadmapJobService roadmapJobService;
     @Mock private RoadmapProgressService roadmapProgressService;
+    @Mock private LearningEventOutboxService learningEventOutboxService;
 
     @InjectMocks private OnboardingLifecycleService lifecycleService;
     @InjectMocks private PlacementTestService placementTestService;

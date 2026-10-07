@@ -20,12 +20,15 @@ import com.example.english_app.repository.question.PlacementTestAnswerRepository
 import com.example.english_app.repository.question.PlacementTestSessionRepository;
 import com.example.english_app.repository.question.QuestionRepository;
 import com.example.english_app.repository.user.UserRepository;
+import com.example.english_app.service.adaptive.event.LearningEventOutboxService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -52,6 +55,8 @@ class PlacementTestServiceTest {
     @Mock private PlacementQuestionContentMapper questionContentMapper;
     @Mock private PlacementSessionExpiryService expiryService;
     @Mock private RoadmapJobService roadmapJobService;
+    @Mock private LearningEventOutboxService learningEventOutboxService;
+    @Spy private ObjectMapper objectMapper = new ObjectMapper();
 
     @InjectMocks
     private PlacementTestService service;

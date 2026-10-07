@@ -106,6 +106,10 @@ public interface StudentVocabularyProgressRepository extends JpaRepository<Stude
     /** Tổng số từ đã có progress (bất kỳ status) */
     long countByStudentId(Long studentId);
 
+    long countByStudentIdAndLastPracticedAtGreaterThanEqual(
+            Long studentId,
+            LocalDateTime since);
+
     @Query("SELECT COUNT(DISTINCT p.vocabulary.id) FROM StudentVocabularyProgress p " +
            "WHERE p.student.id = :studentId " +
            "AND p.lastPracticedAt IS NOT NULL " +
@@ -121,6 +125,15 @@ public interface StudentVocabularyProgressRepository extends JpaRepository<Stude
     List<Long> findPracticedVocabularyIds(
             @Param("studentId") Long studentId,
             @Param("vocabularyIds") List<Long> vocabularyIds);
+
+    @Query("SELECT COUNT(DISTINCT p.vocabulary.id) FROM StudentVocabularyProgress p " +
+           "WHERE p.student.id = :studentId " +
+           "AND p.lastPracticedAt >= :since " +
+           "AND p.vocabulary.id IN :vocabularyIds")
+    long countPracticedVocabularyIdsSince(
+            @Param("studentId") Long studentId,
+            @Param("vocabularyIds") List<Long> vocabularyIds,
+            @Param("since") LocalDateTime since);
 
     // ─── Topic Progress Counts ───────────────────────────────────────────────
 

@@ -1,7 +1,10 @@
 package com.example.english_app.service.onboarding;
 
+import com.example.english_app.dto.request.adaptive.LearningEventRequest;
 import com.example.english_app.dto.response.PlacementResultResponse;
 import com.example.english_app.entity.enums.CefrLevel;
+import com.example.english_app.entity.enums.LearningEventSource;
+import com.example.english_app.entity.enums.LearningEventType;
 import com.example.english_app.entity.onboarding.PlacementTestSession;
 import com.example.english_app.entity.onboarding.PlacementTestAnswer;
 import com.example.english_app.entity.onboarding.StudentOnboarding;
@@ -13,11 +16,15 @@ import com.example.english_app.repository.question.PlacementTestAnswerRepository
 import com.example.english_app.repository.question.PlacementTestSessionRepository;
 import com.example.english_app.repository.question.QuestionRepository;
 import com.example.english_app.repository.user.UserRepository;
+import com.example.english_app.service.adaptive.event.LearningEventOutboxService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -41,6 +48,8 @@ class PlacementTestServiceIntegrationTest {
     @Mock private PlacementQuestionContentMapper questionContentMapper;
     @Mock private PlacementSessionExpiryService expiryService;
     @Mock private RoadmapJobService roadmapJobService;
+    @Mock private LearningEventOutboxService learningEventOutboxService;
+    @Spy private ObjectMapper objectMapper = new ObjectMapper();
 
     @InjectMocks
     private PlacementTestService placementTestService;
@@ -103,5 +112,12 @@ class PlacementTestServiceIntegrationTest {
         assertThat(session.getIsCompleted()).isTrue();
         verify(onboardingRepository).save(onboarding);
         verify(roadmapJobService).enqueue(1L, 1, CefrLevel.B1, "{}");
+        ArgumentCaptor<LearningEventRequest> event = ArgumentCaptor.forClass(LearningEventRequest.class);
+        verify(learningEventOutboxService).saveOutbox(event.capture());
+        assertThat(event.getValue().getEventType()).isEqualTo(LearningEventType.PLACEMENT_COMPLETED);
+        assertThat(event.getValue().getSource()).isEqualTo(LearningEventSource.PLACEMENT_SESSION);
+        assertThat(event.getValue().getSourceReference()).isEqualTo("PLACEMENT:1");
+        assertThat(event.getValue().getPayload().path("overallCefr").asText()).isEqualTo("B1");
+        assertThat(event.getValue().getPayload().path("skills").size()).isEqualTo(5);
     }
 }

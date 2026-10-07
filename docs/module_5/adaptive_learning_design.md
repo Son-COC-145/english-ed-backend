@@ -304,11 +304,17 @@ w1..w5 mặc định = 0.35, 0.25, 0.20, 0.10, 0.10
 
 `recommendationId` = hash(`ngày`, `type`, `target`) — ổn định trong ngày, dùng cho phân tích sau này.
 
-### 6.4 Cache
+### 6.4 Persisted daily plan và invalidation
 
-- Khoá Redis `adaptive:plan:{studentId}:{profileVersion}:{yyyyMMdd}:{budget}`, TTL = min(30 phút, đến hết ngày).
-- Mọi consumer đã cập nhật dữ liệu của học viên đều tăng `profile_version` → kế hoạch cũ tự hết hiệu lực. TTL 30 phút xử lý thay đổi không qua sự kiện (giáo viên giao bài mới).
-- Redis lỗi → tính trực tiếp, không chặn API.
+- Mỗi học viên có tối đa một `today_plans` theo ngày và timezone; item được lưu tại
+  `today_plan_items`. Thiết kế này giữ ổn định trạng thái/progress khi app refresh hoặc backend
+  restart và không phụ thuộc Redis.
+- Consumer stage `PLAN_CACHE` đánh dấu plan hiện tại là `dirty` sau learning event. Lần đọc kế
+  tiếp sẽ dựng lại item `TODO`, đồng thời giữ item `IN_PROGRESS`/`COMPLETED`.
+- Read API luôn đối soát completion từ bảng nguồn trước khi trả về. Đây là correctness fallback
+  cho event bị trễ và thay đổi không qua event, ví dụ học viên vừa nộp assignment.
+- Plan hết hạn lúc 00:00 `Asia/Ho_Chi_Minh`; ngày mới tạo plan mới. Không có scheduler hoặc
+  polling riêng cho Today Plan.
 
 ### 6.5 Goal survey có cấu trúc
 

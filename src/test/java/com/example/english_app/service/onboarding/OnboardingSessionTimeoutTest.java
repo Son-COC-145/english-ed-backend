@@ -10,6 +10,7 @@ import com.example.english_app.repository.question.PlacementTestAnswerRepository
 import com.example.english_app.repository.question.PlacementTestSessionRepository;
 import com.example.english_app.repository.question.QuestionRepository;
 import com.example.english_app.repository.user.UserRepository;
+import com.example.english_app.service.adaptive.event.LearningEventOutboxService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -47,10 +49,11 @@ class OnboardingSessionTimeoutTest {
     @Mock private QuestionRepository             questionRepository;
     @Mock private RoadmapGenerationService       roadmapGenerationService;
     @Mock private PlacementResultFactory         resultFactory;
-    @Mock private ObjectMapper                   objectMapper;
+    @Spy private ObjectMapper                   objectMapper = new ObjectMapper();
     @Mock private PlacementQuestionContentMapper questionContentMapper;
     @Mock private PlacementSessionExpiryService expiryService;
     @Mock private RoadmapJobService roadmapJobService;
+    @Mock private LearningEventOutboxService learningEventOutboxService;
 
     @InjectMocks
     private PlacementTestService placementTestService;
